@@ -114,7 +114,7 @@ install_ubuntu_packages() {
 
     log_if_failed "failed updating packages"
 
-    chsh -s $(which zsh)
+    sudo chsh -s $(which zsh) $USER
     log_if_failed "could not set default shell to zsh"
 }
 
@@ -158,18 +158,18 @@ install_fzf() {
         log_info "Installing fzf from source..."
 
         git clone --depth 1 https://github.com/junegunn/fzf.git "$FZF_PATH" && \
-            "$FZF_PATH/install" && \
-            eval "$(fzf --zsh)" \
+            "$FZF_PATH/install" --all && \
+            eval "$(fzf --zsh)" && \
             eval "$(fzf --bash)"
 
-        die_on_error "fzf failed"
+        log_if_failed "fzf failed"
 
-    elif [ -d "$FZF_HOME" ]; then
+    elif [ -d "$FZF_PATH" ]; then
         log_info "Updating fzf from sources..."
 
         cd "$FZF_PATH" && git pull && \
-            "$FZF_PATH/install" && \
-            eval "$(fzf --zsh)" \
+            "$FZF_PATH/install" --all && \
+            eval "$(fzf --zsh)" && \
             eval "$(fzf --bash)"
 
         log_if_failed "fzf update failed"
