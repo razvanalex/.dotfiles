@@ -83,7 +83,7 @@ clone_or_pull() {
 
     if [ ! -d "$path" ]; then
         git clone "$repo" "$path"
-        die_on_error "failed to clone $repo_id to $path"
+        die_on_error "failed to clone $repo to $path"
     else
         (cd "$path" && git pull)
         log_if_failed "repo $repo update failed"
@@ -114,7 +114,7 @@ install_ubuntu_packages() {
 
     log_if_failed "failed updating packages"
 
-    sudo chsh -s $(which zsh) $USER
+    sudo chsh -s "$(which zsh)" "$USER"
     log_if_failed "could not set default shell to zsh"
 }
 
