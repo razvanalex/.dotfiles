@@ -113,6 +113,9 @@ install_ubuntu_packages() {
     sudo snap install --classic "${snap_packages[@]}"
 
     log_if_failed "failed updating packages"
+
+    chsh -s $(which zsh)
+    log_if_failed "could not set default shell to zsh"
 }
 
 # Install OMZ
@@ -270,6 +273,7 @@ main() {
 
     install_omz
     install_tpm
+    install_fzf
     if [ -z "$DISABLE_KITTY" ]; then
         install_kitty
     fi
