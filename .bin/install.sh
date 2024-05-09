@@ -246,12 +246,12 @@ main() {
 
     install_omz
     install_tpm
-
     if [ -z "$DISABLE_KITTY" ]; then
         install_kitty
     fi
-
-    install_nerdfonts
+    if [ -z "$DISABLE_FONTS" ]; then
+        install_nerdfonts
+    fi
     install_dotfiles
 }
 
