@@ -175,7 +175,7 @@ install_kitty() {
 
         if command -v gnome-shell &>/dev/null; then
             log_info "setting gnome default terminal to kitty..."
-            gsettings set org.gnome.desktop.default-applications.terminal exec 'kitty'
+            gsettings set org.gnome.desktop.default-applications.terminal exec 'env -u WAYLAND_DISPLAY x-terminal-emulator'
         fi
 
     else
