@@ -162,11 +162,21 @@ install_kitty() {
 
         curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n && \
             ln -sf "$HOME"/.local/kitty.app/bin/kitty "$HOME"/.local/kitty.app/bin/kitten && \
+            sudo ln -s "$HOME"/.local/kitty.app/bin/kitty /usr/bin/kitty && \ 
             cp "$HOME"/.local/kitty.app/share/applications/kitty.desktop "$HOME"/.local/share/applications/ && \
             sed -i "s|Icon=kitty|Icon=/home/$USER/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" "$HOME"/.local/share/applications/kitty*.desktop && \
             sed -i "s|Exec=kitty|Exec=/home/$USER/.local/kitty.app/bin/kitty|g" "$HOME"/.local/share/applications/kitty*.desktop
 
         log_if_failed "installing kitty failed"
+
+        log_info "setting default terminal to kitty..."
+        sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/kitty 50
+        log_if_failed "error setting default terminal"
+
+        if command -v gnome-shell &>/dev/null; then
+            log_info "setting gnome default terminal to kitty..."
+            gsettings set org.gnome.desktop.default-applications.terminal exec 'kitty'
+        fi
 
     else
         log_info "Kitty already installed. Updating..."
