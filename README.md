@@ -41,8 +41,7 @@ dotfiles branch -M main
 Add files, then commit:
 ``` bash
 dotfiles add <files>
-dotfiles commit -m <message>
+dotfiles commit
 ```
-> Note: it also works to use `git commit` and use a proper text editor to write the commit message.
 
 The rest of the flow is as using `git` to setup and push to remote.
