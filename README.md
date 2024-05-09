@@ -1,6 +1,12 @@
 # .dotfiles
 
-## Download config
+## Quick install
+Run the following command to install dependencies, kitty, nvim, and others:
+``` bash
+curl -L https://raw.githubusercontent.com/razvanalex/.dotfiles/main/.bin/install.sh | sh /dev/stdin
+```
+
+## Download configs
 To start fresh, download the dotfiles:
 ``` bash
 alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
