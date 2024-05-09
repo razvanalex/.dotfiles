@@ -202,6 +202,8 @@ install_nerdfonts() {
     )
     local font_name
 
+    mkdir -p $FONTS_PATH
+
     for font in "${fonts[@]}"; do
         font_name=$(basename "$font")
 
