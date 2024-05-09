@@ -91,7 +91,7 @@ install_ubuntu_packages() {
 
     sudo apt update && \
     sudo apt install -y "${apt_packages[@]}" && \
-    sudo snap install "${snap_packages[@]}"
+    sudo snap install --classic "${snap_packages[@]}"
 
     log_if_failed "failed updating packages"
 }
@@ -185,13 +185,13 @@ install_dotfiles() {
 
         git clone --bare $DOTFILES_REPO "$DOTFILES_PATH" && \
             $dotfiles config --local status.showUntrackedFiles no && \
-            $dotfiles checkout
+            $dotfiles checkout --rebase --autostash
 
         die_on_error "dotfiles failed"
 
     else
         log_info "Updating dotfiles..."
-        $dotfiles pull
+        $dotfiles pull --rebase --autostash
         log_if_failed "updating dotfiles failed"
     fi
 }

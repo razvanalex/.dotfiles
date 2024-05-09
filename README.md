@@ -3,7 +3,7 @@
 ## Quick install
 Run the following command to install dependencies, kitty, nvim, and others:
 ``` bash
-curl -L https://raw.githubusercontent.com/razvanalex/.dotfiles/main/.bin/install.sh | sh /dev/stdin
+curl -L https://raw.githubusercontent.com/razvanalex/.dotfiles/main/.bin/install.sh | sh
 ```
 
 ## Download configs
