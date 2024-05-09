@@ -1,6 +1,11 @@
 #!/bin/bash
 
 DOTFILES_REPO="https://github.com/razvanalex/.dotfiles.git"
+FONTS_PATH="$HOME/.local/share/fonts"
+OMZ_PATH="$HOME/.oh-my-zsh"
+TPM_PATH="$HOME/.tmux/plugins/tpm"
+FZF_PATH="$HOME/.fzf"
+DOTFILES_PATH="$HOME/.dotfiles"
 
 # Usage: log level message
 log() {
@@ -98,8 +103,6 @@ install_ubuntu_packages() {
 
 # Install OMZ
 install_omz() {
-    local OMZ_PATH="$HOME/.oh-my-zsh"
-
     if [ ! -d "$OMZ_PATH" ]; then
         log_info "Installing OMZ..."
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
@@ -113,8 +116,6 @@ install_omz() {
 
 # Install tmux plugins manager
 install_tpm() {
-    local TPM_PATH="$HOME/.tmux/plugins/tpm"
-
     if [ ! -d "$TPM_PATH" ]; then
         log_info "Installing TPM..."
         git clone https://github.com/tmux-plugins/tpm "$TPM_PATH"
@@ -128,8 +129,6 @@ install_tpm() {
 
 # Install fzf
 install_fzf() {
-    local FZF_PATH="$HOME/.fzf"
-
     if ! command -v fzf &>/dev/null; then
         log_info "Installing fzf from source..."
 
@@ -162,7 +161,7 @@ install_kitty() {
 
         curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n && \
             ln -sf "$HOME"/.local/kitty.app/bin/kitty "$HOME"/.local/kitty.app/bin/kitten && \
-            sudo ln -s "$HOME"/.local/kitty.app/bin/kitty /usr/bin/kitty && \ 
+            sudo ln -s "$HOME"/.local/kitty.app/bin/kitty /usr/bin/kitty && \
             cp "$HOME"/.local/kitty.app/share/applications/kitty.desktop "$HOME"/.local/share/applications/ && \
             sed -i "s|Icon=kitty|Icon=/home/$USER/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" "$HOME"/.local/share/applications/kitty*.desktop && \
             sed -i "s|Exec=kitty|Exec=/home/$USER/.local/kitty.app/bin/kitty|g" "$HOME"/.local/share/applications/kitty*.desktop
@@ -185,9 +184,36 @@ install_kitty() {
     fi
 }
 
+# Install NERD Fonts
+install_nerdfonts() {
+    local fonts=(
+        UbuntuMono/Regular/UbuntuMonoNerdFont-Regular.ttf
+        UbuntuMono/Regular/UbuntuMonoNerdFontMono-Regular.ttf
+        UbuntuMono/Regular/UbuntuMonoNerdFontPropo-Regular.ttf
+        UbuntuMono/Bold-Italic/UbuntuMonoNerdFont-BoldItalic.ttf
+        UbuntuMono/Bold-Italic/UbuntuMonoNerdFontMono-BoldItalic.ttf
+        UbuntuMono/Bold-Italic/UbuntuMonoNerdFontPropo-BoldItalic.ttf
+        UbuntuMono/Bold/UbuntuMonoNerdFont-Bold.ttf
+        UbuntuMono/Bold/UbuntuMonoNerdFontMono-Bold.ttf
+        UbuntuMono/Bold/UbuntuMonoNerdFontPropo-Bold.ttf
+        UbuntuMono/Regular-Italic/UbuntuMonoNerdFont-Italic.ttf
+        UbuntuMono/Regular-Italic/UbuntuMonoNerdFontMono-Italic.ttf
+        UbuntuMono/Regular-Italic/UbuntuMonoNerdFontPropo-Italic.ttf
+    )
+    local font_name
+
+    for font in "${fonts[@]}"; do
+        font_name=$(basename "$font")
+
+        if [ ! -f "$FONTS_PATH/$font_name" ]; then
+            log_info "installing $font_name"
+            cd "$FONTS_PATH" && curl -fLO "https://github.com/ryanoasis/nerd-fonts/raw/HEAD/patched-fonts/$font"
+        fi
+    done
+}
+
 # Install dotfiles
 install_dotfiles() {
-    local DOTFILES_PATH="$HOME/.dotfiles"
     local dotfiles="/usr/bin/git --git-dir=$DOTFILES_PATH/ --work-tree=$HOME"
 
     if [ ! -d "$DOTFILES_PATH" ]; then
@@ -205,6 +231,9 @@ install_dotfiles() {
         $dotfiles pull --rebase --autostash
         log_if_failed "updating dotfiles failed"
     fi
+
+    # Update tmux plugins
+    "$TPM_PATH"/scripts/install_plugins.sh
 }
 
 main() {
@@ -222,6 +251,7 @@ main() {
         install_kitty
     fi
 
+    install_nerdfonts
     install_dotfiles
 }
 
