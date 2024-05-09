@@ -77,6 +77,19 @@ log_if_failed() {
     fi
 }
 
+clone_or_pull() {
+    local repo=$1
+    local path=$2
+
+    if [ ! -d "$path" ]; then
+        git clone "$repo" "$path"
+        die_on_error "failed to clone $repo_id to $path"
+    else
+        (cd "$path" && git pull)
+        log_if_failed "repo $repo update failed"
+    fi
+}
+
 # Install packages for Ubuntu systems.
 install_ubuntu_packages() {
     local apt_packages=(
@@ -84,6 +97,7 @@ install_ubuntu_packages() {
         ripgrep
         git
         tmux
+        gcc
         make
         zsh
         wget
@@ -112,6 +126,14 @@ install_omz() {
         "$OMZ_PATH/tools/upgrade.sh"
         log_if_failed "omz failed"
     fi
+
+    # Install plugins
+    local plugins_path="$OMZ_PATH/custom/plugins/"
+    local themes_path="$OMZ_PATH/custom/themes/"
+
+    clone_or_pull "https://github.com/zsh-users/zsh-autosuggestions.git" "$plugins_path/zsh-autosuggestions"
+    clone_or_pull "https://github.com/zsh-users/zsh-syntax-highlighting.git" "$plugins_path/zsh-syntax-highlighting"
+    clone_or_pull "https://github.com/romkatv/powerlevel10k.git" "$themes_path/powerlevel10k"
 }
 
 # Install tmux plugins manager
