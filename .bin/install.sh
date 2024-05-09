@@ -184,8 +184,9 @@ install_dotfiles() {
         log_info "Installing dotfiles..."
 
         git clone --bare $DOTFILES_REPO "$DOTFILES_PATH" && \
+            $dotfiles submodule update --init --recursive && \
             $dotfiles config --local status.showUntrackedFiles no && \
-            $dotfiles checkout --rebase --autostash
+            $dotfiles checkout -f
 
         die_on_error "dotfiles failed"
 

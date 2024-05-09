@@ -1,6 +1,6 @@
 [submodule "nvim"]
 	path = .config/nvim
-	url = git@github.com:razvanalex/nvim-config.git
+	url = https://github.com/razvanalex/nvim-config.git
 	branch = main
 [submodule ".config/kitty/kitty-themes"]
 	path = .config/kitty/kitty-themes
