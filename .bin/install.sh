@@ -115,7 +115,34 @@ install_ubuntu_packages() {
     sudo apt install -y "${apt_packages[@]}" && \
     sudo snap install --classic "${snap_packages[@]}"
 
-    log_if_failed "failed updating packages"
+    log_if_failed "failed installing packages"
+
+    sudo chsh -s "$(which zsh)" "$USER"
+    log_if_failed "could not set default shell to zsh"
+}
+
+# Install packages for RHEL systems.
+install_rhel_packages() {
+    local dnf_packages=(
+        trash-cli
+        ripgrep
+        git
+        gcc
+        make
+        zsh
+        wget
+        curl
+        htop
+        nvim
+    )
+
+    if [ -z "${DISABLE_TMUX+x}" ]; then
+        dnf_packages+=(tmux)
+    fi
+
+    sudo dnf update && \
+    sudo dnf install -y "${dnf_packages[@]}"
+    log_if_failed "failed installing packages"
 
     sudo chsh -s "$(which zsh)" "$USER"
     log_if_failed "could not set default shell to zsh"
@@ -270,6 +297,8 @@ main() {
     source /etc/os-release
     if [ "$ID" == "ubuntu" ]; then
         install_ubuntu_packages
+    elif [ "$ID" == "almalinux" ] || [ "$ID" == "rhel" ]; then
+        install_rhel_packages
     else
         log_warn "Could not install system packages. Platform not supported! Install them manually."
     fi
