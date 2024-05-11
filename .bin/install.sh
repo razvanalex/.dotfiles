@@ -276,8 +276,7 @@ install_dotfiles() {
     if [ ! -d "$DOTFILES_PATH" ]; then
         log_info "Installing dotfiles..."
 
-        git clone --bare $DOTFILES_REPO "$DOTFILES_PATH" && \
-            $dotfiles submodule update --init --recursive && \
+        git clone --bare --recursive $DOTFILES_REPO "$DOTFILES_PATH" && \
             $dotfiles config --local status.showUntrackedFiles no && \
             $dotfiles checkout -f
 
