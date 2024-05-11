@@ -139,14 +139,12 @@ alias docker=podman
 # Add an "alert" alias for long running commands.  Use like so:
 #   sleep 10; alert
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
-
 alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 
 export PATH=$PATH:/usr/local/go/bin
 
 export VISUAL=nvim
 export EDITOR=nvim
-export TRANSPARENT=true
 
 export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messages"
 

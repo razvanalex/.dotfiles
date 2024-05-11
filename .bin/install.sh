@@ -96,7 +96,6 @@ install_ubuntu_packages() {
         trash-cli
         ripgrep
         git
-        tmux
         gcc
         make
         zsh
@@ -107,6 +106,10 @@ install_ubuntu_packages() {
     local snap_packages=(
         nvim
     )
+    
+    if [ -z "${DISABLE_TMUX+x}" ]; then
+        apt_packages+=(tmux)
+    fi
 
     sudo apt update && \
     sudo apt install -y "${apt_packages[@]}" && \
@@ -271,13 +274,15 @@ main() {
         log_warn "Could not install system packages. Platform not supported! Install them manually."
     fi
 
-    install_omz
-    install_tpm
+    if [ -z "${DISABLE_TMUX+x}" ]; then
+        install_omz
+        install_tpm
+    fi
     install_fzf
-    if [ -z "$DISABLE_KITTY" ]; then
+    if [ -z "${DISABLE_KITTY+x}" ]; then
         install_kitty
     fi
-    if [ -z "$DISABLE_FONTS" ]; then
+    if [ -z "${DISABLE_FONTS+x}" ]; then
         install_nerdfonts
     fi
     install_dotfiles

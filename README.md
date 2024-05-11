@@ -45,3 +45,8 @@ dotfiles commit
 ```
 
 The rest of the flow is as using `git` to setup and push to remote.
+
+## Local setup
+
+Use `.profile` or `.zprofile` to set local env variables.
+
