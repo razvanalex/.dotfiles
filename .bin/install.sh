@@ -289,8 +289,10 @@ install_dotfiles() {
         log_if_failed "updating dotfiles failed"
     fi
 
-    # Update tmux plugins
-    "$TPM_PATH"/scripts/install_plugins.sh
+    if [ -z "${DISABLE_TMUX+x}" ]; then
+        # Update tmux plugins
+        "$TPM_PATH"/scripts/install_plugins.sh
+    fi
 }
 
 main() {
@@ -303,8 +305,8 @@ main() {
         log_warn "Could not install system packages. Platform not supported! Install them manually."
     fi
 
+    install_omz
     if [ -z "${DISABLE_TMUX+x}" ]; then
-        install_omz
         install_tpm
     fi
     install_fzf
