@@ -133,7 +133,7 @@ install_rhel_packages() {
         wget
         curl
         htop
-        nvim
+        neovim
     )
 
     if [ -z "${DISABLE_TMUX+x}" ]; then
