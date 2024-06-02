@@ -10,6 +10,9 @@ export ZSH="$HOME/.oh-my-zsh"
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
+# Make vim mode work with fzf
+ZVM_INIT_MODE=sourcing
+
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
 # a theme from this variable instead of looking in $ZSH/themes/
@@ -74,7 +77,7 @@ plugins=(
 	git
 	zsh-autosuggestions
 	zsh-syntax-highlighting
-	#zsh-vi-mode
+	zsh-vi-mode
 )
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
@@ -124,9 +127,9 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-bindkey '^R' history-incremental-search-backward
 bindkey '^A' vi-beginning-of-line
 bindkey '^E' vi-end-of-line
+bindkey '^R' history-incremental-search-backward
 
 # some more ls aliases
 alias ll='ls -alF'
@@ -149,3 +152,4 @@ export EDITOR=nvim
 export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messages"
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
