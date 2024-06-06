@@ -76,8 +76,8 @@ ZVM_INIT_MODE=sourcing
 plugins=(
 	git
 	zsh-autosuggestions
-	zsh-syntax-highlighting
 	zsh-vi-mode
+	zsh-syntax-highlighting
 )
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
@@ -152,4 +152,3 @@ export EDITOR=nvim
 export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messages"
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-
