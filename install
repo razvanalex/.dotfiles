@@ -167,6 +167,7 @@ install_omz() {
 
     clone_or_pull "https://github.com/zsh-users/zsh-autosuggestions.git" "$plugins_path/zsh-autosuggestions"
     clone_or_pull "https://github.com/zsh-users/zsh-syntax-highlighting.git" "$plugins_path/zsh-syntax-highlighting"
+    clone_or_pull "https://github.com/jeffreytse/zsh-vi-mode" "$plugins_path/zsh-vi-mode"
     clone_or_pull "https://github.com/romkatv/powerlevel10k.git" "$themes_path/powerlevel10k"
 }
 
