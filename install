@@ -133,8 +133,8 @@ install_rhel_packages() {
         wget
         curl
         htop
-        stow
-        neovim 
+	stow
+        neovim
     )
 
     if [ -z "${DISABLE_TMUX+x}" ]; then
@@ -275,28 +275,31 @@ install_fonts() {
 install_dotfiles() {
     if [ ! -d "$DOTFILES_PATH" ]; then
         log_info "Installing dotfiles..."
-        git clone --recursive $DOTFILES_REPO "$DOTFILES_PATH"
+        git clone --recurse-submodules $DOTFILES_REPO "$DOTFILES_PATH"
         die_on_error "Failed to clone dotfiles"
     else
         log_info "Updating dotfiles..."
-        cd "$DOTFILES_PATH" && git pull --rebase --autostash
+        cd "$DOTFILES_PATH" && git pull --rebase --autostash && git submodule update --init --recursive
         log_if_failed "Updating dotfiles failed"
     fi
 
     cd "$DOTFILES_PATH" || log_if_failed "Something went wrong... Could not access $DOTFILES_PATH"
     
+    log_info "Installing new dotfiles"
     for dir in *; do
-        if [ ! -f "$dir" ]; then 
+        if [ -f "$dir" ]; then 
             # Only directories
             continue
         fi
         log_info "stow $dir"
-        stow -d "$dir"
-        stow "$dir"
+        stow -D "$dir"
+        stow --adopt "$dir"
     done
 
     if [ -z "${DISABLE_TMUX+x}" ]; then
         # Update tmux plugins
+        log_info "Updating tmux plugins"
+        "$TPM_PATH"/tpm && \
         "$TPM_PATH"/scripts/install_plugins.sh
     fi
 }
