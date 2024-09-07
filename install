@@ -133,6 +133,7 @@ install_rhel_packages() {
         wget
         curl
         htop
+        stow
         neovim 
     )
 
