@@ -156,7 +156,7 @@ install_omz() {
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
         die_on_error "omz failed"
     else
-        log_info "Updating OMS..."
+        log_info "Updating OMZ..."
         "$OMZ_PATH/tools/upgrade.sh"
         log_if_failed "omz failed"
     fi
