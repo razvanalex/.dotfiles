@@ -195,6 +195,8 @@ install_fzf() {
 
         log_if_failed "fzf failed"
 
+        hash -r
+
     elif [ -d "$FZF_PATH" ]; then
         log_info "Updating fzf from sources..."
 
