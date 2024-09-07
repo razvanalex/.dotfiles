@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+branch_name=$(basename $1)
+session_name=$(tmux display-message -p "#S")
+clean_name=$(echo $branch_name | tr "./" "__")
+target="$session_name:$clean_name"
+detached=$([ ! "$2" = "detached" ]; echo $?)
+
+if ! tmux has-session -t $target 2> /dev/null; then
+    if [ "$detached" = 1 ]; then
+        tmux neww -dn $clean_name
+    else
+        tmux neww -n $clean_name
+    fi
+fi
+
+shift
+if [ "$detached" = 1 ]; then
+    shift
+fi
+tmux send-keys -t $target "$*
+"
+if [ "$detached" = 0 ]; then
+    tmux select-window -t $target
+fi

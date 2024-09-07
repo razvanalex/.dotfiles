@@ -142,13 +142,27 @@ alias docker=podman
 # Add an "alert" alias for long running commands.  Use like so:
 #   sleep 10; alert
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
-alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 
-export PATH=$PATH:/usr/local/go/bin
+export PATH=${PATH}:/usr/local/go/bin:~/.local/bin/
+export TRANSPARENT=true
+export GPG_TTY=$(tty)
 
 export VISUAL=nvim
 export EDITOR=nvim
+export SYSTEMD_EDITOR=nvim
 
+# Load fzf
 export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messages"
-
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# For tmux, when closing a session restore to the default one instead of
+# closing the terminal
+function __trap_exit_tmux() {
+    [ $(tmux list-windows | wc -l) -eq 1 ] || return
+    [ $(tmux list-panes | wc -l) -eq 1 ] || return
+    tmux switch-client -t default
+}
+
+if [[ $- == *i* ]]; then
+    trap __trap_exit_tmux EXIT
+fi

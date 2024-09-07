@@ -102,8 +102,7 @@ install_ubuntu_packages() {
         wget
         curl
         htop
-    )
-    local snap_packages=(
+        stow
         nvim
     )
     
@@ -111,9 +110,10 @@ install_ubuntu_packages() {
         apt_packages+=(tmux)
     fi
 
+    sudo add-apt-repository ppa:neovim-ppa/unstable
+
     sudo apt update && \
     sudo apt install -y "${apt_packages[@]}" && \
-    sudo snap install --classic "${snap_packages[@]}"
 
     log_if_failed "failed installing packages"
 
@@ -133,7 +133,7 @@ install_rhel_packages() {
         wget
         curl
         htop
-        neovim
+        nvim
     )
 
     if [ -z "${DISABLE_TMUX+x}" ]; then
@@ -240,7 +240,7 @@ install_kitty() {
 }
 
 # Install NERD Fonts
-install_nerdfonts() {
+install_fonts() {
     local fonts=(
         UbuntuMono/Regular/UbuntuMonoNerdFont-Regular.ttf
         UbuntuMono/Regular/UbuntuMonoNerdFontMono-Regular.ttf
@@ -269,24 +269,28 @@ install_nerdfonts() {
     done
 }
 
-# Install dotfiles
 install_dotfiles() {
-    local dotfiles="/usr/bin/git --git-dir=$DOTFILES_PATH/ --work-tree=$HOME"
-
     if [ ! -d "$DOTFILES_PATH" ]; then
         log_info "Installing dotfiles..."
-
-        git clone --bare --recursive $DOTFILES_REPO "$DOTFILES_PATH" && \
-            $dotfiles config --local status.showUntrackedFiles no && \
-            $dotfiles checkout -f
-
-        die_on_error "dotfiles failed"
-
+        git clone --recursive $DOTFILES_REPO "$DOTFILES_PATH"
+        die_on_error "Failed to clone dotfiles"
     else
         log_info "Updating dotfiles..."
-        $dotfiles pull --rebase --autostash
-        log_if_failed "updating dotfiles failed"
+        cd "$DOTFILES_PATH" && git pull --rebase --autostash
+        log_if_failed "Updating dotfiles failed"
     fi
+
+    cd "$DOTFILES_PATH" || log_if_failed "Something went wrong... Could not access $DOTFILES_PATH"
+    
+    for dir in *; do
+        if [ ! -f "$dir" ]; then 
+            # Only directories
+            continue
+        fi
+        log_info "stow $dir"
+        stow -d "$dir"
+        stow "$dir"
+    done
 
     if [ -z "${DISABLE_TMUX+x}" ]; then
         # Update tmux plugins
@@ -313,7 +317,7 @@ main() {
         install_kitty
     fi
     if [ -z "${DISABLE_FONTS+x}" ]; then
-        install_nerdfonts
+        install_fonts
     fi
     install_dotfiles
 }
