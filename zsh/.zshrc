@@ -159,7 +159,14 @@ export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messag
 function __trap_exit_tmux() {
     [ $(tmux list-windows | wc -l) -eq 1 ] || return
     [ $(tmux list-panes | wc -l) -eq 1 ] || return
-    tmux switch-client -t default
+
+    DEFAULT_SESSION="default"
+    [ $(tmux display-message -p '#S' | grep "^${DEFAULT_SESSION}"| wc -l) -eq 0 ] || return
+    
+    default_session=$(tmux ls | grep -v "(attached)" | cut -d ":" -f 1 | grep "^${DEFAULT_SESSION}" | awk 'NF' | sort | head -n 1)
+    [ -n "${default_session}" ] || return
+
+    tmux switch-client -t "${default_session}"
 }
 
 if [[ $- == *i* ]]; then

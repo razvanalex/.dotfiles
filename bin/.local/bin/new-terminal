@@ -1,0 +1,21 @@
+#!/bin/bash
+
+DEFAULT_SESSION="default"
+
+attached_sessions=$(tmux ls | grep -v "(attached)" | cut -d ":" -f 1 | grep "^${DEFAULT_SESSION}")
+num_attached=$(echo "${attached_sessions}" | awk 'NF' | wc -l)
+
+if [ "$num_attached" -eq 0 ]; then
+    if tmux has-session -t "${DEFAULT_SESSION}" 2>/dev/null; then
+        session_id=$(tmux ls -F "#{session_name}" | grep "^${DEFAULT_SESSION}-" | cut -d "-" -f 2 | sort | tail -n 1)
+        session_id=$(($session_id + 1))
+        session_name="${DEFAULT_SESSION}-${session_id}"
+    else
+        session_name="${DEFAULT_SESSION}"
+    fi
+
+    tmux new-session -A -s "${session_name}"
+else
+    session_name=$(echo "${attached_sessions}" | awk 'NF' | sort | head -n 1)
+    tmux attach -t "${session_name}"
+fi
