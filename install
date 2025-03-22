@@ -1,7 +1,14 @@
 #!/bin/bash
 
 DOTFILES_REPO="https://github.com/razvanalex/.dotfiles.git"
-FONTS_PATH="$HOME/.local/share/fonts"
+# Set up fonts path based on OS
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    # macOS uses ~/Library/Fonts for user fonts
+    FONTS_PATH="$HOME/Library/Fonts"
+else
+    # Linux typically uses ~/.local/share/fonts
+    FONTS_PATH="$HOME/.local/share/fonts"
+fi
 OMZ_PATH="$HOME/.oh-my-zsh"
 TPM_PATH="$HOME/.tmux/plugins/tpm"
 FZF_PATH="$HOME/.fzf"
@@ -148,6 +155,42 @@ install_rhel_packages() {
     sudo chsh -s "$(which zsh)" "$USER"
     log_if_failed "could not set default shell to zsh"
 }
+#
+# Install packages for macOS systems.
+install_macos_packages() {
+    log_info "Installing packages for macOS..."
+    
+    # Check if Homebrew is installed
+    if ! command -v brew &>/dev/null; then
+        log_info "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        die_on_error "failed to install Homebrew"
+    fi
+
+    local brew_packages=(
+        trash-cli
+        ripgrep
+        wget
+        htop
+        stow
+        neovim
+    )
+    
+    if [ -z "${DISABLE_TMUX+x}" ]; then
+        brew_packages+=(tmux)
+    fi
+
+    brew update && \
+    brew install "${brew_packages[@]}"
+    log_if_failed "failed installing packages"
+
+    # macOS requires additional steps to change the default shell
+    if [[ "$SHELL" != *"zsh"* ]]; then
+        log_info "Setting zsh as default shell..."
+        chsh -s "$(which zsh)"
+        log_if_failed "could not set default shell to zsh"
+    fi
+}
 
 # Install OMZ
 install_omz() {
@@ -217,25 +260,40 @@ install_fzf() {
 install_kitty() {
     if ! command -v kitty &> /dev/null; then
         log_info "Installing kitty..."
-
-        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n && \
-            ln -sf "$HOME"/.local/kitty.app/bin/kitty "$HOME"/.local/kitty.app/bin/kitten && \
-            sudo ln -s "$HOME"/.local/kitty.app/bin/kitty /usr/bin/kitty && \
-            cp "$HOME"/.local/kitty.app/share/applications/kitty.desktop "$HOME"/.local/share/applications/ && \
-            sed -i "s|Icon=kitty|Icon=/home/$USER/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" "$HOME"/.local/share/applications/kitty*.desktop && \
-            sed -i "s|Exec=kitty|Exec=/home/$USER/.local/kitty.app/bin/kitty|g" "$HOME"/.local/share/applications/kitty*.desktop
-
+        
+        # Basic kitty installation (works on both macOS and Linux)
+        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
         log_if_failed "installing kitty failed"
+        
+        if [[ "$(uname -s)" == "Linux" ]]; then
+            # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
+            # your system-wide PATH)
+            ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
 
-        log_info "setting default terminal to kitty..."
-        sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/kitty 50
-        log_if_failed "error setting default terminal"
+            # Place the kitty.desktop file somewhere it can be found by the OS
+            cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
 
-        if command -v gnome-shell &>/dev/null; then
-            log_info "setting gnome default terminal to kitty..."
-            gsettings set org.gnome.desktop.default-applications.terminal exec 'env -u WAYLAND_DISPLAY x-terminal-emulator'
+            # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
+            cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
+
+            # Update the paths to the kitty and its icon in the kitty desktop file(s)
+            sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
+            sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
+
+            # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
+            echo 'kitty.desktop' > ~/.config/xdg-terminals.list
+            
+            log_info "Setting default terminal to kitty..."
+            if command -v update-alternatives &>/dev/null; then
+                sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/kitty 50
+                log_if_failed "error setting default terminal"
+            fi
+
+            if command -v gnome-shell &>/dev/null; then
+                log_info "Setting GNOME default terminal to kitty..."
+                gsettings set org.gnome.desktop.default-applications.terminal exec 'env -u WAYLAND_DISPLAY x-terminal-emulator'
+            fi
         fi
-
     else
         log_info "Kitty already installed. Updating..."
         curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
@@ -261,16 +319,43 @@ install_fonts() {
     )
     local font_name
 
+    log_info "Installing fonts to $FONTS_PATH"
     mkdir -p "$FONTS_PATH"
+    
+    # Create a temporary directory for downloading fonts
+    local temp_dir=$(mktemp -d)
+    pushd "$temp_dir" || die_on_error "Failed to change to temp directory"
 
     for font in "${fonts[@]}"; do
         font_name=$(basename "$font")
 
         if [ ! -f "$FONTS_PATH/$font_name" ]; then
-            log_info "installing $font_name"
-            cd "$FONTS_PATH" && curl -fLO "https://github.com/ryanoasis/nerd-fonts/raw/HEAD/patched-fonts/$font"
+            log_info "Downloading $font_name"
+            curl -fLO "https://github.com/ryanoasis/nerd-fonts/raw/HEAD/patched-fonts/$font"
+            
+            if [ $? -eq 0 ]; then
+                # Move the downloaded font to fonts directory
+                mv "$font_name" "$FONTS_PATH/"
+                log_info "Installed $font_name"
+            else
+                log_error "Failed to download $font_name"
+            fi
+        else
+            log_info "Font $font_name already installed"
         fi
     done
+
+    popd
+    
+    # Clean up temp directory
+    rm -rf "$temp_dir"
+    
+    # On macOS, clear font cache
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        log_info "Clearing macOS font cache"
+        atsutil databases -remove
+        log_if_failed "Failed to clear font cache"
+    fi
 }
 
 install_dotfiles() {
@@ -286,12 +371,33 @@ install_dotfiles() {
 
     cd "$DOTFILES_PATH" || log_if_failed "Something went wrong... Could not access $DOTFILES_PATH"
     
+    # Define OS-specific directories
+    local macos_only=(
+        "yabai"
+    )
+    local linux_only=(
+        "ags"
+        "hypr"
+    )
+
     log_info "Installing new dotfiles"
     for dir in *; do
         if [ -f "$dir" ]; then 
             # Only directories
             continue
         fi
+
+        # Skip Linux-only dirs on macOS
+        if [[ "$(uname -s)" == "Darwin" ]] && [[ " ${linux_only[@]} " =~ " ${dir} " ]]; then
+            log_debug "Skipping Linux-only directory: $dir"
+            continue
+        fi
+        # Skip macOS-only dirs on Linux
+        if [[ "$(uname -s)" == "Linux" ]] && [[ " ${macos_only[@]} " =~ " ${dir} " ]]; then
+            log_debug "Skipping macOS-only directory: $dir"
+            continue
+        fi
+
         log_info "stow $dir"
         stow -D "$dir"
         stow --adopt "$dir"
@@ -306,13 +412,21 @@ install_dotfiles() {
 }
 
 main() {
-    source /etc/os-release
-    if [ "$ID" == "ubuntu" ]; then
-        install_ubuntu_packages
-    elif [ "$ID" == "almalinux" ] || [ "$ID" == "rhel" ] || [ "$ID" == "fedora" ]; then
-        install_rhel_packages
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        # First check if we're on macOS
+        install_macos_packages
+    elif [[ -f /etc/os-release ]]; then
+        # For Linux distributions, use os-release
+        source /etc/os-release
+        if [ "$ID" == "ubuntu" ]; then
+            install_ubuntu_packages
+        elif [ "$ID" == "almalinux" ] || [ "$ID" == "rhel" ] || [ "$ID" == "fedora" ]; then
+            install_rhel_packages
+        else
+            log_warn "Linux distribution not supported! Install packages manually."
+        fi
     else
-        log_warn "Could not install system packages. Platform not supported! Install them manually."
+        log_warn "Could not identify OS. Install system packages manually."
     fi
 
     install_omz
