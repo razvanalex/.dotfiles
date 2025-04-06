@@ -1,21 +1,25 @@
-#!/bin/bash
+#!/bin/zsh --login
 
 # It seems to be required, otherwise it fails to find fzf
-[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-dirs=(
-    ~/
-    ~/.config/
-    ~/.local/
-    ~/Workspace/
-    /media/razvan/LocalDisk/Projects/
-    /media/razvan/LocalDisk/Projects/multilingual-lip-reading/
-)
+# Use some defaults if TMUX_SESSIONIZER_DIRS is not defined
+if [ -z "$TMUX_SESSIONIZER_DIRS" ]; then
+    TMUX_SESSIONIZER_DIRS=(
+        ~
+        ~/.config
+        ~/.local
+        ~/Documents
+        ~/Workspace
+    )
+else
+    TMUX_SESSIONIZER_DIRS=($TMUX_SESSIONIZER_DIRS)
+fi
 
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    selected=$(find -L ${dirs[@]} -mindepth 1 -maxdepth 1 -type d | fzf)
+    selected=$(find -L ${TMUX_SESSIONIZER_DIRS[@]} -mindepth 1 -maxdepth 1 -type d | fzf)
 fi
 
 if [[ -z $selected ]]; then
