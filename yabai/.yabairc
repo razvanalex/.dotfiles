@@ -7,7 +7,7 @@
 # ===== Tiling settings =======================
 
 # Layout - bsp (binary space partitioning), stack or float
-yabai -m config layout                      bsp
+yabai -m config layout                      managed
 
 # Window placement
 yabai -m config window_placement            second_child
@@ -26,11 +26,11 @@ yabai -m config window_gap                  0
 # ===== Mouse settings =========================
 
 # Set mouse follows focus mode
-yabai -m config mouse_follows_focus         off
+yabai -m config mouse_follows_focus         on
 
 # Set focus follows mouse mode
 # Options: off, autoraise, autofocus
-yabai -m config focus_follows_mouse         autoraise
+yabai -m config focus_follows_mouse         off
 
 # Modifier for clicking and dragging with mouse
 yabai -m config mouse_modifier               alt
@@ -67,26 +67,25 @@ yabai -m config window_shadow               on
 # Exclude problematic apps from being managed:
 yabai -m rule --add can-resize=false manage=off
 
-yabai -m rule --add app="^System Preferences$" manage=off
-yabai -m rule --add app="^System Settings$" manage=off
-yabai -m rule --add app="^Archive Utility$" manage=off
-yabai -m rule --add app="^Calculator$" manage=off
-yabai -m rule --add app="^Dictionary$" manage=off
-yabai -m rule --add app="^Digital Color Meter$" manage=off
-yabai -m rule --add app="^Disk Utility$" manage=off
-yabai -m rule --add app="^Font Book$" manage=off
-yabai -m rule --add app="^Activity Monitor$" manage=off
-yabai -m rule --add app="^App Store$" manage=off
-yabai -m rule --add app="^Notes$" manage=off
-yabai -m rule --add app="^Finder$" title="Go to Folder" manage=off
+yabai -m rule --add app="System Preferences" manage=off
+yabai -m rule --add app="System Settings" manage=off
+yabai -m rule --add app="Archive Utility" manage=off
+yabai -m rule --add app="Calculator" manage=off
+yabai -m rule --add app="Dictionary" manage=off
+yabai -m rule --add app="Digital Color Meter" manage=off
+yabai -m rule --add app="Disk Utility" manage=off
+yabai -m rule --add app="Font Book" manage=off
+yabai -m rule --add app="Activity Monitor" manage=off
+yabai -m rule --add app="App Store" manage=off
+yabai -m rule --add app="Notes" manage=off
 yabai -m rule --add app="^Finder$" title="* Folder" manage=off
-yabai -m rule --add app="^Alfred Preferences$" manage=off
 yabai -m rule --add app="^Raycast$" manage=off
 yabai -m rule --add app="^Time Machine$" manage=off
-yabai -m rule --add app="^1Password$" manage=off
 yabai -m rule --add app="^Installer$" manage=off
 yabai -m rule --add app="^QuickTime Player$" manage=off
 yabai -m rule --add app="^Preview$" manage=off
+
+yabai -m rule --add title="^Picture in Picture$" manage=off
 
 # ===== Signals ================================
 
