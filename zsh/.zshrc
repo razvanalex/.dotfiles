@@ -179,3 +179,5 @@ function __trap_exit_tmux() {
 if [[ $- == *i* ]]; then
     trap __trap_exit_tmux EXIT
 fi
+
+. "$HOME/.local/bin/env"
