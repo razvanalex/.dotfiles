@@ -1,13 +1,12 @@
 #!/bin/bash
 
-# Your main monitor (change this)
-MONITOR="HDMI-A-1"
+export HYPRLAND_INSTANCE_SIGNATURE=$(ls -t $XDG_RUNTIME_DIR/hypr/ | head -n 1)
 
 # Turn monitor back on (you may want to change these options)
-hyprctl keyword monitor $MONITOR,preferred,auto,1,vrr,1
+hyprctl reload
 
 # Get name of headless display 
-HEADLESS=$(hyprctl -j monitors | jq -r '.[] | select(.name | test("HEADLESS-"; "i")).name')
-
-# Remove headless virtual display
-hyprctl output remove "$HEADLESS"
+# HEADLESS=$(hyprctl -j monitors | jq -r '.[] | select(.name | test("HEADLESS-"; "i")).name')
+#
+# # Remove headless virtual display
+# hyprctl output remove "$HEADLESS"
