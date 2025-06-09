@@ -175,7 +175,7 @@ colorlist=( $colornames ) # Array of color names
 colorvalues=( $colorstrings ) # Array of color values
 
 apply_ags &
-apply_hyprland &
+# apply_hyprland &
 # apply_hyprlock &
 apply_lightdark &
 apply_gtk &
