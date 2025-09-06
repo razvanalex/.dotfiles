@@ -164,3 +164,6 @@ function __trap_exit_tmux() {
 if [[ $- == *i* ]]; then
     trap __trap_exit_tmux EXIT
 fi
+
+# opencode
+export PATH=/Users/razvan/.opencode/bin:$PATH
