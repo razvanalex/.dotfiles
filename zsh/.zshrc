@@ -131,20 +131,15 @@ alias rmv='/usr/bin/rm -i'
 alias rm='trash-put'
 alias docker=podman
 
-# Add an "alert" alias for long running commands.  Use like so:
+# TODO: Add an "alert" alias for long running commands.  Use like so:
 #   sleep 10; alert
-alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
-
-export TRANSPARENT=true
-export GPG_TTY=$(tty)
-
-export VISUAL=nvim
-export EDITOR=nvim
-export SYSTEMD_EDITOR=nvim
+[ -f ~/.local/bin/alert ] && source ~/.local/bin/alert
 
 # Load fzf
-export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messages"
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# API keys
+[[ -f ~/.zsh_secrets ]] && source ~/.zsh_secrets
 
 # For tmux, when closing a session restore to the default one instead of
 # closing the terminal
@@ -164,6 +159,3 @@ function __trap_exit_tmux() {
 if [[ $- == *i* ]]; then
     trap __trap_exit_tmux EXIT
 fi
-
-# opencode
-export PATH=/Users/razvan/.opencode/bin:$PATH

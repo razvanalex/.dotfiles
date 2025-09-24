@@ -1,0 +1,20 @@
+#!/usr/bin/env zsh
+
+alert() {
+    local cmd="$@"
+
+    /bin/bash -c "$cmd"
+    local exit_code=$?
+
+    local subtitle
+    if (( exit_code == 0 )); then
+        subtitle="✅ Exit code: $exit_code"
+    else
+        subtitle="❌ Exit code: $exit_code"
+    fi
+
+    osascript -e 'on run argv
+        display notification (item 1 of argv) with title (item 2 of argv) subtitle (item 3 of argv)
+    end run' -- "$cmd" "Command finished" "$subtitle"
+}
+
