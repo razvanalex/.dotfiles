@@ -119,21 +119,6 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 #
 
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/razvan/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/home/razvan/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/razvan/miniconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/home/razvan/miniconda3/bin:$PATH"
-    fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
-
 bindkey '^A' vi-beginning-of-line
 bindkey '^E' vi-end-of-line
 bindkey '^R' history-incremental-search-backward
@@ -150,16 +135,26 @@ alias docker=podman
 #   sleep 10; alert
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 
-export TRANSPARENT=true
-export GPG_TTY=$(tty)
-
-export VISUAL=nvim
-export EDITOR=nvim
-export SYSTEMD_EDITOR=nvim
-
 # Load fzf
-export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messages"
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# API keys
+[[ -f ~/.zsh_secrets ]] && source ~/.zsh_secrets
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/home/razvan/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/home/razvan/miniconda3/etc/profile.d/conda.sh" ]; then
+        . "/home/razvan/miniconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/home/razvan/miniconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
 
 # For tmux, when closing a session restore to the default one instead of
 # closing the terminal
@@ -179,5 +174,3 @@ function __trap_exit_tmux() {
 if [[ $- == *i* ]]; then
     trap __trap_exit_tmux EXIT
 fi
-
-. "$HOME/.local/bin/env"
