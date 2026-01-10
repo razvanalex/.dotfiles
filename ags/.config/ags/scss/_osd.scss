@@ -4,27 +4,26 @@
 
 .osd-bg {
     min-width: 17.728rem;
-    min-height: 3.409rem;
+    min-height: 2.5rem;
 }
 
 .osd-value {
     @include elevation-border;
     @include elevation2;
     background-color: $layer0;
-    border-radius: 1.023rem;
-    padding: 0.625rem 1.023rem;
-    padding-top: 0.313rem;
+    border-radius: 2.5rem;
+    padding: 0.75rem 1.25rem 0.75rem 1.25rem;
 }
 
 .osd-progress {
-    min-height: 0.955rem;
+    min-height: 0.5rem;
     min-width: 0.068rem;
     padding: 0rem;
     border-radius: 10rem;
     @include fluent_decel;
 
     trough {
-        min-height: 0.954rem;
+        min-height: 0.5rem;
         min-width: 0.068rem;
         border-radius: 10rem;
         background-color: $layer2;
@@ -33,7 +32,7 @@
 
     progress {
         @include fluent_decel;
-        min-height: 0.680rem;
+        min-height: 0.5rem;
         min-width: 0rem;
         margin: 0rem;
         border-radius: 10rem;
@@ -42,27 +41,28 @@
 }
 
 scale.osd-progress {
-    min-height: 0.955rem;
+    min-height: 0.5rem;
     min-width: 0.068rem;
     padding: 0rem;
     margin: 0rem;
 
     trough {
-        min-height: 0.954rem;
+        min-height: 0.5rem;
         min-width: 0.068rem;
         border-radius: 10rem;
         background-color: $layer2;
     }
 
     highlight {
+        min-height: 0.5rem;
         border-radius: 10rem;
         background-color: $onLayer2;
     }
 
     slider {
-        min-height: 0.955rem;
-        min-width: 0.955rem;
-        margin: -0.477rem;
+        min-height: 0.5rem;
+        min-width: 0.5rem;
+        margin: -0.25rem;
         border-radius: 10rem;
         background-color: transparent;
         box-shadow: none;
@@ -73,7 +73,7 @@ scale.osd-progress {
 .osd-label {
     font-size: 1.023rem;
     font-weight: 500;
-    margin-top: 0.341rem;
+    margin-top: 0.15rem;
 }
 
 .osd-value-txt {
