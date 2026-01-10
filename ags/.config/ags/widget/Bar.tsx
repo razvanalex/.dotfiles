@@ -157,6 +157,7 @@ function RightSection({ index }: { index: number }) {
             <BarGroup>
                 <Utilities />
             </BarGroup>
+            <SystemTray />
             <button
                 onClicked={() => app.toggle_window(`sideright${index}`)}
                 css="background: transparent; border: none; padding: 0; box-shadow: none;"
@@ -218,7 +219,6 @@ export default function Bar(gdkmonitor: Gdk.Monitor, index: number = 0) {
                 <box $type="end" hexpand halign={Gtk.Align.END}>
                     <box class="spacing-h-5 bar-spaceright">
                         <box hexpand />
-                        <SystemTray />
                         <box class="spacing-h-15">
                             <RightSection index={index} />
                         </box>

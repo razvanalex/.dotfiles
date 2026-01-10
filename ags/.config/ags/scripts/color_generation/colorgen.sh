@@ -45,8 +45,13 @@ else
 fi
 
 cd "$CONFIG_DIR/scripts/" || exit
+PYTHON_BIN="./.venv/bin/python3"
+if [ ! -f "$PYTHON_BIN" ]; then
+    PYTHON_BIN="python3"
+fi
+
 if [[ "$1" = "#"* ]]; then # this is a color
-    color_generation/generate_colors_material.py --color "$1" \
+    $PYTHON_BIN color_generation/generate_colors_material.py --color "$1" \
     --mode "$lightdark" --scheme "$materialscheme" --transparency "$transparency" \
     --termscheme $terminalscheme --blend_bg_fg \
     > "$CACHE_DIR"/user/generated/material_colors.scss
@@ -59,7 +64,7 @@ elif [ "$backend" = "material" ]; then
     if [ "$3" = "--smart" ]; then
         smartflag='--smart'
     fi
-    color_generation/generate_colors_material.py --path "$1" \
+    $PYTHON_BIN color_generation/generate_colors_material.py --path "$1" \
     --mode "$lightdark" --scheme "$materialscheme" --transparency "$transparency" \
     --termscheme $terminalscheme --blend_bg_fg \
     --cache "$STATE_DIR/user/color.txt" $smartflag \

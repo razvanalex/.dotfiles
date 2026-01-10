@@ -5,6 +5,7 @@ import { handleStyles, COMPILED_STYLE_DIR } from "./lib/styles"
 // import Crosshair from "./widget/modules/Crosshair"
 import Bar from "./widget/Bar"
 import SideRight from "./widget/SideRight"
+import Session from "./widget/Session"
 import Notifd from "gi://AstalNotifd"
 import Indicators from "./widget/Indicators"
 import brightness from "./services/Brightness"
@@ -30,6 +31,7 @@ app.start({
             Bar(monitor, index)
             SideRight(monitor, index)
             Indicators(monitor, index)
+            Session(monitor, index)
             // Crosshair(monitor, index)
             //
             // if (userOptions.dock.enabled) {
@@ -40,6 +42,14 @@ app.start({
     requestHandler(argv: string[], res: (response: any) => void) {
         if (argv[0] == "handleStyles") {
             handleStyles(true)
+            return res("ok")
+        }
+
+        if (argv[0] == "session") {
+            const monitors = app.get_monitors()
+            monitors.forEach((_, index) => {
+                app.toggle_window(`session${index}`)
+            })
             return res("ok")
         }
         

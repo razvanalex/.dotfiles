@@ -3,6 +3,7 @@ import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { getDistroIcon } from "../lib/system"
 import userOptions from "../lib/userOptions"
 import { execAsync } from "ags/process"
+import { execBashAsync } from "../lib/proc"
 import { createPoll } from "ags/time"
 import GLib from "gi://GLib"
 
@@ -52,23 +53,28 @@ function TimeRow() {
             />
             <box hexpand />
             <button 
-                class="icon-material txt-norm" 
+                class="sidebar-iconbutton icon-material txt-norm" 
                 tooltipText="Reload"
-                onClicked={() => execAsync("ags quit").then(() => execAsync("ags run"))}
+                onClicked={() => execBashAsync("hyprctl reload; killall ags ydotool; ags &")}
             >
                 <label label="refresh" />
             </button>
              <button 
-                class="icon-material txt-norm" 
+                class="sidebar-iconbutton icon-material txt-norm" 
                 tooltipText="Settings"
-                onClicked={() => execAsync(userOptions.apps.settings)}
+                onClicked={() => execBashAsync(userOptions.apps.settings)}
             >
                 <label label="settings" />
             </button>
              <button 
-                class="icon-material txt-norm" 
+                class="sidebar-iconbutton icon-material txt-norm" 
                 tooltipText="Power"
-                onClicked={() => execAsync("wlogout")}
+                onClicked={() => {
+                    const monitors = app.get_monitors()
+                    monitors.forEach((_, index) => {
+                        app.toggle_window(`session${index}`)
+                    })
+                }}
             >
                 <label label="power_settings_new" />
             </button>

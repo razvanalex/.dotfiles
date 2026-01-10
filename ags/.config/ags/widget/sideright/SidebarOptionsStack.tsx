@@ -60,6 +60,7 @@ export default function SidebarOptionsStack() {
                 ))}
             </box>
             <stack
+                vexpand
                 visibleChildName={activeTab.as(i => `tab-${i}`)}
                 transitionType={Gtk.StackTransitionType.SLIDE_LEFT_RIGHT}
             >
@@ -67,7 +68,7 @@ export default function SidebarOptionsStack() {
                 <box $type="named" name="tab-1"><AudioControls /></box>
                 <box $type="named" name="tab-2"><Bluetooth /></box>
                 <box $type="named" name="tab-3"><WifiNetworks /></box>
-                <box $type="named" name="tab-4"><Configure /></box>
+                <box $type="named" name="tab-4" vexpand><Configure /></box>
             </stack>
         </box>
     )
