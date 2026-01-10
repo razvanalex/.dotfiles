@@ -62,29 +62,24 @@ $bar_ws_width_focus_active: 2.045rem;
 
 .bar-group-standalone {
     @include bar-group-rounding;
-    -gtk-outline-radius: 1.364rem;
 }
 
 .bar-group-round {
     border-radius: 10rem;
-    -gtk-outline-radius: 10rem;
 }
 
 .bar-group-middle {
     border-radius: 0.477rem;
-    -gtk-outline-radius: 0.477rem;
 }
 
 .bar-group-left {
     border-radius: 0.477rem;
-    -gtk-outline-radius: 0.477rem;
     border-top-left-radius: 1.364rem;
     border-bottom-left-radius: 1.364rem;
 }
 
 .bar-group-right {
     border-radius: 0.477rem;
-    -gtk-outline-radius: 0.477rem;
     border-top-right-radius: 1.364rem;
     border-bottom-right-radius: 1.364rem;
 }
@@ -99,18 +94,42 @@ $bar_ws_width_focus_active: 2.045rem;
 
 .bar-ws {
     min-width: $bar_ws_width;
+    min-height: $bar_ws_width;
     color: $workspaceOnLayer1Inactive;
+    margin-top: 0.1rem;
+    margin-bottom: 0.1rem;
 }
 
 .bar-ws-active {
     background-color: $workspaceLayer3;
+    border-radius: 2rem;
     color: $workspaceOnLayer3;
+    margin-top: 0.2rem;
+    margin-bottom: 0.2rem;
 }
 
 .bar-ws-occupied {
     background-color: $layer2;
     color: $workspaceOnLayer2;
+    border-radius: 0;
 }
+
+.bar-ws-occupied-single {
+    border-radius: 2rem;
+}
+
+.bar-ws-occupied-first {
+    border-radius: 2rem 0 0 2rem;
+}
+
+.bar-ws-occupied-middle {
+    border-radius: 0;
+}
+
+.bar-ws-occupied-last {
+    border-radius: 0 2rem 2rem 0;
+}
+
 
 // Focus is the bar mode name, not the workspace state!
 
@@ -160,8 +179,8 @@ $bar_ws_width_focus_active: 2.045rem;
     min-width: 0.136rem; // line width
     min-height: 1.636rem;
     padding: 0rem;
-    background-color: $battLayer2;
-    color: $battOnLayer2;
+    --bg-color: #{$battLayer2};
+    --fg-color: #{$battOnLayer2};
 }
 
 .bar-batt-circprog-low {
@@ -182,15 +201,18 @@ $bar_ws_width_focus_active: 2.045rem;
     min-width: 1.77rem;
     border-radius: 10rem;
     color: $ramOnLayer2;
+    background-color: transparent;
 }
 
-.bar-ram-circprog {
+.bar-circprog {
     @include fluent_decel_long;
-    min-width: 0.136rem; // line width
-    min-height: 1.636rem;
+    min-width: 2rem;
+    min-height: 2rem;
     padding: 0rem;
-    background-color: $ramLayer2;
-    color: $ramOnLayer2;
+    background-color: transparent;
+    color: $workspaceLayer3;
+    --bg-color: #{$ramLayer2};
+    --fg-color: #{$workspaceLayer3};
 }
 
 .bar-ram-txt {
@@ -204,15 +226,7 @@ $bar_ws_width_focus_active: 2.045rem;
     min-width: 1.77rem;
     border-radius: 10rem;
     color: $swapOnLayer2;
-}
-
-.bar-swap-circprog {
-    @include fluent_decel_long;
-    min-width: 0.136rem; // line width
-    min-height: 1.636rem;
-    padding: 0rem;
-    background-color: $swapLayer2;
-    color: $swapOnLayer2;
+    background-color: transparent;
 }
 
 .bar-swap-txt {
@@ -226,15 +240,7 @@ $bar_ws_width_focus_active: 2.045rem;
     min-width: 1.77rem;
     border-radius: 10rem;
     color: $cpuOnLayer2;
-}
-
-.bar-cpu-circprog {
-    @include fluent_decel_long;
-    min-width: 0.136rem; // line width
-    min-height: 1.636rem;
-    padding: 0rem;
-    background-color: $cpuLayer2;
-    color: $cpuOnLayer2;
+    background-color: transparent;
 }
 
 .bar-cpu-txt {
@@ -246,15 +252,6 @@ $bar_ws_width_focus_active: 2.045rem;
     min-height: 1.77rem;
     min-width: 1.77rem;
     border-radius: 10rem;
-    color: $musicOnLayer2;
-}
-
-.bar-music-circprog {
-    @include fluent_decel_long;
-    min-width: 0.136rem; // line width
-    min-height: 1.636rem;
-    padding: 0rem;
-    background-color: $musicLayer2;
     color: $musicOnLayer2;
 }
 
@@ -313,14 +310,16 @@ $bar_ws_width_focus_active: 2.045rem;
     @include large-rounding;
 }
 
-.bar-wintitle-topdesc {
-    margin-top: -0.2rem;
+.bar-wintitle-topname {
+    margin-top: 0.3rem;
     margin-bottom: -0.341rem;
+    margin-left: 0.682rem;
     color: $windowtitleOnLayer0Inactive;
 }
 
-.bar-wintitle-txt {
+.bar-wintitle-bottomname {
     color: $windowtitleOnLayer0;
+    margin-left: 0.682rem;
     margin-top: 0.341rem;
 }
 

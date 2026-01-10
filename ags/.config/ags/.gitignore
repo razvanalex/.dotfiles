@@ -1,9 +1,2 @@
-node_modules
-scss/_musicmaterial.scss
-scss/_musicwal.scss
-scss/_material.scss
-/cache
-# Ignore Python cache files
-__pycache__/
-*.py[cod]
-.venv/
+node_modules/
+@girs/

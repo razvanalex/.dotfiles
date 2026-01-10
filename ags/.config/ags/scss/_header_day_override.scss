@@ -1,0 +1,11 @@
+// .sidebar-calendar-header-day
+.sidebar-calendar-header-day {
+    background-color: transparent;
+}
+
+.sidebar-calendar-header-day:hover,
+.sidebar-calendar-header-day:focus,
+.sidebar-calendar-header-day:active {
+    background-color: transparent;
+    box-shadow: none;
+}

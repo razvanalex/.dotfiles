@@ -1,0 +1,25 @@
+[Unit]
+Description=AGS Development Watcher (Auto-reload on file changes)
+Documentation=file://%h/.dotfiles/ags/.config/ags/scripts/watch.sh
+PartOf=hyprland.target
+After=hyprland.target
+
+[Service]
+Type=simple
+ExecStart=%h/.dotfiles/ags/.config/ags/scripts/watch.sh
+
+# Auto-restart if the watcher crashes
+Restart=on-failure
+RestartSec=3s
+
+# Logging configuration
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ags-watch
+
+# Process management - kill all child processes (AGS instances) when stopping
+KillMode=control-group
+TimeoutStopSec=10s
+
+[Install]
+WantedBy=hyprland.target

@@ -23,8 +23,7 @@ menu {
     padding: 0.681rem;
     background: opacify($surfaceContainer, 1);
     color: $onSurface;
-    -gtk-outline-radius: 1.159rem;
-
+    border-radius: 1.159rem;
     animation-name: appear;
     animation-duration: 40ms;
     animation-timing-function: ease-out;
@@ -33,7 +32,6 @@ menu {
 
 menubar>menuitem {
     border-radius: 0.545rem;
-    -gtk-outline-radius: 0.545rem;
     min-width: 13.636rem;
     min-height: 2.727rem;
 }
@@ -43,7 +41,6 @@ menu>menuitem {
     background: transparent;
     transition: 0.2s ease background-color;
     border-radius: 0.545rem;
-    -gtk-outline-radius: 0.545rem;
 }
 
 menu>menuitem:hover,
@@ -100,8 +97,6 @@ popover {
     background: $surfaceContainerHigh;
     color: $onSurface;
     border-radius: 1.159rem;
-    -gtk-outline-radius: 1.159rem;
-
     animation-name: appear;
     animation-duration: 40ms;
     animation-timing-function: ease-out;
