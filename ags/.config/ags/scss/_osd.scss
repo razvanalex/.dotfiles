@@ -3,7 +3,7 @@
 // }
 
 .osd-bg {
-    min-width: 8.864rem;
+    min-width: 17.728rem;
     min-height: 3.409rem;
 }
 
@@ -34,12 +34,41 @@
     progress {
         @include fluent_decel;
         min-height: 0.680rem;
-        min-width: 0.680rem;
-        margin: 0rem 0.137rem;
+        min-width: 0rem;
+        margin: 0rem;
         border-radius: 10rem;
         background-color: $onLayer2;
     }
 }
+
+scale.osd-progress {
+    min-height: 0.955rem;
+    min-width: 0.068rem;
+    padding: 0rem;
+    margin: 0rem;
+
+    trough {
+        min-height: 0.954rem;
+        min-width: 0.068rem;
+        border-radius: 10rem;
+        background-color: $layer2;
+    }
+
+    highlight {
+        border-radius: 10rem;
+        background-color: $onLayer2;
+    }
+
+    slider {
+        min-height: 0.955rem;
+        min-width: 0.955rem;
+        margin: -0.477rem;
+        border-radius: 10rem;
+        background-color: transparent;
+        box-shadow: none;
+    }
+}
+
 
 .osd-label {
     font-size: 1.023rem;
@@ -61,6 +90,9 @@
     progress {
         background-color: $brightnessOnLayer0;
     }
+    highlight {
+        background-color: $brightnessOnLayer0;
+    }
 }
 .osd-volume {
     color: $volumeOnLayer0;
@@ -68,6 +100,20 @@
 .osd-volume-progress {
     progress {
         background-color: $volumeOnLayer0;
+    }
+    highlight {
+        background-color: $volumeOnLayer0;
+    }
+}
+.osd-microphone {
+    color: $microphoneOnLayer0;
+}
+.osd-microphone-progress {
+    progress {
+        background-color: $microphoneOnLayer0;
+    }
+    highlight {
+        background-color: $microphoneOnLayer0;
     }
 }
 
@@ -201,4 +247,21 @@
 
 .osd-hide {
     transition: 190ms cubic-bezier(0.85, 0, 0.15, 1);
+}
+
+.osd-icon-btn {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    min-height: 0;
+    min-width: 0;
+    border: none;
+    border-radius: 100%;
+
+    &:hover {
+        background-color: $layer2Hover;
+    }
+    &:active {
+        background-color: $layer2Active;
+    }
 }

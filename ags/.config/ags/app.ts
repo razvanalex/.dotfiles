@@ -7,6 +7,7 @@ import Bar from "./widget/Bar"
 import SideRight from "./widget/SideRight"
 import Notifd from "gi://AstalNotifd"
 import Indicators from "./widget/Indicators"
+import brightness from "./services/Brightness"
 // import Dock from "./widget/Dock"
 // import userOptions from "./lib/userOptions"
 
@@ -39,8 +40,25 @@ app.start({
     requestHandler(argv: string[], res: (response: any) => void) {
         if (argv[0] == "handleStyles") {
             handleStyles(true)
-            res("ok")
+            return res("ok")
         }
+        
+        if (argv[0] === "brightness") {
+            let valStr = argv[1]
+            if (valStr === "--") valStr = argv[2]
+            
+            const val = parseFloat(valStr)
+            if (isNaN(val)) return res("invalid value: " + valStr)
+            
+            if (valStr.startsWith("+") || valStr.startsWith("-")) {
+                brightness.screen_value += val
+            } else {
+                brightness.screen_value = val
+            }
+            return res(String(brightness.screen_value))
+        }
+        
+        res("unknown command")
     },
 
 })

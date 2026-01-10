@@ -6,6 +6,7 @@ import GLib from "gi://GLib";
 import userOptions from "../lib/userOptions";
 import MusicControls from "./indicators/MusicControls";
 import NotificationPopups from "./indicators/NotificationPopups";
+import Osd from "./indicators/Osd";
 
 export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
   const { TOP } = Astal.WindowAnchor;
@@ -13,6 +14,17 @@ export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
   
   const [notifications, setNotifications] = createState<Notifd.Notification[]>([]);
   const [closingIds, setClosingIds] = createState<Set<number>>(new Set());
+  const [osdVisible, setOsdVisible] = createState(false);
+  const [windowVisible, setWindowVisible] = createState(false);
+
+  // Sync window visibility
+  const updateVisibility = () => {
+      console.log("Indicators: visibility check", notifications.get().length, osdVisible.get())
+      setWindowVisible(notifications.get().length > 0 || osdVisible.get());
+  }
+  
+  notifications.subscribe(updateVisibility);
+  osdVisible.subscribe(updateVisibility);
 
   const dismiss = (id: number, force = false) => {
     if (closingIds.get().has(id)) return;
@@ -58,7 +70,7 @@ export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
 
   return (
     <window
-      visible={notifications.as(ns => ns.length > 0)}
+      visible={windowVisible}
       name={`indicator${index}`}
       class="Indicator"
       gdkmonitor={gdkmonitor}
@@ -68,6 +80,7 @@ export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
       application={app}
     >
       <box orientation={Gtk.Orientation.VERTICAL} class="osd-window">
+        <Osd onVisible={setOsdVisible} />
         <MusicControls />
         <NotificationPopups 
             notifications={notifications} 
