@@ -1,4 +1,5 @@
 import GObject from "gi://GObject"
+import GLib from "gi://GLib"
 import { monitorFile, readFile } from "ags/file"
 import { execAsync } from "ags/process"
 

@@ -153,7 +153,7 @@ export default function ModuleCalendar() {
     const [activeTab, setActiveTab] = createState("calendar")
 
     return (
-        <box class="sidebar-group spacing-h-5">
+        <box class="sidebar-group spacing-h-5" vexpand={activeTab.as(t => t === "todo")}>
             <box 
                 valign={Gtk.Align.CENTER} 
                 homogeneous 
@@ -183,6 +183,7 @@ export default function ModuleCalendar() {
                 visibleChildName={activeTab}
                 transitionType={Gtk.StackTransitionType.SLIDE_UP_DOWN}
                 transitionDuration={userOptions.animations.durationLarge}
+                interpolateSize={true}
             >
                 <box $type="named" name="calendar">
                     <CalendarWidget />
