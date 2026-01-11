@@ -1,113 +1,8 @@
-import { Gtk, GObject } from "ags/gtk4"
-import { createState, createBinding, For, type Binding } from "ags"
+import { Gtk } from "ags/gtk4"
+import { createState, createBinding, For } from "ags"
 import { execAsync } from "ags/process"
-import { execBashAsync } from "../../../lib/proc"
 import AstalBluetooth from "gi://AstalBluetooth"
 import userOptions from "../../../lib/userOptions"
-
-function ConfigToggle({ 
-
-    icon, 
-
-    name, 
-
-    desc, 
-
-    value, 
-
-    enabled = true,
-
-    onChange 
-
-}: { 
-
-    icon?: string
-
-    name?: string
-
-    desc?: string
-
-    value: any
-
-    enabled?: any
-
-    onChange: (newValue: boolean) => void
-
-}) {
-
-    // Accessors (functions) and Bindings (objects) both have .as in Astal
-
-    const isReactive = value && (typeof value === "object" || typeof value === "function") && "as" in value
-
-    const active = isReactive ? value : createState(!!value)[0]
-
-    
-
-    const isSensitive = (enabled && typeof enabled === "object" && "as" in enabled)
-
-        ? enabled : createState(!!enabled)[0]
-
-    
-
-    return (
-
-        <button
-
-            tooltipText={desc}
-
-            class="txt configtoggle-box"
-
-            hexpand
-
-            sensitive={isSensitive}
-
-            onClicked={() => {
-
-                const current = !!(typeof active === "function" ? active() : (active as any).get?.() ?? active)
-
-                onChange(!current)
-
-            }}
-
-        >
-
-            <box class="spacing-h-5">
-
-                {icon && <label class="txt icon-material txt-norm" label={icon} />}
-
-                {name && <label class="txt txt-small" label={name} />}
-
-                <box hexpand />
-
-                <box 
-
-                    class={active.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
-
-                    valign={Gtk.Align.CENTER}
-
-                    halign={Gtk.Align.END}
-
-                >
-
-                    <box 
-
-                        class={active.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
-
-                        halign={Gtk.Align.START}
-
-                        valign={Gtk.Align.CENTER}
-
-                    />
-
-                </box>
-
-            </box>
-
-        </button>
-
-    )
-
-}
 
 
 
@@ -231,15 +126,35 @@ export default function Bluetooth() {
 
                     <box class="spacing-h-5" valign={Gtk.Align.CENTER}>
 
-                        <ConfigToggle
-
-                            value={connected}
-
-                            enabled={isPowered}
-
-                            onChange={toggleConnection}
-
-                        />
+                        <button
+                            class="txt configtoggle-box"
+                            hexpand={false}
+                            sensitive={isPowered}
+                            onClicked={() => {
+                                const current = device.connected
+                                if (current) {
+                                    (device as any).disconnect_device(null)
+                                } else {
+                                    setLocalLoading(true)
+                                    execAsync(["bluetoothctl", "connect", device.address])
+                                        .finally(() => setLocalLoading(false))
+                                }
+                            }}
+                        >
+                            <box class="spacing-h-5">
+                                <box 
+                                    class={connected.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
+                                    valign={Gtk.Align.CENTER}
+                                    halign={Gtk.Align.END}
+                                >
+                                    <box 
+                                        class={connected.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
+                                        halign={Gtk.Align.START}
+                                        valign={Gtk.Align.CENTER}
+                                    />
+                                </box>
+                            </box>
+                        </button>
 
                         <button
 
@@ -277,16 +192,32 @@ export default function Bluetooth() {
     return (
         <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
-                <ConfigToggle
-                    icon="bluetooth"
-                    name="Bluetooth Adapter"
-                    value={isPowered}
-                    onChange={(newValue) => {
+                <button
+                    class="txt configtoggle-box"
+                    hexpand
+                    onClicked={() => {
                         if (bluetooth.adapter) {
-                            bluetooth.adapter.set_powered(newValue)
+                            bluetooth.adapter.set_powered(!bluetooth.isPowered)
                         }
                     }}
-                />
+                >
+                    <box class="spacing-h-5">
+                        <label class="txt icon-material txt-norm" label="bluetooth" />
+                        <label class="txt txt-small" label="Bluetooth Adapter" />
+                        <box hexpand />
+                        <box 
+                            class={isPowered.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
+                            valign={Gtk.Align.CENTER}
+                            halign={Gtk.Align.END}
+                        >
+                            <box 
+                                class={isPowered.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
+                                halign={Gtk.Align.START}
+                                valign={Gtk.Align.CENTER}
+                            />
+                        </box>
+                    </box>
+                </button>
                 <box class="separator-line" />
             </box>
             <stack
