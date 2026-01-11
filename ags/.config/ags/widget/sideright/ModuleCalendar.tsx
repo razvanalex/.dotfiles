@@ -2,6 +2,7 @@ import { Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
 import { getCalendarLayout, CalendarDay } from "./CalendarLayout"
 import userOptions from "../../lib/userOptions"
+import TodoWidget from "./TodoWidget"
 
 function getDateInXMonthsTime(x: number) {
     var currentDate = new Date(); // Get the current date
@@ -146,10 +147,6 @@ function CalendarWidget() {
             </box>
         </box>
     )
-}
-
-function TodoWidget() {
-    return <box><label label="Todo Placeholder" /></box>
 }
 
 export default function ModuleCalendar() {

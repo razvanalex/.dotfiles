@@ -1,6 +1,5 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
-import { getDistroIcon } from "../lib/system"
 import userOptions from "../lib/userOptions"
 import { execAsync } from "ags/process"
 import { execBashAsync } from "../lib/proc"
@@ -45,7 +44,7 @@ function TimeRow() {
 
     return (
         <box class="spacing-h-10 sidebar-group-invisible-morehorizpad">
-            <image iconName={getDistroIcon()} class="txt txt-larger" />
+            <label class="icon-material txt txt-larger" label="info" />
             <label 
                 class="txt-small txt" 
                 label={uptime}

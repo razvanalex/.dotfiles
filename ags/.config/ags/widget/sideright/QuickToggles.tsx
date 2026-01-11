@@ -159,37 +159,6 @@ export function ModuleIdleInhibitor() {
     )
 }
 
-export function ModuleCloudflareWarp() {
-    const [enabled, setEnabled] = createState(false)
-
-    const checkState = async () => {
-        try {
-            await execAsync("which warp-cli")
-            const out = await execAsync("warp-cli status")
-            setEnabled(!out.includes("Disconnected"))
-        } catch {
-            // warp-cli not found or error
-        }
-    }
-    
-    checkState()
-
-    return (
-        <ToggleButton
-            onClick={() => {
-                if (enabled.get()) {
-                    execAsync("warp-cli disconnect").then(() => checkState())
-                } else {
-                    execAsync("warp-cli connect").then(() => checkState())
-                }
-            }}
-            child={<image iconName="cloudflare-dns-symbolic" class="txt-norm" />}
-            tooltipText="Cloudflare WARP"
-            className={enabled.as(e => `txt-small sidebar-iconbutton ${e ? "sidebar-button-active" : ""}`)}
-        />
-    )
-}
-
 export default function QuickToggles() {
     return (
         <box class="sidebar-togglesbox spacing-h-5" halign={Gtk.Align.CENTER}>
@@ -198,7 +167,6 @@ export default function QuickToggles() {
             <ModuleNightLight />
             <ModuleInvertColors />
             <ModuleIdleInhibitor />
-            <ModuleCloudflareWarp />
         </box>
     )
 }

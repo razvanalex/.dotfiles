@@ -1,8 +1,61 @@
 import { Gtk } from "ags/gtk4"
-import { createState, createBinding, For } from "ags"
+import { createState, createBinding, For, type Binding } from "ags"
 import { execAsync } from "ags/process"
 import Network from "gi://AstalNetwork"
 import userOptions from "../../../lib/userOptions"
+
+function ConfigToggle({ 
+    icon, 
+    name, 
+    desc, 
+    value, 
+    enabled = true,
+    onChange 
+}: { 
+    icon?: string
+    name?: string
+    desc?: string
+    value: any
+    enabled?: any
+    onChange: (newValue: boolean) => void
+}) {
+    // Accessors (functions) and Bindings (objects) both have .as in Astal
+    const isReactive = value && (typeof value === "object" || typeof value === "function") && "as" in value
+    const active = isReactive ? value : createState(!!value)[0]
+    
+    const isSensitive = (enabled && typeof enabled === "object" && "as" in enabled)
+        ? enabled : createState(!!enabled)[0]
+    
+    return (
+        <button
+            tooltipText={desc}
+            class="txt configtoggle-box"
+            hexpand
+            sensitive={isSensitive}
+            onClicked={() => {
+                const current = !!(typeof active === "function" ? active() : (active as any).get?.() ?? active)
+                onChange(!current)
+            }}
+        >
+            <box class="spacing-h-5">
+                {icon && <label class="txt icon-material txt-norm" label={icon} />}
+                {name && <label class="txt txt-small" label={name} />}
+                <box hexpand />
+                <box 
+                    class={active.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
+                    valign={Gtk.Align.CENTER}
+                    halign={Gtk.Align.END}
+                >
+                    <box 
+                        class={active.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
+                        halign={Gtk.Align.START}
+                        valign={Gtk.Align.CENTER}
+                    />
+                </box>
+            </box>
+        </button>
+    )
+}
 
 const SIGNAL_STRENGTH_ICONS: Record<string, string> = {
     "network-wireless-signal-excellent-symbolic": "signal_wifi_4_bar",
@@ -13,15 +66,11 @@ const SIGNAL_STRENGTH_ICONS: Record<string, string> = {
 }
 
 function WifiNetwork({ accessPoint, wifi }: { accessPoint: Network.AccessPoint, wifi: Network.Wifi }) {
-    const isActive = accessPoint.ssid === wifi.ssid
-    
     return (
         <button
             class="sidebar-wifinetworks-network"
             onClicked={() => {
-                if (!isActive) {
-                    execAsync(`nmcli device wifi connect ${accessPoint.bssid}`).catch(console.error)
-                }
+                execAsync(`nmcli device wifi connect ${accessPoint.bssid}`).catch(console.error)
             }}
         >
             <box class="spacing-h-10">
@@ -31,12 +80,7 @@ function WifiNetwork({ accessPoint, wifi }: { accessPoint: Network.AccessPoint, 
                 />
                 <box orientation={Gtk.Orientation.VERTICAL} hexpand>
                     <label halign={Gtk.Align.START} label={accessPoint.ssid} />
-                    {isActive && (
-                        <label halign={Gtk.Align.START} class="txt-smaller txt-subtext" label="Selected" />
-                    )}
                 </box>
-                <box hexpand />
-                {isActive && <label class="icon-material txt-large" label="check" />}
             </box>
         </button>
     )
@@ -69,8 +113,28 @@ function CurrentNetwork() {
                                 <label halign={Gtk.Align.START} label={ssid} />
                             </box>
                             <label valign={Gtk.Align.CENTER} class="txt-subtext" label={state.as(s => {
-                                const stateStr = Network.DeviceState[s] || "Unknown"
-                                return stateStr
+                                // Show auth if needed
+                                if (s === Network.DeviceState.FAILED || s === Network.DeviceState.NEED_AUTH) {
+                                    setAuthSsid(wifi.ssid)
+                                    setShowAuth(true)
+                                }
+                                
+                                const stateMap: Record<number, string> = {
+                                    [Network.DeviceState.UNKNOWN]: "Unknown",
+                                    [Network.DeviceState.UNMANAGED]: "Unmanaged",
+                                    [Network.DeviceState.UNAVAILABLE]: "Unavailable",
+                                    [Network.DeviceState.DISCONNECTED]: "Disconnected",
+                                    [Network.DeviceState.PREPARE]: "Preparing...",
+                                    [Network.DeviceState.CONFIG]: "Configuring...",
+                                    [Network.DeviceState.NEED_AUTH]: "Authenticating...",
+                                    [Network.DeviceState.IP_CONFIG]: "Getting IP...",
+                                    [Network.DeviceState.IP_CHECK]: "Checking IP...",
+                                    [Network.DeviceState.SECONDARIES]: "Secondaries...",
+                                    [Network.DeviceState.ACTIVATED]: "Connected",
+                                    [Network.DeviceState.DEACTIVATING]: "Disconnecting...",
+                                    [Network.DeviceState.FAILED]: "Failed",
+                                }
+                                return stateMap[s] || "Disconnected"
                             })} />
                         </box>
                         <revealer
@@ -116,6 +180,8 @@ export default function WifiNetworks() {
         )
     }
 
+    const wifiEnabled = createBinding(wifi, "enabled")
+
     // Trigger a wifi scan
     execAsync("nmcli dev wifi list").catch(console.error)
 
@@ -125,6 +191,9 @@ export default function WifiNetworks() {
         return Object.values(
             aps.reduce((acc: Record<string, Network.AccessPoint>, ap) => {
                 if (!ap.ssid) return acc; // Skip hidden networks or empty SSIDs
+                // Skip the currently active network to avoid showing it twice
+                if (ap.ssid === wifi.ssid) return acc;
+                
                 if (!acc[ap.ssid] || acc[ap.ssid].strength < ap.strength) {
                     acc[ap.ssid] = ap
                 }
@@ -135,28 +204,55 @@ export default function WifiNetworks() {
 
     return (
         <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
-            <CurrentNetwork />
-            <overlay>
-                <scrolledwindow 
-                    vexpand
-                    hscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
-                    vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
-                >
-                    <box 
-                        orientation={Gtk.Orientation.VERTICAL} 
-                        class="spacing-v-5 margin-bottom-15"
-                    >
-                        <For each={uniqueAccessPoints}>
-                            {(ap) => <WifiNetwork accessPoint={ap} wifi={wifi} />}
-                        </For>
-                    </box>
-                </scrolledwindow>
-                <box 
-                    $type="overlay"
-                    valign={Gtk.Align.END}
-                    class="sidebar-centermodules-scrollgradient-bottom" 
+            <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
+                <ConfigToggle
+                    icon="wifi"
+                    name="WiFi Adapter"
+                    value={wifiEnabled}
+                    onChange={(newValue) => {
+                        wifi.set_enabled(newValue)
+                    }}
                 />
-            </overlay>
+                <box class="separator-line" />
+            </box>
+            <CurrentNetwork />
+            <stack
+                visibleChildName={wifiEnabled.as(e => e ? "list" : "disabled")}
+                transitionType={Gtk.StackTransitionType.CROSSFADE}
+                vexpand
+            >
+                <box $type="named" name="disabled" homogeneous>
+                    <box orientation={Gtk.Orientation.VERTICAL} valign={Gtk.Align.CENTER} class="txt spacing-v-10">
+                        <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5 txt-subtext">
+                            <label class="icon-material txt-gigantic" label="wifi_off" />
+                            <label class="txt-small" label="WiFi is disabled" />
+                        </box>
+                    </box>
+                </box>
+                <box $type="named" name="list" orientation={Gtk.Orientation.VERTICAL}>
+                    <overlay>
+                        <scrolledwindow 
+                            vexpand
+                            hscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
+                            vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
+                        >
+                            <box 
+                                orientation={Gtk.Orientation.VERTICAL} 
+                                class="spacing-v-5 margin-bottom-15"
+                            >
+                                <For each={uniqueAccessPoints}>
+                                    {(ap) => <WifiNetwork accessPoint={ap} wifi={wifi} />}
+                                </For>
+                            </box>
+                        </scrolledwindow>
+                        <box 
+                            $type="overlay"
+                            valign={Gtk.Align.END}
+                            class="sidebar-centermodules-scrollgradient-bottom" 
+                        />
+                    </overlay>
+                </box>
+            </stack>
             <box homogeneous>
                 <button
                     halign={Gtk.Align.CENTER}

@@ -838,11 +838,30 @@ $skeleton-accent: mix($secondary, $onSecondary, 50%);
     color: $onSurfaceVariant;
 }
 
+.sidebar-device-option:hover,
+.sidebar-device-option:focus {
+    background-color: $layer2Hover;
+}
+
+.sidebar-device-selected-indicator {
+    margin-left: 0.341rem;
+    min-width: 1rem;
+}
+
 .sidebar-bluetooth-device {
     padding: 0.682rem;
     @include normal-rounding;
     background-color: $layer2;
     color: $onLayer2;
+}
+
+.sidebar-bluetooth-device:hover,
+.sidebar-bluetooth-device:focus {
+    background-color: $layer2Hover;
+}
+
+.sidebar-bluetooth-device:active {
+    background-color: $layer2Active;
 }
 
 .sidebar-bluetooth-appicon {

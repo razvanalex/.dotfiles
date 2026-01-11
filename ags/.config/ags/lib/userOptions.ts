@@ -331,12 +331,18 @@ const defaultOptions: UserOptions = {
             "pavucontrol-qt": "pavucontrol",
             wps: "wps-office2019-kprometheus",
             wpsoffice: "wps-office2019-kprometheus",
+            vivaldi: "vivaldi-stable",
+            "playback * vivaldi": "vivaldi-stable",
             "": "image-missing",
         },
         regexSubstitutions: [
             {
                 regex: /^steam_app_(\d+)$/,
                 replace: "steam_icon_$1",
+            },
+            {
+                regex: /playback\s*[•.*]\s*vivaldi/i,
+                replace: "vivaldi-stable",
             },
         ],
     },

@@ -1,5 +1,5 @@
 import { Gtk } from "ags/gtk4"
-import { createState } from "ags"
+import { createState, type Binding } from "ags"
 import { execAsync, exec } from "ags/process"
 import GLib from "gi://GLib"
 import userOptions from "../../../lib/userOptions"
@@ -9,43 +9,49 @@ function ConfigGap({ vertical = true, size = 5 }: { vertical?: boolean, size?: n
     return <box class={`gap-${vertical ? 'v' : 'h'}-${size}`} />
 }
 
-function ConfigToggle({ 
-    icon, 
-    name, 
-    desc, 
-    initValue, 
-    onChange 
-}: { 
+function ConfigToggle({
+    icon,
+    name,
+    desc,
+    value,
+    enabled = true,
+    onChange
+}: {
     icon?: string
     name?: string
     desc?: string
-    initValue: boolean
+    value: any
+    enabled?: Binding<boolean> | boolean
     onChange: (newValue: boolean) => void
 }) {
-    const [enabled, setEnabled] = createState(initValue)
-    
+    // Accessors (functions) and Bindings (objects) both have .as in Astal
+    const isReactive = value && (typeof value === "object" || typeof value === "function") && "as" in value
+    const active = isReactive ? value : createState(!!value)[0]
+    const isSensitive = (enabled && typeof enabled === "object" && "as" in enabled)
+        ? enabled : createState(!!enabled)[0]
+
     return (
         <button
             tooltipText={desc}
             class="txt configtoggle-box"
             hexpand
+            sensitive={isSensitive}
             onClicked={() => {
-                const newValue = !enabled.get()
-                setEnabled(newValue)
-                onChange(newValue)
+                const current = !!(typeof active === "function" ? active() : (active as any).get?.() ?? active)
+                onChange(!current)
             }}
         >
             <box class="spacing-h-5">
                 {icon && <label class="txt icon-material txt-norm" label={icon} />}
                 {name && <label class="txt txt-small" label={name} />}
                 <box hexpand />
-                <box 
-                    class={enabled.as(e => `switch-bg ${e ? 'switch-bg-true' : ''}`)}
+                <box
+                    class={active.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
                     valign={Gtk.Align.CENTER}
                     halign={Gtk.Align.END}
                 >
-                    <box 
-                        class={enabled.as(e => `switch-fg ${e ? 'switch-fg-true' : ''}`)}
+                    <box
+                        class={active.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
                         halign={Gtk.Align.START}
                         valign={Gtk.Align.CENTER}
                     />
@@ -95,15 +101,15 @@ function ConfigSpinButton({
     )
 }
 
-function HyprlandToggle({ 
-    icon, 
-    name, 
-    desc, 
-    option, 
-    enableValue = 1, 
+function HyprlandToggle({
+    icon,
+    name,
+    desc,
+    option,
+    enableValue = 1,
     disableValue = 0,
     extraOnChange
-}: { 
+}: {
     icon: string
     name: string
     desc?: string
@@ -119,13 +125,13 @@ function HyprlandToggle({
     } catch (e) {
         console.error(e)
     }
-    
+
     return (
         <ConfigToggle
             icon={icon}
             name={name}
             desc={desc}
-            initValue={initValue}
+            value={initValue}
             onChange={(newValue) => {
                 execAsync(["hyprctl", "keyword", option, `${newValue ? enableValue : disableValue}`])
                     .catch(console.error)
@@ -159,7 +165,7 @@ function HyprlandSpinButton({
     } catch (e) {
         console.error(e)
     }
-    
+
     return (
         <ConfigSpinButton
             icon={icon}
@@ -224,7 +230,7 @@ function ConfigMulipleSelection({
                 <box class="spacing-h-5" halign={Gtk.Align.CENTER}>
                     {options.map((option, id) => (
                         <button
-                            class={lastSelected.as(([g, i]) => 
+                            class={lastSelected.as(([g, i]) =>
                                 `multipleselection-btn ${i === id && g === grp ? 'multipleselection-btn-enabled' : ''}`
                             )}
                             onClicked={() => {
@@ -243,16 +249,16 @@ function ConfigMulipleSelection({
 function ColorSchemeSettings() {
     const stateDir = GLib.get_user_state_dir()
     const configDir = GLib.get_user_config_dir()
-    
+
     let initScheme = 'vibrant'
     let transparencyInit = false
     let gradienceInit = 0
-    
+
     try {
         initScheme = exec(`bash -c "sed -n '3p' ${stateDir}/ags/user/colormode.txt"`).trim()
         transparencyInit = exec(`bash -c "sed -n '2p' ${stateDir}/ags/user/colormode.txt"`).trim() === "transparent"
         gradienceInit = exec(`bash -c "sed -n '4p' ${stateDir}/ags/user/colormode.txt"`).trim() === "yesgradience" ? 1 : 0
-    } catch (e) {}
+    } catch (e) { }
 
     return (
         <box orientation={Gtk.Orientation.VERTICAL} class="osd-colorscheme-settings spacing-v-5 margin-20" valign={Gtk.Align.CENTER}>
@@ -262,25 +268,25 @@ function ColorSchemeSettings() {
                     icon="dark_mode"
                     name="Dark Mode"
                     desc="Ya should go to sleep!"
-                    initValue={darkMode.get()}
+                    value={darkMode}
                     onChange={() => toggleDarkMode()}
                 />
                 <ConfigToggle
                     icon="border_clear"
                     name="Transparency"
                     desc="Make shell elements transparent"
-                    initValue={transparencyInit}
+                    value={transparencyInit}
                     onChange={(newValue) => {
                         const transparency = newValue ? "transparent" : "opaque"
                         execAsync([
                             "bash", "-c",
                             `mkdir -p ${stateDir}/ags/user && sed -i "2s/.*/${transparency}/" ${stateDir}/ags/user/colormode.txt`
-                        ]).then(() => 
+                        ]).then(() =>
                             execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh`])
                         ).catch(console.error)
                     }}
                 />
-                
+
                 <box class="txt spacing-h-5 configtoggle-box" tooltipText="Theme GTK apps using accent color\n(drawback: dark/light mode switching requires restart)">
                     <label class="icon-material txt-norm" label="imagesearch_roller" />
                     <label class="txt txt-small" label="Use Gradience" />
@@ -289,9 +295,9 @@ function ColorSchemeSettings() {
                         optionsArr={[[{ name: 'Off', value: 0 }, { name: 'On', value: 1 }]]}
                         initIndex={[0, gradienceInit]}
                         onChange={(value) => {
-                             const ADWAITA_BLUE = "#3584E4";
-                             if (value) execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh - --yes-gradience`]).catch(console.error);
-                             else execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh "${ADWAITA_BLUE}" --no-gradience`]).catch(console.error);
+                            const ADWAITA_BLUE = "#3584E4";
+                            if (value) execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh - --yes-gradience`]).catch(console.error);
+                            else execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh "${ADWAITA_BLUE}" --no-gradience`]).catch(console.error);
                         }}
                     />
                 </box>
@@ -314,7 +320,7 @@ function ColorSchemeSettings() {
 
 function ColorSchemeSettingsRevealer() {
     const [revealed, setRevealed] = createState(false)
-    
+
     return (
         <box orientation={Gtk.Orientation.VERTICAL}>
             <button
@@ -322,9 +328,9 @@ function ColorSchemeSettingsRevealer() {
                 class="osd-settings-btn-arrow"
                 onClicked={() => setRevealed(!revealed.get())}
             >
-                <label 
-                    class="icon-material txt-norm" 
-                    label={revealed.as(r => r ? "expand_less" : "expand_more")} 
+                <label
+                    class="icon-material txt-norm"
+                    label={revealed.as(r => r ? "expand_less" : "expand_more")}
                 />
             </button>
             <revealer
@@ -368,7 +374,7 @@ function ColorBox({ name, className }: { name: string, className: string }) {
 export default function Configure() {
     const stateDir = GLib.get_user_state_dir()
     const configDir = GLib.get_user_config_dir()
-    
+
     let transparencyInit = false
     try {
         const colorMode = exec(`bash -c "sed -n '2p' ${stateDir}/ags/user/colormode.txt"`)
@@ -400,19 +406,19 @@ export default function Configure() {
                         </box>
                         <ColorSchemeSettingsRevealer />
                     </ConfigSection>
-                    
+
                     <ConfigSection name="Effects">
                         <ConfigToggle
                             icon="border_clear"
                             name="Transparency"
                             desc="Make shell elements transparent. Blur is also recommended if you enable this."
-                            initValue={transparencyInit}
+                            value={transparencyInit}
                             onChange={(newValue) => {
                                 const transparency = newValue ? "transparent" : "opaque"
                                 execAsync([
                                     "bash", "-c",
                                     `mkdir -p ${stateDir}/ags/user && sed -i "2s/.*/${transparency}/" ${stateDir}/ags/user/colormode.txt`
-                                ]).then(() => 
+                                ]).then(() =>
                                     execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh`])
                                 ).catch(console.error)
                             }}
@@ -473,7 +479,7 @@ export default function Configure() {
                             />
                         </Subcategory>
                     </ConfigSection>
-                    
+
                     <ConfigSection name="Developer">
                         <HyprlandToggle
                             icon="speed"
