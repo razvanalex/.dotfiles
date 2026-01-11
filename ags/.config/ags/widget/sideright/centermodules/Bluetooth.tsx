@@ -110,15 +110,20 @@ export default function Bluetooth() {
 
                             class="txt-subtext"
 
-                            label={connecting.as((conn: any) => {
+                            label={connected.as((isConnected: any) => {
 
-                                // Show transitioning state if operation is in progress
-                                if (isTransitioning.get()) {
-                                    return device.connected ? "Disconnecting..." : "Connecting..."
+                                // Check if we're in a transitioning state by checking connecting property
+                                if (connecting.get()) {
+                                    return "Connecting..."
+                                }
+
+                                // Check if disconnecting - device was connected but is no longer
+                                if (isTransitioning.get() && !isConnected) {
+                                    return "Disconnecting..."
                                 }
 
                                 // Show final state
-                                return conn ? "Connecting..." : (connected.get() ? "Connected" : (device.paired ? "Paired" : ""))
+                                return isConnected ? "Connected" : (device.paired ? "Paired" : "")
 
                             })}
 
