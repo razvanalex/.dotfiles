@@ -224,30 +224,32 @@ function AudioDeviceSelector({ input = false }: { input?: boolean }) {
 }
 
 export default function AudioControls() {
-    const wp = Wp.get_default()
-    if (!wp) return <box><label label="WirePlumber not available" /></box>
+     const wp = Wp.get_default()
+     if (!wp) return <box><label label="WirePlumber not available" /></box>
 
-    const audio = wp.get_audio()
-    if (!audio) return <box><label label="Audio not available" /></box>
+     const audio = wp.get_audio()
+     if (!audio) return <box><label label="Audio not available" /></box>
 
-    const streams = createBinding(audio, "streams").as((s) => {
-        // Sort streams to keep newest at the bottom (in reverse order of addition)
-        return [...s].reverse()
-    })
-    const speaker = audio.get_default_speaker()
-    const isMuted = speaker ? createBinding(speaker, "mute") : createState(false)[0]
+     const streams = createBinding(audio, "streams").as((s) => {
+         // Sort streams to keep newest at the bottom (in reverse order of addition)
+         return [...s].reverse()
+     })
+     const speaker = audio.get_default_speaker()
+     const isMuted = speaker ? createBinding(speaker, "mute") : createState(false)[0]
 
-    return (
-        <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
-            <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
-                <ConfigToggle
-                    icon={isMuted.as((m: boolean) => m ? "volume_off" : "volume_up")}
-                    name="Mute Audio"
-                    value={isMuted}
-                    onChange={(newValue) => {
-                        speaker?.set_mute(newValue)
-                    }}
-                />
+     return (
+         <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
+             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
+                 <ConfigToggle
+                     icon={isMuted.as((m: boolean) => m ? "volume_off" : "volume_up")}
+                     name="Mute Audio"
+                     value={isMuted}
+                     onChange={(newValue) => {
+                         if (speaker) {
+                             speaker.mute = newValue
+                         }
+                     }}
+                 />
                 <box class="separator-line" />
             </box>
             <stack
