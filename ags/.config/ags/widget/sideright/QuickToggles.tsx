@@ -40,24 +40,27 @@ function ToggleButton({
 }
 
 export function ToggleIconWifi() {
-    const network = Network.get_default()
-    if (!network) return <box />
-    
-    const wifi = createBinding(network, "wifi")
-    
-    return (
-        <ToggleButton
-            onClick={() => {
-                const w = network.get_wifi()
-                if (w) w.set_enabled(!w.get_enabled())
-            }}
-            onSecondaryClick={() => execAsync(userOptions.apps.network)}
-            child={<NetworkIndicator />}
-            tooltipText={wifi.as(w => w ? `${w.ssid} | Right-click to configure` : "Wifi | Right-click to configure")}
-            className={wifi.as(w => `txt-small sidebar-iconbutton ${w?.get_internet() === Network.Internet.CONNECTED ? "sidebar-button-active" : ""}`)}
-        />
-    )
-}
+     const network = Network.get_default()
+     if (!network) return <box />
+     
+     const wifi = createBinding(network, "wifi")
+     
+     return (
+         <ToggleButton
+             onClick={() => {
+                 const w = network.get_wifi()
+                 if (w) {
+                     // Toggle directly by setting the enabled property
+                     w.enabled = !w.enabled
+                 }
+             }}
+             onSecondaryClick={() => execAsync(userOptions.apps.network)}
+             child={<NetworkIndicator />}
+             tooltipText={wifi.as(w => w ? `${w.ssid} | Right-click to configure` : "Wifi | Right-click to configure")}
+             className={wifi.as(w => `txt-small sidebar-iconbutton ${w?.get_internet() === Network.Internet.CONNECTED ? "sidebar-button-active" : ""}`)}
+         />
+     )
+ }
 
 export function ToggleIconBluetooth() {
     const bluetooth = Bluetooth.get_default()
