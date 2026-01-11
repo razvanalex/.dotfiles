@@ -16,49 +16,47 @@ export default function Bluetooth() {
 
 
 
-    function BluetoothDevice({ device }: { device: AstalBluetooth.Device }) {
+     function BluetoothDevice({ device }: { device: AstalBluetooth.Device }) {
 
-        const connected = createBinding(device, "connected")
+         const connected = createBinding(device, "connected")
 
-        const connecting = createBinding(device, "connecting")
+         const connecting = createBinding(device, "connecting")
 
-        const name = createBinding(device, "name")
+         const name = createBinding(device, "name")
 
-        const [localLoading, setLocalLoading] = createState(false)
+         const [isTransitioning, setIsTransitioning] = createState(false)
 
 
 
-        const toggleConnection = async () => {
+         const toggleConnection = async () => {
 
-            if (!bluetooth.isPowered) return
+             if (!bluetooth.isPowered) return
 
-            console.log(`Action: Toggling connection for ${device.name}`)
+             console.log(`Action: Toggling connection for ${device.name}`)
 
-            
+             setIsTransitioning(true)
 
-            if (device.connected) {
+             if (device.connected) {
 
-                (device as any).disconnect_device(null)
+                 (device as any).disconnect_device(null)
 
-            } else {
+             } else {
 
-                setLocalLoading(true)
+                 try {
 
-                try {
+                     await execAsync(["bluetoothctl", "connect", device.address])
 
-                    await execAsync(["bluetoothctl", "connect", device.address])
+                 } catch (err) {
 
-                } catch (err) {
+                     console.error(`Bluetooth connect error: ${err}`)
 
-                    console.error(`Bluetooth connect error: ${err}`)
+                 }
 
-                }
+             }
 
-                setLocalLoading(false)
+             setIsTransitioning(false)
 
-            }
-
-        }
+         }
 
 
 
@@ -114,9 +112,13 @@ export default function Bluetooth() {
 
                             label={connecting.as((conn: any) => {
 
-                                if (conn) return "Connecting..."
+                                // Show transitioning state if operation is in progress
+                                if (isTransitioning.get()) {
+                                    return device.connected ? "Disconnecting..." : "Connecting..."
+                                }
 
-                                return connected.get() ? "Connected" : (device.paired ? "Paired" : "")
+                                // Show final state
+                                return conn ? "Connecting..." : (connected.get() ? "Connected" : (device.paired ? "Paired" : ""))
 
                             })}
 
@@ -135,9 +137,7 @@ export default function Bluetooth() {
                                 if (current) {
                                     (device as any).disconnect_device(null)
                                 } else {
-                                    setLocalLoading(true)
                                     execAsync(["bluetoothctl", "connect", device.address])
-                                        .finally(() => setLocalLoading(false))
                                 }
                             }}
                         >
