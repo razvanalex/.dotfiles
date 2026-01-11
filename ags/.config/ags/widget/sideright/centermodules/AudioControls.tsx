@@ -12,7 +12,7 @@ function ConfigToggle({
     enabled = true,
     onChange 
 }: { 
-    icon?: string
+    icon?: any
     name?: string
     desc?: string
     value: any
@@ -26,6 +26,9 @@ function ConfigToggle({
     const isSensitive = (enabled && typeof enabled === "object" && "as" in enabled)
         ? enabled : createState(!!enabled)[0]
     
+    // Check if icon is reactive
+    const isIconReactive = icon && (typeof icon === "object" || typeof icon === "function") && "as" in icon
+    
     return (
         <button
             tooltipText={desc}
@@ -38,7 +41,11 @@ function ConfigToggle({
             }}
         >
             <box class="spacing-h-5">
-                {icon && <label class="txt icon-material txt-norm" label={icon} />}
+                {isIconReactive ? (
+                    <label class="txt icon-material txt-norm" label={icon} />
+                ) : icon ? (
+                    <label class="txt icon-material txt-norm" label={icon} />
+                ) : null}
                 {name && <label class="txt txt-small" label={name} />}
                 <box hexpand />
                 <box 
@@ -234,7 +241,7 @@ export default function AudioControls() {
         <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
                 <ConfigToggle
-                    icon={speaker?.mute ? "volume_off" : "volume_up"}
+                    icon={isMuted.as((m: boolean) => m ? "volume_off" : "volume_up")}
                     name="Mute Audio"
                     value={isMuted}
                     onChange={(newValue) => {
