@@ -550,10 +550,107 @@ $colorpicker_rounding: 0.341rem;
     margin: 0.341rem;
 }
 
+.sidebar-tabs {
+    @include group-padding;
+    background-color: $layer1;
+    border-radius: $rounding_small;
+}
+
+.sidebar-tab-button {
+    @include element_decel;
+    @include full-rounding;
+    min-width: 2.727rem;
+    min-height: 2.727rem;
+    color: $onSurfaceVariant;
+    background-color: transparent;
+}
+
+.sidebar-tab-button:hover,
+.sidebar-tab-button:focus {
+    background-color: $layer2;
+}
+
+.sidebar-tab-button:active {
+    background-color: $layer2Active;
+}
+
+.sidebar-tab-button-active {
+    background-color: $secondaryContainer;
+    color: $onSecondaryContainer;
+}
+
+.sidebar-tab-button-active:hover,
+.sidebar-tab-button-active:focus {
+    background-color: mix($secondaryContainer, $layer2Hover, 90%);
+    color: mix($onSecondaryContainer, $layer2Hover, 90%);
+}
+
+.sidebar-tab-button-active:active {
+    background-color: mix($secondaryContainer, $layer2Active, 90%);
+}
+
 .sidebar-chat-message {
     @include normal-rounding;
     @include group-padding;
     background-color: $layer1;
+    margin: 0rem 0.341rem;
+}
+
+.sidebar-chat-message-user {
+    background-color: $primaryContainer;
+    color: $onPrimaryContainer;
+}
+
+.sidebar-chat-message-assistant {
+    background-color: $layer1;
+    color: $onLayer1;
+}
+
+.sidebar-chat-message-text {
+    @include readingfont;
+    padding: 0.341rem;
+}
+
+.sidebar-chat-history {
+    padding: 0rem 0rem;
+}
+
+.sidebar-chat-entry-wrapper {
+    @include group-padding;
+    background-color: $layer2;
+    border-radius: $rounding_small;
+}
+
+.sidebar-chat-entry {
+    @include element_decel;
+    color: $onSurfaceVariant;
+    caret-color: $onSurfaceVariant;
+    background-color: $layer1;
+    border: 0.068rem solid $outline;
+    border-radius: $rounding_verysmall;
+    padding: 0.341rem 0.682rem;
+    min-height: 1.773rem;
+}
+
+.sidebar-chat-entry:focus {
+    border: 0.068rem solid $onSurfaceVariant;
+}
+
+.sidebar-chat-send {
+    @include element_decel;
+    @include small-rounding;
+    min-width: 1.705rem;
+    min-height: 1.705rem;
+    color: $onSurface;
+}
+
+.sidebar-chat-send:hover,
+.sidebar-chat-send:focus {
+    background-color: $hovercolor;
+}
+
+.sidebar-chat-send:active {
+    background-color: $activecolor;
 }
 
 $skeleton-accent: mix($secondary, $onSecondary, 50%);
@@ -933,3 +1030,204 @@ $skeleton-accent: mix($secondary, $onSecondary, 50%);
 .sidebar-centermodules-scrollgradient-bottom {
     background: linear-gradient(to top, $layer1 0%, transparentize($layer1, 1) 1.023rem);
 }
+
+.sidebar-chat-header {
+    @include group-padding;
+    background-color: $layer2;
+    border-radius: $rounding_small;
+    padding: 0.341rem 0.682rem;
+}
+
+.sidebar-tools {
+    @include element_decel;
+    padding: 0rem;
+}
+
+.group-padding {
+    padding: 0.341rem;
+}
+
+.sidebar-typing-dots {
+    margin-left: 0.341rem;
+}
+
+.sidebar-typing-dot {
+    @include full-rounding;
+    font-size: 0.5rem;
+    opacity: 0.5;
+    animation: sidebar-typing-dot-blink 1.4s infinite;
+}
+
+.sidebar-typing-dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.sidebar-typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.sidebar-typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes sidebar-typing-dot-blink {
+    0%, 60%, 100% {
+        opacity: 0.5;
+    }
+    30% {
+        opacity: 1;
+    }
+}
+
+// Chat Widget Styles (new interface)
+.chat-widget {
+    @include element_decel;
+    padding: 0.682rem;
+}
+
+.chat-header {
+    @include group-padding;
+    background-color: $layer2;
+    border-radius: $rounding_small;
+    padding: 0.341rem 0.682rem;
+    min-height: 2.5rem;
+}
+
+.chat-provider-selector {
+    @include element_decel;
+}
+
+.provider-button {
+    @include element_decel;
+    @include small-rounding;
+    padding: 0.341rem 0.682rem;
+    background-color: $layer1;
+    color: $onSurfaceVariant;
+    min-height: 1.705rem;
+}
+
+.provider-button:hover,
+.provider-button:focus {
+    background-color: $layer1Hover;
+}
+
+.provider-button:active {
+    background-color: $layer1Active;
+}
+
+.provider-button-active {
+    background-color: $secondaryContainer;
+    color: $onSecondaryContainer;
+}
+
+.provider-button-active:hover,
+.provider-button-active:focus {
+    background-color: mix($secondaryContainer, $layer1Hover, 70%);
+}
+
+.provider-button-active:active {
+    background-color: mix($secondaryContainer, $layer1Active, 40%);
+}
+
+.chat-history {
+    @include element_decel;
+    padding: 0.682rem 0rem;
+}
+
+.chat-message {
+    @include normal-rounding;
+    @include group-padding;
+    margin: 0.341rem;
+}
+
+.chat-message-user {
+    background-color: $primaryContainer;
+    color: $onPrimaryContainer;
+}
+
+.chat-message-assistant {
+    background-color: $layer1;
+    color: $onLayer1;
+}
+
+.chat-message-text {
+    @include readingfont;
+    padding: 0.341rem;
+}
+
+.chat-entry-container {
+    @include element_decel;
+    padding: 0.341rem;
+}
+
+.chat-input-box {
+    @include group-padding;
+    background-color: $layer2;
+    border-radius: $rounding_small;
+    min-height: 2.5rem;
+}
+
+.chat-entry {
+    @include element_decel;
+    color: $onSurfaceVariant;
+    caret-color: $onSurfaceVariant;
+    background-color: $layer1;
+    border: 0.068rem solid $outline;
+    border-radius: $rounding_verysmall;
+    padding: 0.341rem 0.682rem;
+    min-height: 1.773rem;
+}
+
+.chat-entry:focus {
+    border: 0.068rem solid $onSurfaceVariant;
+}
+
+.chat-send-button {
+    @include element_decel;
+    @include small-rounding;
+    min-width: 1.705rem;
+    min-height: 1.705rem;
+    color: $onSurface;
+}
+
+.chat-send-button:hover,
+.chat-send-button:focus {
+    background-color: $layer1Hover;
+}
+
+.chat-send-button:active {
+    background-color: $layer1Active;
+}
+
+.typing-indicator {
+    margin-left: 0.341rem;
+}
+
+.typing-dot {
+    @include full-rounding;
+    font-size: 0.5rem;
+    opacity: 0.5;
+    animation: chat-typing-dot-blink 1.4s infinite;
+}
+
+.typing-dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes chat-typing-dot-blink {
+    0%, 60%, 100% {
+        opacity: 0.5;
+    }
+    30% {
+        opacity: 1;
+    }
+}
+

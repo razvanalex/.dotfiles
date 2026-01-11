@@ -4,6 +4,7 @@ import { handleStyles, COMPILED_STYLE_DIR } from "./lib/styles"
 // import { firstRunWelcome, startBatteryWarningService } from "./services/messages"
 // import Crosshair from "./widget/modules/Crosshair"
 import Bar from "./widget/Bar"
+import SideLeft from "./widget/SideLeft"
 import SideRight from "./widget/SideRight"
 import Session from "./widget/Session"
 import Notifd from "gi://AstalNotifd"
@@ -29,6 +30,7 @@ app.start({
 
         monitors.forEach((monitor, index) => {
             Bar(monitor, index)
+            SideLeft(monitor, index)
             SideRight(monitor, index)
             Indicators(monitor, index)
             Session(monitor, index)
