@@ -12,7 +12,7 @@ fi
 # variables
 SCRIPTSDIR="$HOME/.config/hypr/scripts"
 
-# swww transition config
+# awww transition config
 FPS=60
 TYPE="any"
 DURATION=1
@@ -55,8 +55,8 @@ function basename(file) {
 }
 
 
-# initiate swww if not running
-swww query || swww-daemon --format xrgb
+# initiate awww if not running
+awww query || awww-daemon --format xrgb
 
 # Choice of wallpapers
 main() {
@@ -68,7 +68,7 @@ main() {
 
   # Random choice case
   if [ "$choice" = "$RANDOM_PIC_NAME" ]; then
-    swww img "${RANDOM_PIC}" $SWWW_PARAMS
+    awww img "${RANDOM_PIC}" $SWWW_PARAMS
     sleep 0.5
     ln -sf "${RANDOM_PIC}" "$HOME/.config/rofi/.current_wallpaper"
     cp -r "${RANDOM_PIC}" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
@@ -91,7 +91,7 @@ function basename(file) {
 ')
 
   if [[ -n $picture ]]; then
-    swww img "$picture" $SWWW_PARAMS
+    awww img "$picture" $SWWW_PARAMS
     sleep 0.5
     ln -sf "$picture" "$HOME/.config/rofi/.current_wallpaper"
     cp -r "$picture" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"

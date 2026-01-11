@@ -16,7 +16,7 @@ fi
 # This controls (in seconds) when to switch to the next image
 INTERVAL=3000
 
-swww query || swww-daemon --format xrgb
+awww query || awww-daemon --format xrgb
 
 while true; do
 	find "$crtWallDIR" -type f -not -path "${crtWallDIR}/.*" \
@@ -25,7 +25,7 @@ while true; do
 		done \
 		| sort -n | cut -d':' -f2- \
 		| while read -r img; do
-			swww img "$img" --transition-type fade --transition-fps 60 --transition-duration 1
+			awww img "$img" --transition-type fade --transition-fps 60 --transition-duration 1
 			ln -sf "$img" "$HOME/.config/rofi/.current_wallpaper"
 			cp -r "$img" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
 			source ~/.config/ags/scripts/.venv/bin/activate && \

@@ -16,11 +16,11 @@ if [ "$HYPRGAMEMODE" = 1 ] ; then
         keyword general:gaps_out 0;\
         keyword general:border_size 1;\
         keyword decoration:rounding 0"
-    swww kill 
+    awww kill 
     notify-send -e -u low -i "$notif" "gamemode enabled. All animations off"
     exit
 else
-	swww-daemon --format xrgb && swww img "$HOME/.config/rofi/.current_wallpaper" &
+	awww-daemon --format xrgb && awww img "$HOME/.config/rofi/.current_wallpaper" &
 	sleep 0.1
 	${SCRIPTSDIR}/WallustSwww.sh
 	sleep 0.5

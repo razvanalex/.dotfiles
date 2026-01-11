@@ -34,8 +34,8 @@ menu() {
   done
 }
 
-# initiate swww if not running
-swww query || swww-daemon --format xrgb 
+# initiate awww if not running
+awww query || awww-daemon --format xrgb 
 
 # Choice of wallpapers
 main() {
