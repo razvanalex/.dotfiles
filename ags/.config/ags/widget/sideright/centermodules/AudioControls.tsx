@@ -36,7 +36,18 @@ function ConfigToggle({
             hexpand
             sensitive={isSensitive}
             onClicked={() => {
-                const current = !!(typeof active === "function" ? active() : (active as any).get?.() ?? active)
+                // Get current value - handle both Accessor (binding) and State objects
+                let current: boolean
+                if (typeof active === "function") {
+                    current = active() as boolean
+                } else if ((active as any).get && typeof (active as any).get === "function") {
+                    current = (active as any).get() as boolean
+                } else if (isReactive) {
+                    // For reactive bindings without .get(), try to access as Accessor
+                    current = (active as any)?.() as boolean || false
+                } else {
+                    current = !!active
+                }
                 onChange(!current)
             }}
         >
@@ -240,18 +251,34 @@ export default function AudioControls() {
      return (
          <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
              <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
-                 <ConfigToggle
-                     icon={isMuted.as((m: boolean) => m ? "volume_off" : "volume_up")}
-                     name="Mute Audio"
-                     value={isMuted}
-                     onChange={(newValue) => {
+                 <button
+                     class="txt configtoggle-box"
+                     hexpand
+                     onClicked={() => {
                          if (speaker) {
-                             speaker.mute = newValue
+                             speaker.mute = !speaker.mute
                          }
                      }}
-                 />
-                <box class="separator-line" />
-            </box>
+                 >
+                     <box class="spacing-h-5">
+                         <label class="txt icon-material txt-norm" label={isMuted.as((m: boolean) => m ? "volume_off" : "volume_up")} />
+                         <label class="txt txt-small" label="Mute Audio" />
+                         <box hexpand />
+                         <box 
+                             class={isMuted.as((m: boolean) => `switch-bg ${m ? 'switch-bg-true' : ''}`)}
+                             valign={Gtk.Align.CENTER}
+                             halign={Gtk.Align.END}
+                         >
+                             <box 
+                                 class={isMuted.as((m: boolean) => `switch-fg ${m ? 'switch-fg-true' : ''}`)}
+                                 halign={Gtk.Align.START}
+                                 valign={Gtk.Align.CENTER}
+                             />
+                         </box>
+                     </box>
+                  </button>
+                  <box class="separator-line" />
+             </box>
             <stack
                 visibleChildName={streams.as(s => s.length > 0 ? "list" : "empty")}
                 transitionType={Gtk.StackTransitionType.CROSSFADE}
