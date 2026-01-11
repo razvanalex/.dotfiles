@@ -128,25 +128,24 @@ function ChatEntry({ onSendMessage, isLoading }: { onSendMessage: (text: string)
 }
 
 export default function ChatWidget() {
-    const [messages, setMessages] = createState<Message[]>([])
-    const [apiProvider, setApiProvider] = createState<"gpt" | "gemini">("gpt")
-    const [isLoading, setIsLoading] = createState(false)
+     const [messages, setMessages] = createState<Message[]>([])
+     const [apiProvider, setApiProvider] = createState<"gpt" | "gemini">("gpt")
+     const [isLoading, setIsLoading] = createState(false)
+     const [initialized, setInitialized] = createState(false)
 
-    // Initialize messages from current provider's history
-    const loadMessagesForProvider = (provider: "gpt" | "gemini") => {
-        const history = chatHistoryManager.getMessages(provider)
-        setMessages([...history])
-    }
+     // Initialize messages from current provider's history
+     const loadMessagesForProvider = (provider: "gpt" | "gemini") => {
+         const history = chatHistoryManager.getMessages(provider)
+         setMessages([...history])
+     }
 
-    // Load initial messages from history for default provider
-    const initializeChatHistory = () => {
-        loadMessagesForProvider("gpt")
-    }
-
-    // Execute on component mount
-    if (typeof initializeChatHistory === 'function') {
-        initializeChatHistory()
-    }
+     // Load initial messages from history for default provider
+     const initializeChatHistory = () => {
+         if (!initialized.get()) {
+             loadMessagesForProvider("gpt")
+             setInitialized(true)
+         }
+     }
 
     // Handle message deletion
     const handleDeleteMessage = (role: "user" | "assistant", content: string) => {
@@ -241,9 +240,14 @@ export default function ChatWidget() {
         }
     }
 
-    return (
-        <box orientation={Gtk.Orientation.VERTICAL} class="chat-widget spacing-v-10" vexpand>
-            <box class="chat-header spacing-h-5" orientation={Gtk.Orientation.HORIZONTAL}>
+     return (
+         <box orientation={Gtk.Orientation.VERTICAL} class="chat-widget spacing-v-10" vexpand
+             $={() => {
+                 // Initialize on first render
+                 initializeChatHistory()
+             }}
+         >
+             <box class="chat-header spacing-h-5" orientation={Gtk.Orientation.HORIZONTAL}>
                 <label class="txt txt-title" label="Chat" hexpand halign={Gtk.Align.START} />
                 <box class="chat-provider-selector spacing-h-3">
                     <button
