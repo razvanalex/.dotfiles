@@ -179,9 +179,15 @@ export default function WifiNetworks() {
                      </box>
                  </button>
                  <box class="separator-line" />
-            </box>
-            <CurrentNetwork />
-            <stack
+             </box>
+             <revealer
+                 revealChild={wifiEnabled}
+                 transitionType={Gtk.RevealerTransitionType.SLIDE_DOWN}
+                 transitionDuration={userOptions.animations.durationLarge}
+             >
+                 <CurrentNetwork />
+             </revealer>
+             <stack
                 visibleChildName={wifiEnabled.as(e => e ? "list" : "disabled")}
                 transitionType={Gtk.StackTransitionType.CROSSFADE}
                 vexpand
