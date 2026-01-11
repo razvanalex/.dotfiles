@@ -113,10 +113,12 @@ function CurrentNetwork() {
                                 <label halign={Gtk.Align.START} label={ssid.as(s => s || "Not connected")} />
                             </box>
                             <label valign={Gtk.Align.CENTER} class="txt-subtext" label={state.as(s => {
-                                // Show auth if needed
+                                // Show/hide auth based on state
                                 if (s === Network.DeviceState.FAILED || s === Network.DeviceState.NEED_AUTH) {
                                     setAuthSsid(wifi.ssid)
                                     setShowAuth(true)
+                                } else {
+                                    setShowAuth(false)
                                 }
                                 
                                 const stateMap: Record<number, string> = {
