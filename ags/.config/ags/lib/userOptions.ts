@@ -200,8 +200,8 @@ const defaultOptions: UserOptions = {
     apps: {
         bluetooth: "blueman-manager",
         imageViewer: "loupe",
-        network: 'XDG_CURRENT_DESKTOP="gnome" gnome-control-center wifi',
-        settings: 'XDG_CURRENT_DESKTOP="gnome" gnome-control-center',
+        network: 'bash -c \'XDG_CURRENT_DESKTOP="gnome" gnome-control-center wifi\'',
+        settings: 'bash -c \'XDG_CURRENT_DESKTOP="gnome" gnome-control-center\'',
         taskManager: "gnome-system-monitor",
         terminal: "kitty",
     },
