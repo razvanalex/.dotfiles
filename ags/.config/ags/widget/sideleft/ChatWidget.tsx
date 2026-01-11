@@ -5,24 +5,15 @@ import userOptions from "../../lib/userOptions"
 import gptService from "../../services/GPT"
 import geminiService from "../../services/Gemini"
 import chatHistoryManager from "../../services/ChatHistoryManager"
+import ChatMessage from "./ChatMessage"
 
-type Message = { role: "user" | "assistant"; content: string }
-
-function ChatMessage({ role, content }: Message) {
-    return (
-        <box
-            class={`chat-message chat-message-${role}`}
-            orientation={Gtk.Orientation.VERTICAL}
-            halign={role === "user" ? Gtk.Align.END : Gtk.Align.START}
-        >
-            <label
-                wrap
-                selectable
-                class="txt txt-smallie chat-message-text"
-                label={content}
-            />
-        </box>
-    )
+type Message = {
+    role: "user" | "assistant"
+    content: string
+    timestamp?: number
+    model?: string
+    provider?: "gpt" | "gemini"
+    isIncomplete?: boolean
 }
 
 function TypingIndicator() {
@@ -41,7 +32,17 @@ function TypingIndicator() {
     )
 }
 
-function ChatHistory({ messages, isLoading }: { messages: any; isLoading: any }) {
+function ChatHistory({
+    messages,
+    isLoading,
+    onDeleteMessage,
+    onEditMessage,
+}: {
+    messages: any
+    isLoading: any
+    onDeleteMessage: (role: "user" | "assistant", content: string) => void
+    onEditMessage: (oldContent: string, newContent: string) => void
+}) {
     return (
         <box orientation={Gtk.Orientation.VERTICAL} vexpand>
             <scrolledwindow
@@ -53,22 +54,35 @@ function ChatHistory({ messages, isLoading }: { messages: any; isLoading: any })
                     orientation={Gtk.Orientation.VERTICAL}
                     class="chat-history spacing-v-5"
                 >
-                    {messages.as((msgs: Message[]) => msgs.length === 0 ? (
-                        <box
-                            orientation={Gtk.Orientation.VERTICAL}
-                            valign={Gtk.Align.CENTER}
-                            halign={Gtk.Align.CENTER}
-                            class="txt txt-subtext spacing-v-5"
-                            vexpand
-                        >
-                            <label class="icon-material txt-gigantic" label="chat" />
-                            <label class="txt-small" label="Start a conversation..." />
-                        </box>
-                    ) : null)}
+                    {(() => {
+                        const msgs = messages.get()
+                        if (msgs.length === 0) {
+                            return (
+                                <box
+                                    orientation={Gtk.Orientation.VERTICAL}
+                                    valign={Gtk.Align.CENTER}
+                                    halign={Gtk.Align.CENTER}
+                                    class="txt txt-subtext spacing-v-5"
+                                    vexpand
+                                >
+                                    <label class="icon-material txt-gigantic" label="chat" />
+                                    <label class="txt-small" label="Start a conversation..." />
+                                </box>
+                            )
+                        }
+                        return null
+                    })()}
                     <For each={messages}>
-                        {(msg: Message) => <ChatMessage role={msg.role} content={msg.content} />}
+                        {(msg: Message) => (
+                            <ChatMessage
+                                message={msg}
+                                onDelete={onDeleteMessage}
+                                onEdit={onEditMessage}
+                                showActions={true}
+                            />
+                        )}
                     </For>
-                    {isLoading.as((loading: boolean) => loading ? <TypingIndicator /> : null)}
+                    {isLoading.get() && <TypingIndicator />}
                 </box>
             </scrolledwindow>
         </box>
@@ -91,7 +105,7 @@ function ChatEntry({ onSendMessage, isLoading }: { onSendMessage: (text: string)
             <box class="chat-input-box spacing-h-5">
                 <entry
                     class="chat-entry txt-small"
-                    placeholderText="Message..."
+                    placeholderText="Ask anything..."
                     text={text}
                     onNotify={(self: any) => {
                         setText(self.text)
@@ -134,11 +148,62 @@ export default function ChatWidget() {
         initializeChatHistory()
     }
 
+    // Handle message deletion
+    const handleDeleteMessage = (role: "user" | "assistant", content: string) => {
+        const currentProvider = apiProvider.get()
+        const currentMessages = messages.get()
+        
+        // Remove message from state
+        const updatedMessages = currentMessages.filter(
+            (msg: Message) => !(msg.role === role && msg.content === content)
+        )
+        setMessages(updatedMessages)
+        
+        // Clear and re-add all messages to update chat history
+        // (ChatHistoryManager doesn't have delete yet, so we rebuild)
+        chatHistoryManager.clearMessages(currentProvider)
+        updatedMessages.forEach((msg: Message) => {
+            chatHistoryManager.addMessage(currentProvider, {
+                role: msg.role,
+                content: msg.content
+            })
+        })
+    }
+
+    // Handle message editing
+    const handleEditMessage = (oldContent: string, newContent: string) => {
+        const currentProvider = apiProvider.get()
+        const currentMessages = messages.get()
+        
+        // Update message in state
+        const updatedMessages = currentMessages.map((msg: Message) => 
+            msg.content === oldContent
+                ? { ...msg, content: newContent }
+                : msg
+        )
+        setMessages(updatedMessages)
+        
+        // Clear and re-add all messages to update chat history
+        // (ChatHistoryManager doesn't have update yet, so we rebuild)
+        chatHistoryManager.clearMessages(currentProvider)
+        updatedMessages.forEach((msg: Message) => {
+            chatHistoryManager.addMessage(currentProvider, {
+                role: msg.role,
+                content: msg.content
+            })
+        })
+    }
+
     const handleSendMessage = async (text: string) => {
         const currentProvider = apiProvider.get()
         
         // Add user message to display and save
-        const userMessage: Message = { role: "user", content: text }
+        const userMessage: Message = { 
+            role: "user", 
+            content: text,
+            timestamp: Date.now(),
+            provider: currentProvider,
+        }
         setMessages([...messages.get(), userMessage])
         chatHistoryManager.addMessage(currentProvider, userMessage)
         setIsLoading(true)
@@ -152,14 +217,22 @@ export default function ChatWidget() {
             }
 
             // Add assistant message to display and save
-            const assistantMessage: Message = { role: "assistant", content: response }
+            const assistantMessage: Message = { 
+                role: "assistant", 
+                content: response,
+                timestamp: Date.now(),
+                model: currentProvider === "gpt" ? "gpt-4" : "gemini-pro",
+                provider: currentProvider,
+            }
             setMessages([...messages.get(), assistantMessage])
             chatHistoryManager.addMessage(currentProvider, assistantMessage)
         } catch (err) {
             // Show error as assistant message
             const errorMessage: Message = {
                 role: "assistant",
-                content: `Error: ${err instanceof Error ? err.message : "Unknown error"}`
+                content: `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+                timestamp: Date.now(),
+                provider: currentProvider,
             }
             setMessages([...messages.get(), errorMessage])
             chatHistoryManager.addMessage(currentProvider, errorMessage)
@@ -196,7 +269,12 @@ export default function ChatWidget() {
                 </box>
             </box>
             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5" vexpand>
-                <ChatHistory messages={messages} isLoading={isLoading} />
+                <ChatHistory 
+                    messages={messages} 
+                    isLoading={isLoading}
+                    onDeleteMessage={handleDeleteMessage}
+                    onEditMessage={handleEditMessage}
+                />
                 <ChatEntry onSendMessage={handleSendMessage} isLoading={isLoading} />
             </box>
         </box>

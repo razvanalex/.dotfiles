@@ -1,0 +1,282 @@
+// Enhanced Chat Component Styling
+// Material Design 3 compliant chat message cards
+
+// ============================================================================
+// Variables
+// ============================================================================
+
+$chat_message_padding: 0.682rem;
+$chat_message_margin: 0.341rem;
+$chat_header_padding: 0.477rem 0.682rem;
+$chat_code_padding: 0.682rem;
+$chat_border_radius: $rounding_medium;
+
+// ============================================================================
+// Base Message Card Styling
+// ============================================================================
+
+.chat-message-card {
+    @include normal-rounding;
+    @include element_decel;
+    padding: $chat_message_padding;
+    margin: $chat_message_margin;
+    background-color: $layer1;
+    color: $onLayer1;
+    border: 0.068rem solid transparent;
+}
+
+.chat-message-card:hover {
+    background-color: $layer1Hover;
+}
+
+.chat-message-card:focus {
+    border-color: $onSurfaceVariant;
+}
+
+// ============================================================================
+// Message Header Styling (with Provider Badge)
+// ============================================================================
+
+.chat-message-header {
+    @include readingfont;
+    padding: $chat_header_padding;
+    margin-bottom: 0.341rem;
+    font-weight: 500;
+    font-size: 1.0909rem;
+}
+
+.chat-message-header-title {
+    color: $onLayer1;
+}
+
+.chat-provider-badge {
+    @include small-rounding;
+    padding: 0.205rem 0.477rem;
+    background-color: $secondaryContainer;
+    color: $onSecondaryContainer;
+    font-size: 0.909rem;
+    font-weight: 500;
+}
+
+.chat-provider-badge.provider-openai {
+    background-color: mix($secondary, $secondaryContainer, 60%);
+    color: $onSecondaryContainer;
+}
+
+.chat-provider-badge.provider-gemini {
+    background-color: $secondaryContainer;
+    color: $onSecondaryContainer;
+}
+
+// ============================================================================
+// Message Metadata Styling (Timestamp, Model Name)
+// ============================================================================
+
+.chat-message-metadata {
+    @include readingfont;
+    font-size: 0.909rem;
+    color: $onLayer1Inactive;
+    margin-top: 0.341rem;
+    padding-top: 0.341rem;
+    border-top: 0.068rem solid mix($layer1, $onLayer1, 85%);
+}
+
+// ============================================================================
+// Message Content Styling
+// ============================================================================
+
+.chat-message-content {
+    @include readingfont;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: $onLayer1;
+    margin: 0.341rem 0;
+}
+
+// ============================================================================
+// Action Buttons
+// ============================================================================
+
+.chat-action-button {
+    @include element_decel;
+    @include small-rounding;
+    min-width: 1.705rem;
+    min-height: 1.705rem;
+    color: $onLayer1;
+    padding: 0.205rem;
+}
+
+.chat-action-button:hover {
+    background-color: $layer1Hover;
+    color: $onLayer1;
+}
+
+.chat-action-button:focus {
+    background-color: $layer1Hover;
+    border-color: $onSurfaceVariant;
+}
+
+.chat-action-button:active {
+    background-color: $layer1Active;
+}
+
+.chat-action-button-copy.copied {
+    background-color: $primary;
+    color: $onPrimary;
+}
+
+.chat-action-button-edit:hover {
+    color: $primary;
+}
+
+.chat-action-button-delete:hover {
+    color: $error;
+}
+
+// ============================================================================
+// Code Block Styling
+// ============================================================================
+
+.chat-code-block {
+    @include small-rounding;
+    background-color: mix($layer1, $onLayer1, 95%);
+    border: 0.068rem solid mix($layer1, $onLayer1, 85%);
+    padding: $chat_code_padding;
+    margin: 0.341rem 0;
+    font-family: "JetBrains Mono NF", "JetBrains Mono Nerd Font", monospace;
+    font-size: 0.909rem;
+    color: $onLayer1;
+}
+
+.chat-code-language {
+    @include mainfont;
+    padding: 0.341rem 0.682rem;
+    background-color: $surfaceVariant;
+    color: $onSurfaceVariant;
+    border-bottom: 0.068rem solid mix($layer1, $onLayer1, 85%);
+    font-size: 0.818rem;
+    font-weight: 500;
+}
+
+// ============================================================================
+// Text Block Styling
+// ============================================================================
+
+.chat-text-block {
+    @include readingfont;
+    color: $onLayer1;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0.341rem 0;
+}
+
+// ============================================================================
+// List Styling
+// ============================================================================
+
+.chat-list-item {
+    margin: 0.205rem 0;
+    margin-left: 1rem;
+    color: $onLayer1;
+}
+
+.chat-ordered-list {
+    padding-left: 1.5rem;
+}
+
+.chat-unordered-list {
+    padding-left: 1rem;
+}
+
+// ============================================================================
+// Quote Styling
+// ============================================================================
+
+.chat-quote {
+    padding: 0.341rem 0.682rem;
+    margin: 0.341rem 0;
+    border-left: 0.273rem solid $onSurfaceVariant;
+    background-color: $layer2;
+    color: $onLayer2;
+}
+
+// ============================================================================
+// Edit Mode Styling
+// ============================================================================
+
+.chat-message-editing {
+    border: 0.068rem solid $onSurfaceVariant;
+    background-color: $layer2;
+}
+
+.chat-edit-textarea {
+    background-color: $layer1;
+    color: $onLayer1;
+    border: 0.068rem solid $onSurfaceVariant;
+    padding: 0.341rem;
+}
+
+// ============================================================================
+// User vs Assistant Message Styling
+// ============================================================================
+
+.chat-message-user {
+    background-color: $primaryContainer;
+    color: $onPrimaryContainer;
+}
+
+.chat-message-assistant {
+    background-color: $layer1;
+    color: $onLayer1;
+}
+
+// ============================================================================
+// Loading/Typing Indicator
+// ============================================================================
+
+.chat-typing-indicator {
+    display: flex;
+    gap: 0.205rem;
+}
+
+.chat-typing-dot {
+    @include full-rounding;
+    min-width: 0.545rem;
+    min-height: 0.545rem;
+    background-color: $onLayer1;
+    opacity: 0.6;
+    animation: chat-typing-dot-blink 1.4s infinite;
+}
+
+.chat-typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.chat-typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes chat-typing-dot-blink {
+    0%, 60%, 100% {
+        opacity: 0.4;
+    }
+    30% {
+        opacity: 1;
+    }
+}
+
+// ============================================================================
+// Provider Specific Colors
+// ============================================================================
+
+.chat-message.gpt {
+    .chat-message-header {
+        border-color: mix($secondary, transparent, 30%);
+    }
+}
+
+.chat-message.gemini {
+    .chat-message-header {
+        border-color: mix($tertiary, transparent, 30%);
+    }
+}
