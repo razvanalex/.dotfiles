@@ -207,15 +207,31 @@ export default function WifiNetworks() {
     return (
         <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
-                <ConfigToggle
-                    icon="wifi"
-                    name="WiFi Adapter"
-                    value={wifiEnabled}
-                    onChange={(newValue) => {
-                        wifi.set_enabled(newValue)
-                    }}
-                />
-                <box class="separator-line" />
+                 <button
+                     class="txt configtoggle-box"
+                     hexpand
+                     onClicked={() => {
+                         wifi.set_enabled(!wifi.enabled)
+                     }}
+                 >
+                     <box class="spacing-h-5">
+                         <label class="txt icon-material txt-norm" label="wifi" />
+                         <label class="txt txt-small" label="WiFi Adapter" />
+                         <box hexpand />
+                         <box 
+                             class={wifiEnabled.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
+                             valign={Gtk.Align.CENTER}
+                             halign={Gtk.Align.END}
+                         >
+                             <box 
+                                 class={wifiEnabled.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
+                                 halign={Gtk.Align.START}
+                                 valign={Gtk.Align.CENTER}
+                             />
+                         </box>
+                     </box>
+                 </button>
+                 <box class="separator-line" />
             </box>
             <CurrentNetwork />
             <stack
