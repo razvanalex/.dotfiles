@@ -38,34 +38,21 @@ $chat_border_radius: $rounding_medium;
 // ============================================================================
 
 .chat-message-header {
-    @include readingfont;
-    padding: $chat_header_padding;
+    padding: 0 0 0.341rem 0;
     margin-bottom: 0.341rem;
     font-weight: 500;
-    font-size: 1.0909rem;
-}
-
-.chat-message-header-title {
-    color: $onLayer1;
-}
-
-.chat-provider-badge {
-    @include small-rounding;
-    padding: 0.205rem 0.477rem;
-    background-color: $secondaryContainer;
-    color: $onSecondaryContainer;
     font-size: 0.909rem;
-    font-weight: 500;
 }
 
-.chat-provider-badge.provider-openai {
-    background-color: mix($secondary, $secondaryContainer, 60%);
-    color: $onSecondaryContainer;
+.chat-message-header-provider {
+    color: $onLayer1;
+    font-weight: 600;
 }
 
-.chat-provider-badge.provider-gemini {
-    background-color: $secondaryContainer;
-    color: $onSecondaryContainer;
+.chat-message-header-time {
+    color: $onSurfaceVariant;
+    font-size: 0.75rem;
+    margin-start: auto;
 }
 
 // ============================================================================
@@ -217,17 +204,42 @@ $chat_border_radius: $rounding_medium;
 }
 
 // ============================================================================
-// User vs Assistant Message Styling
+// Chat Message Container
 // ============================================================================
+
+.chat-message {
+    padding: 0.682rem;
+    margin: 0.341rem;
+    margin-top: 0.682rem;
+    margin-bottom: 0.682rem;
+    border-radius: 0.545rem;
+    min-height: 2rem;
+}
 
 .chat-message-user {
     background-color: $primaryContainer;
     color: $onPrimaryContainer;
+    border-radius: 0.682rem;
+    padding: 0.682rem 1rem;
+    margin-end: 0.5rem;
+    margin-start: 2rem;
+}
+
+.chat-message-user:hover {
+    background-color: mix($primaryContainer, $primary, 20%);
 }
 
 .chat-message-assistant {
     background-color: $layer1;
     color: $onLayer1;
+    border-radius: 0.682rem;
+    padding: 0.682rem 1rem;
+    margin-start: 0.5rem;
+    margin-end: 2rem;
+}
+
+.chat-message-assistant:hover {
+    background-color: $layer1Hover;
 }
 
 // ============================================================================

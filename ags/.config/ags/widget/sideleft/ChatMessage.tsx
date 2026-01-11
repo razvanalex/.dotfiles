@@ -205,19 +205,14 @@ export default function ChatMessage({
         })
     }
 
-    return (
-        <box
-            class={`chat-message chat-message-${message.role}`}
-            orientation={Gtk.Orientation.VERTICAL}
-            spacing={5}
-            halign={message.role === "user" ? Gtk.Align.END : Gtk.Align.START}
-            hexpand={message.role === "user"}
-            vexpand={false}
-            marginTop={5}
-            marginBottom={5}
-            marginStart={5}
-            marginEnd={5}
-        >
+     return (
+         <box
+             class={`chat-message chat-message-${message.role}`}
+             orientation={Gtk.Orientation.VERTICAL}
+             spacing={3}
+             halign={message.role === "user" ? Gtk.Align.END : Gtk.Align.START}
+             widthRequest={300}
+         >
             {/* Message Header */}
             <MessageHeader
                 role={message.role}
