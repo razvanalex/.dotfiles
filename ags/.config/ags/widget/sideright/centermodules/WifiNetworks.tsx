@@ -110,7 +110,7 @@ function CurrentNetwork() {
                             <label class="icon-material txt-huger" label="language" />
                             <box orientation={Gtk.Orientation.VERTICAL} hexpand>
                                 <label halign={Gtk.Align.START} class="txt-smaller txt-subtext" label="Current network" />
-                                <label halign={Gtk.Align.START} label={ssid} />
+                                <label halign={Gtk.Align.START} label={ssid.as(s => s || "Not connected")} />
                             </box>
                             <label valign={Gtk.Align.CENTER} class="txt-subtext" label={state.as(s => {
                                 // Show auth if needed
