@@ -112,11 +112,11 @@ export default function Bluetooth() {
 
                             class="txt-subtext"
 
-                            label={createBinding(device, "connected").as(c => {
+                            label={connecting.as((conn: any) => {
 
-                                if (localLoading.get() || device.connecting) return "Connecting..."
+                                if (conn) return "Connecting..."
 
-                                return c ? "Connected" : (device.paired ? "Paired" : "")
+                                return connected.get() ? "Connected" : (device.paired ? "Paired" : "")
 
                             })}
 
