@@ -1,10 +1,11 @@
-import { Gtk } from "ags/gtk4"
+import { Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
 import { For } from "ags"
 import userOptions from "../../lib/userOptions"
 import gptService from "../../services/GPT"
 import geminiService from "../../services/Gemini"
 import chatHistoryManager from "../../services/ChatHistoryManager"
+import apiKeyManager from "../../services/ApiKeyManager"
 import ChatMessage from "./ChatMessage"
 
 type Message = {
@@ -33,27 +34,43 @@ function TypingIndicator() {
 }
 
 function ChatHistory({
-    messages,
-    isLoading,
-    onDeleteMessage,
-    onEditMessage,
+     messages,
+     isLoading,
+     onDeleteMessage,
+     onEditMessage,
 }: {
-    messages: any
-    isLoading: any
-    onDeleteMessage: (role: "user" | "assistant", content: string) => void
-    onEditMessage: (oldContent: string, newContent: string) => void
+     messages: any
+     isLoading: any
+     onDeleteMessage: (role: "user" | "assistant", content: string) => void
+     onEditMessage: (oldContent: string, newContent: string) => void
 }) {
-    return (
-        <box orientation={Gtk.Orientation.VERTICAL} vexpand>
-            <scrolledwindow
-                hscrollbarPolicy={Gtk.PolicyType.NEVER}
-                vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
-                vexpand
-            >
-                <box
-                    orientation={Gtk.Orientation.VERTICAL}
-                    class="chat-history spacing-v-5"
-                >
+     let scrolledWindow: any = null
+
+     return (
+         <box orientation={Gtk.Orientation.VERTICAL} vexpand>
+             <scrolledwindow
+                 hscrollbarPolicy={Gtk.PolicyType.NEVER}
+                 vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
+                 vexpand
+                 $={(self: any) => {
+                     scrolledWindow = self
+                 }}
+             >
+                 <box
+                     orientation={Gtk.Orientation.VERTICAL}
+                     class="chat-history spacing-v-5"
+                     $={() => {
+                         // Scroll to bottom when messages change
+                         if (scrolledWindow && messages.get().length > 0) {
+                             setTimeout(() => {
+                                 const vadjustment = scrolledWindow.get_vadjustment()
+                                 if (vadjustment) {
+                                     vadjustment.set_value(vadjustment.get_upper() - vadjustment.get_page_size())
+                                 }
+                             }, 100)
+                         }
+                     }}
+                 >
                     {(() => {
                         const msgs = messages.get()
                         if (msgs.length === 0) {
@@ -90,41 +107,56 @@ function ChatHistory({
 }
 
 function ChatEntry({ onSendMessage, isLoading }: { onSendMessage: (text: string) => void; isLoading: any }) {
-    const [text, setText] = createState("")
+     const [text, setText] = createState("")
 
-    const handleSend = () => {
-        const trimmed = text.get().trim()
-        if (trimmed && !isLoading.get()) {
-            onSendMessage(trimmed)
-            setText("")
-        }
-    }
+     const handleSend = () => {
+         const trimmed = text.get().trim()
+         if (trimmed && !isLoading.get()) {
+             onSendMessage(trimmed)
+             setText("")
+         }
+     }
 
-    return (
-        <box class="chat-entry-container" orientation={Gtk.Orientation.VERTICAL}>
-            <box class="chat-input-box spacing-h-5">
-                <entry
-                    class="chat-entry txt-small"
-                    placeholderText="Ask anything..."
-                    text={text}
-                    onNotify={(self: any) => {
-                        setText(self.text)
-                    }}
-                    onActivate={handleSend}
-                    hexpand
-                    sensitive={isLoading.as((loading: boolean) => !loading)}
-                />
-                <button
-                    class="chat-send-button icon-material"
-                    onClicked={handleSend}
-                    tooltipText="Send (Enter)"
-                    sensitive={isLoading.as((loading: boolean) => !loading)}
-                >
-                    <label label={isLoading.as((loading: boolean) => loading ? "hourglass_empty" : "send")} />
-                </button>
-            </box>
-        </box>
-    )
+     return (
+         <box class="chat-entry-container" orientation={Gtk.Orientation.VERTICAL}>
+             <box class="chat-input-box spacing-h-5">
+                 <entry
+                     class="chat-entry txt-small"
+                     placeholderText="Ask anything..."
+                     text={text}
+                     onNotify={(self: any) => {
+                         setText(self.text)
+                     }}
+                     onActivate={handleSend}
+                     hexpand
+                     sensitive={isLoading.as((loading: boolean) => !loading)}
+                     $={(self: any) => {
+                         // Add keyboard event handler for Ctrl+Enter
+                         const keyController = new Gtk.EventControllerKey()
+                         keyController.connect("key-pressed", (_, keyval, keycode, state: number) => {
+                             // Check if Ctrl is pressed (bit 2 of state)
+                             const isCtrlPressed = (state & 4) === 4
+                             
+                             if (isCtrlPressed && (keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter)) {
+                                 handleSend()
+                                 return true // Consume the event
+                             }
+                             return false
+                         })
+                         self.add_controller(keyController)
+                     }}
+                 />
+                 <button
+                     class="chat-send-button icon-material"
+                     onClicked={handleSend}
+                     tooltipText="Send (Enter)"
+                     sensitive={isLoading.as((loading: boolean) => !loading)}
+                 >
+                     <label label={isLoading.as((loading: boolean) => loading ? "hourglass_empty" : "send")} />
+                 </button>
+             </box>
+         </box>
+     )
 }
 
 export default function ChatWidget() {
@@ -225,19 +257,39 @@ export default function ChatWidget() {
             }
             setMessages([...messages.get(), assistantMessage])
             chatHistoryManager.addMessage(currentProvider, assistantMessage)
-        } catch (err) {
-            // Show error as assistant message
-            const errorMessage: Message = {
-                role: "assistant",
-                content: `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
-                timestamp: Date.now(),
-                provider: currentProvider,
-            }
-            setMessages([...messages.get(), errorMessage])
-            chatHistoryManager.addMessage(currentProvider, errorMessage)
-        } finally {
-            setIsLoading(false)
-        }
+         } catch (err) {
+             // Show error as assistant message
+             let errorMsg = "Unknown error occurred"
+             if (err instanceof Error) {
+                 errorMsg = err.message
+             } else if (typeof err === 'string') {
+                 errorMsg = err
+             }
+             
+             // Check for common error patterns
+             if (errorMsg.includes("401") || errorMsg.includes("Unauthorized")) {
+                 errorMsg = `❌ Authentication failed. Please check your API key for ${currentProvider.toUpperCase()}.`
+             } else if (errorMsg.includes("429") || errorMsg.includes("Too Many")) {
+                 errorMsg = `⏳ Rate limit exceeded. Please wait a moment and try again.`
+             } else if (errorMsg.includes("500") || errorMsg.includes("Internal")) {
+                 errorMsg = `🔧 Server error. The API service is experiencing issues.`
+             } else if (errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNREFUSED")) {
+                 errorMsg = `🌐 Network error. Please check your connection.`
+             } else {
+                 errorMsg = `❌ Error: ${errorMsg}`
+             }
+             
+             const errorMessage: Message = {
+                 role: "assistant",
+                 content: errorMsg,
+                 timestamp: Date.now(),
+                 provider: currentProvider,
+             }
+             setMessages([...messages.get(), errorMessage])
+             chatHistoryManager.addMessage(currentProvider, errorMessage)
+         } finally {
+             setIsLoading(false)
+         }
     }
 
      return (
@@ -247,31 +299,44 @@ export default function ChatWidget() {
                  initializeChatHistory()
              }}
          >
-             <box class="chat-header spacing-h-5" orientation={Gtk.Orientation.HORIZONTAL}>
-                <label class="txt txt-title" label="Chat" hexpand halign={Gtk.Align.START} />
-                <box class="chat-provider-selector spacing-h-3">
-                    <button
-                        class={apiProvider.as((p) => p === "gpt" ? "provider-button provider-button-active" : "provider-button")}
-                        onClicked={() => {
-                            const newProvider = "gpt" as const
-                            loadMessagesForProvider(newProvider)
-                            setApiProvider(newProvider)
-                        }}
-                    >
-                        <label class="txt-smallie" label="GPT" />
-                    </button>
-                    <button
-                        class={apiProvider.as((p) => p === "gemini" ? "provider-button provider-button-active" : "provider-button")}
-                        onClicked={() => {
-                            const newProvider = "gemini" as const
-                            loadMessagesForProvider(newProvider)
-                            setApiProvider(newProvider)
-                        }}
-                    >
-                        <label class="txt-smallie" label="Gemini" />
-                    </button>
-                </box>
-            </box>
+              <box class="chat-header spacing-h-5" orientation={Gtk.Orientation.HORIZONTAL}>
+                 <label class="txt txt-title" label="Chat" hexpand halign={Gtk.Align.START} />
+                 <box class="chat-provider-selector spacing-h-3">
+                     <button
+                         class={apiProvider.as((p) => p === "gpt" ? "provider-button provider-button-active" : "provider-button")}
+                         onClicked={() => {
+                             const newProvider = "gpt" as const
+                             loadMessagesForProvider(newProvider)
+                             setApiProvider(newProvider)
+                         }}
+                     >
+                         <label class="txt-smallie" label="GPT" />
+                     </button>
+                     <button
+                         class={apiProvider.as((p) => p === "gemini" ? "provider-button provider-button-active" : "provider-button")}
+                         onClicked={() => {
+                             const newProvider = "gemini" as const
+                             loadMessagesForProvider(newProvider)
+                             setApiProvider(newProvider)
+                         }}
+                     >
+                         <label class="txt-smallie" label="Gemini" />
+                     </button>
+                 </box>
+                 <label 
+                     class="txt txt-smallie txt-subtext"
+                     label={apiProvider.as((p) => {
+                         const keys = apiKeyManager.getKeys().get()
+                         const hasKey = keys[p]
+                         return hasKey ? "✓" : "✗"
+                     })}
+                     tooltipText={apiProvider.as((p) => {
+                         const keys = apiKeyManager.getKeys().get()
+                         const hasKey = keys[p]
+                         return hasKey ? `${p.toUpperCase()} API key configured` : `No API key for ${p.toUpperCase()}`
+                     })}
+                 />
+             </box>
             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5" vexpand>
                 <ChatHistory 
                     messages={messages} 
