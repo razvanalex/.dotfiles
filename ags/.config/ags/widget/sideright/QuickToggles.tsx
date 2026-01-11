@@ -43,21 +43,20 @@ export function ToggleIconWifi() {
      const network = Network.get_default()
      if (!network) return <box />
      
-     const wifi = createBinding(network, "wifi")
+     const wifi = network.get_wifi()
+     if (!wifi) return <box />
+     
+     const wifiEnabled = createBinding(wifi, "enabled")
      
      return (
          <ToggleButton
              onClick={() => {
-                 const w = network.get_wifi()
-                 if (w) {
-                     // Toggle directly by setting the enabled property
-                     w.enabled = !w.enabled
-                 }
+                 wifi.set_enabled(!wifi.enabled)
              }}
              onSecondaryClick={() => execAsync(userOptions.apps.network)}
              child={<NetworkIndicator />}
-             tooltipText={wifi.as(w => w ? `${w.ssid} | Right-click to configure` : "Wifi | Right-click to configure")}
-             className={wifi.as(w => `txt-small sidebar-iconbutton ${w?.get_internet() === Network.Internet.CONNECTED ? "sidebar-button-active" : ""}`)}
+             tooltipText={wifiEnabled.as(e => e ? "WiFi | Right-click to configure" : "WiFi disabled")}
+             className={wifiEnabled.as(e => `txt-small sidebar-iconbutton ${e ? "sidebar-button-active" : ""}`)}
          />
      )
  }
