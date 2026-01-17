@@ -78,7 +78,7 @@ export default function Bluetooth() {
                 onClicked={toggleConnection}
                 sensitive={isPowered}
             >
-                <box class="spacing-h-10">
+                <box class="spacing-h-5">
                     <image
                         class="sidebar-bluetooth-appicon"
                         valign={Gtk.Align.CENTER}
@@ -95,6 +95,8 @@ export default function Bluetooth() {
                         <box orientation={Gtk.Orientation.HORIZONTAL} class="spacing-h-5">
                             <label
                                 halign={Gtk.Align.START}
+                                maxWidthChars={20}
+                                ellipsize={3}
                                 class="txt-subtext"
                                 label={connected.as((isConnected: any) => {
                                     if (connecting.get()) return "Connecting..."
@@ -133,8 +135,10 @@ export default function Bluetooth() {
                                         })}
                                     />
                                 </box>
-                            </box>                        </box>
+                            </box>
+                        </box>
                     </box>
+                    <box hexpand />
                     <box class="spacing-h-5" valign={Gtk.Align.CENTER}>
                         <button
                             class="txt configtoggle-box"
@@ -149,7 +153,7 @@ export default function Bluetooth() {
                                 }
                             }}
                         >
-                            <box class="spacing-h-5">
+                            <box>
                                 <box
                                     class={connected.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
                                     valign={Gtk.Align.CENTER}
