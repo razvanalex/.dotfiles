@@ -1,117 +1,103 @@
 import { Gtk } from "ags/gtk4"
 import { createState, createBinding, For } from "ags"
+import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import AstalBluetooth from "gi://AstalBluetooth"
 import userOptions from "../../../lib/userOptions"
 
-
-
 export default function Bluetooth() {
-
     const bluetooth = AstalBluetooth.get_default()
-
     const devices = createBinding(bluetooth, "devices")
-
     const isPowered = createBinding(bluetooth, "isPowered")
 
+    function BluetoothDevice({ device }: { device: AstalBluetooth.Device }) {
+        const connected = createBinding(device, "connected")
+        const connecting = createBinding(device, "connecting")
+        const name = createBinding(device, "name")
+        const batPerc = createPoll(-1, 5000, async () => {
+            if (device.battery_percentage > -1) {
+                return device.battery_percentage
+            }
+            try {
+                const out = await execAsync("upower -d")
 
+                const lines = out.split('\n');
+                let inDevice = false;
+                let foundPercentage = -1;
 
-     function BluetoothDevice({ device }: { device: AstalBluetooth.Device }) {
+                for (const line of lines) {
+                    if (line.includes("Device:")) {
+                        inDevice = false; // Reset on new device
+                    }
+                    if (line.toLowerCase().includes(device.address.toLowerCase())) {
+                        inDevice = true;
+                    }
+                    if (inDevice && line.trim().startsWith("percentage:")) {
+                        const p = parseInt(line.split(':')[1].trim().replace('%', ''));
+                        if (!isNaN(p)) {
+                            foundPercentage = p;
+                            break;
+                        }
+                    }
+                }
 
-         const connected = createBinding(device, "connected")
+                return foundPercentage;
+            } catch (e) {
+                console.log("Error fetching battery percentage:", e);
+                return -1;
+            }
+        })
 
-         const connecting = createBinding(device, "connecting")
+        const [isTransitioning, setIsTransitioning] = createState(false)
 
-         const name = createBinding(device, "name")
+        const toggleConnection = async () => {
+            if (!bluetooth.isPowered) {
+                return
+            }
 
-         const [isTransitioning, setIsTransitioning] = createState(false)
+            console.log(`Action: Toggling connection for ${device.name}`)
 
+            setIsTransitioning(true)
 
+            if (device.connected) {
+                (device as any).disconnect_device(null)
+            } else {
+                try {
+                    await execAsync(["bluetoothctl", "connect", device.address])
+                } catch (err) {
+                    console.error(`Bluetooth connect error: ${err}`)
+                }
+            }
 
-         const toggleConnection = async () => {
-
-             if (!bluetooth.isPowered) return
-
-             console.log(`Action: Toggling connection for ${device.name}`)
-
-             setIsTransitioning(true)
-
-             if (device.connected) {
-
-                 (device as any).disconnect_device(null)
-
-             } else {
-
-                 try {
-
-                     await execAsync(["bluetoothctl", "connect", device.address])
-
-                 } catch (err) {
-
-                     console.error(`Bluetooth connect error: ${err}`)
-
-                 }
-
-             }
-
-             setIsTransitioning(false)
-
-         }
-
-
+            setIsTransitioning(false)
+        }
 
         return (
-
             <button
-
                 class="sidebar-bluetooth-device"
-
                 onClicked={toggleConnection}
-
                 sensitive={isPowered}
-
             >
-
                 <box class="spacing-h-10">
-
                     <image
-
                         class="sidebar-bluetooth-appicon"
-
                         valign={Gtk.Align.CENTER}
-
                         iconName={`${device.icon || "bluetooth"}-symbolic`}
-
                     />
-
                     <box hexpand valign={Gtk.Align.CENTER} orientation={Gtk.Orientation.VERTICAL}>
-
                         <label
-
                             halign={Gtk.Align.START}
-
                             maxWidthChars={30}
-
                             ellipsize={3}
-
                             label={name.as(name => name || device.address)}
-
                             class="txt-small"
-
                         />
-
                         <label
-
                             halign={Gtk.Align.START}
-
                             maxWidthChars={30}
-
                             ellipsize={3}
-
                             class="txt-subtext"
-
                             label={connected.as((isConnected: any) => {
-
                                 // Check if we're in a transitioning state by checking connecting property
                                 if (connecting.get()) {
                                     return "Connecting..."
@@ -124,15 +110,16 @@ export default function Bluetooth() {
 
                                 // Show final state
                                 return isConnected ? "Connected" : (device.paired ? "Paired" : "")
-
                             })}
-
                         />
-
+                        <label
+                            halign={Gtk.Align.START}
+                            class="txt-subtext"
+                            visible={batPerc.as(p => p > -1)}
+                            label={batPerc.as(p => `Battery: ${Math.floor(p)}%`)}
+                        />
                     </box>
-
                     <box class="spacing-h-5" valign={Gtk.Align.CENTER}>
-
                         <button
                             class="txt configtoggle-box"
                             hexpand={false}
@@ -147,12 +134,12 @@ export default function Bluetooth() {
                             }}
                         >
                             <box class="spacing-h-5">
-                                <box 
+                                <box
                                     class={connected.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
                                     valign={Gtk.Align.CENTER}
                                     halign={Gtk.Align.END}
                                 >
-                                    <box 
+                                    <box
                                         class={connected.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
                                         halign={Gtk.Align.START}
                                         valign={Gtk.Align.CENTER}
@@ -160,40 +147,24 @@ export default function Bluetooth() {
                                 </box>
                             </box>
                         </button>
-
                         <button
-
                             valign={Gtk.Align.CENTER}
-
                             class="sidebar-bluetooth-device-remove"
-
                             tooltipText="Remove device"
-
                             sensitive={isPowered}
-
                             onClicked={(self) => {
-
                                 console.log(`Remove: ${device.name}`)
-
                                 execAsync(["bluetoothctl", "remove", device.address])
-
                             }}
-
                         >
-
                             <label class="icon-material txt-norm" label="delete" />
-
                         </button>
-
                     </box>
-
                 </box>
-
             </button>
-
         )
-
     }
+
     return (
         <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
@@ -210,12 +181,12 @@ export default function Bluetooth() {
                         <label class="txt icon-material txt-norm" label="bluetooth" />
                         <label class="txt txt-small" label="Bluetooth Adapter" />
                         <box hexpand />
-                        <box 
+                        <box
                             class={isPowered.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
                             valign={Gtk.Align.CENTER}
                             halign={Gtk.Align.END}
                         >
-                            <box 
+                            <box
                                 class={isPowered.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
                                 halign={Gtk.Align.START}
                                 valign={Gtk.Align.CENTER}
