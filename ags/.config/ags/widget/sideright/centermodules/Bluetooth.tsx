@@ -49,27 +49,82 @@ export default function Bluetooth() {
         })
 
         const [isTransitioning, setIsTransitioning] = createState(false)
+        const [optimisticState, setOptimisticState] = createState<boolean | null>(null)
+        const [showBattery, setShowBattery] = createState(false)
+
+        // Store timeout reference so we can clear it from the subscription
+        let fallbackTimeout: ReturnType<typeof setTimeout> | null = null
+
+        // Update battery visibility when either connected or batPerc changes
+        const updateBatteryVisibility = () => {
+            const isConnected = connected.get()
+            const p = batPerc.get()
+            const opt = optimisticState.get()
+            
+            // Hide immediately if user clicked disconnect (optimistic state is false)
+            if (opt === false) {
+                setShowBattery(false)
+                return
+            }
+            
+            // Otherwise, show only when connected AND battery available
+            setShowBattery(isConnected && p > -1)
+        }
+        
+        connected.subscribe(updateBatteryVisibility)
+        batPerc.subscribe(updateBatteryVisibility)
+        optimisticState.subscribe(updateBatteryVisibility)
+
+        // Clear optimistic state when the actual device state changes
+        connected.subscribe(() => {
+            if (optimisticState.get() !== null) {
+                setOptimisticState(null)
+                setIsTransitioning(false)
+                // Clear the fallback timeout since the subscription fired
+                if (fallbackTimeout) {
+                    clearTimeout(fallbackTimeout)
+                    fallbackTimeout = null
+                }
+            }
+        })
 
         const toggleConnection = async () => {
             if (!bluetooth.isPowered) {
                 return
             }
 
-            console.log(`Action: Toggling connection for ${device.name}`)
-
-            setIsTransitioning(true)
-
-            if (device.connected) {
-                (device as any).disconnect_device(null)
-            } else {
-                try {
-                    await execAsync(["bluetoothctl", "connect", device.address])
-                } catch (err) {
-                    console.error(`Bluetooth connect error: ${err}`)
-                }
+            // Prevent multiple rapid clicks - ignore if already transitioning
+            if (isTransitioning.get()) {
+                return
             }
 
-            setIsTransitioning(false)
+            const isCurrentlyConnected = device.connected
+            setOptimisticState(!isCurrentlyConnected)
+            setIsTransitioning(true)
+
+            // Fallback: clear optimistic state after 10 seconds regardless
+            fallbackTimeout = setTimeout(() => {
+                setOptimisticState(null)
+                setIsTransitioning(false)
+                fallbackTimeout = null
+            }, 10000)
+
+            try {
+                if (isCurrentlyConnected) {
+                    (device as any).disconnect_device(null)
+                } else {
+                    await execAsync(["bluetoothctl", "connect", device.address])
+                }
+            } catch (err) {
+                console.error(`Bluetooth connection error: ${err}`)
+                // Revert optimistic state on error
+                if (fallbackTimeout) {
+                    clearTimeout(fallbackTimeout)
+                    fallbackTimeout = null
+                }
+                setOptimisticState(null)
+                setIsTransitioning(false)
+            }
         }
 
         return (
@@ -98,13 +153,22 @@ export default function Bluetooth() {
                                 maxWidthChars={20}
                                 ellipsize={3}
                                 class="txt-subtext"
-                                label={connected.as((isConnected: any) => {
-                                    if (connecting.get()) return "Connecting..."
-                                    if (isTransitioning.get() && !isConnected) return "Disconnecting..."
-                                    return isConnected ? "Connected" : (device.paired ? "Paired" : "")
-                                })}
+                                label={(() => {
+                                    // Create a combined binding that reacts to all states
+                                    return optimisticState.as(opt => {
+                                        const isConnected = connected.get()
+                                        const isConnecting = connecting.get()
+                                        
+                                        // Use optimistic state if transitioning
+                                        if (opt === true) return "Connecting..."
+                                        if (opt === false) return "Disconnecting..."
+                                        
+                                        if (isConnecting) return "Connecting..."
+                                        return isConnected ? "Connected" : (device.paired ? "Paired" : "")
+                                    })
+                                })()}
                             />
-                            <box visible={batPerc.as(p => p > -1)} class="spacing-h-5">
+                            <box visible={showBattery} class="spacing-h-5">
                                 <label class="txt-subtext" label="•" />
                                 <box class="spacing-h-2">
                                     <label
@@ -144,23 +208,30 @@ export default function Bluetooth() {
                             class="txt configtoggle-box"
                             hexpand={false}
                             sensitive={isPowered}
-                            onClicked={() => {
-                                const current = device.connected
-                                if (current) {
-                                    (device as any).disconnect_device(null)
-                                } else {
-                                    execAsync(["bluetoothctl", "connect", device.address])
-                                }
-                            }}
+                            onClicked={toggleConnection}
                         >
                             <box>
                                 <box
-                                    class={connected.as((e: any) => `switch-bg ${!!e ? 'switch-bg-true' : ''}`)}
+                                    class={optimisticState.as(opt => {
+                                        const isConnected = connected.get()
+                                        // Use optimistic state if available
+                                        if (opt !== null) {
+                                            return `switch-bg ${opt ? 'switch-bg-true' : ''}`
+                                        }
+                                        return `switch-bg ${!!isConnected ? 'switch-bg-true' : ''}`
+                                    })}
                                     valign={Gtk.Align.CENTER}
                                     halign={Gtk.Align.END}
                                 >
                                     <box
-                                        class={connected.as((e: any) => `switch-fg ${!!e ? 'switch-fg-true' : ''}`)}
+                                        class={optimisticState.as(opt => {
+                                            const isConnected = connected.get()
+                                            // Use optimistic state if available
+                                            if (opt !== null) {
+                                                return `switch-fg ${opt ? 'switch-fg-true' : ''}`
+                                            }
+                                            return `switch-fg ${!!isConnected ? 'switch-fg-true' : ''}`
+                                        })}
                                         halign={Gtk.Align.START}
                                         valign={Gtk.Align.CENTER}
                                     />
@@ -173,7 +244,6 @@ export default function Bluetooth() {
                             tooltipText="Remove device"
                             sensitive={isPowered}
                             onClicked={(self) => {
-                                console.log(`Remove: ${device.name}`)
                                 execAsync(["bluetoothctl", "remove", device.address])
                             }}
                         >
