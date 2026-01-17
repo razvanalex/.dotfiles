@@ -34,17 +34,17 @@ export default function Bluetooth() {
         const batPerc = createPoll(-1, 2000, () => {
             const p = device.battery_percentage
             if (p > -1) {
-                 // AstalBluetooth: 0-1 is ratio (100% = 1.0), >1 is percentage
-                 return p > 1 ? p : p * 100
+                // AstalBluetooth: 0-1 is ratio (100% = 1.0), >1 is percentage
+                return p > 1 ? p : p * 100
             }
-            
+
             // Fallback to UPower service
             const addr = device.address.toLowerCase()
             const uDev = UPower.devices.find(d => d.serial.toLowerCase() === addr)
             if (uDev && uDev.percentage >= 0) {
                 return uDev.percentage * 100
             }
-            
+
             return -1
         })
 
@@ -95,8 +95,6 @@ export default function Bluetooth() {
                         <box orientation={Gtk.Orientation.HORIZONTAL} class="spacing-h-5">
                             <label
                                 halign={Gtk.Align.START}
-                                hexpand
-                                ellipsize={3}
                                 class="txt-subtext"
                                 label={connected.as((isConnected: any) => {
                                     if (connecting.get()) return "Connecting..."
@@ -108,20 +106,22 @@ export default function Bluetooth() {
                                 <label class="txt-subtext" label="•" />
                                 <box class="spacing-h-2">
                                     <label
-                                        class={batPerc.as(p => p < 20 ? "icon-material txt-error" : "icon-material txt-subtext")}
+                                        class={batPerc.as(p => p <= 20 ? "icon-material txt-error" : "icon-material txt-subtext")}
                                         label={batPerc.as(p => {
                                             if (p < 0) return ""
-                                            if (p >= 95) return "battery_full"
-                                            if (p >= 80) return "battery_6_bar"
-                                            if (p >= 60) return "battery_5_bar"
-                                            if (p >= 40) return "battery_4_bar"
-                                            if (p >= 30) return "battery_3_bar"
-                                            if (p >= 20) return "battery_2_bar"
+                                            if (p == 100) return "battery_full"
+                                            if (p >= 90) return "battery_6_bar"
+                                            if (p >= 75) return "battery_5_bar"
+                                            if (p >= 60) return "battery_4_bar"
+                                            if (p >= 45) return "battery_3_bar"
+                                            if (p >= 30) return "battery_2_bar"
+                                            if (p >= 15) return "battery_1_bar"
+                                            if (p >= 5) return "battery_0_bar"
                                             return "battery_alert"
                                         })}
                                     />
                                     <label
-                                        class={batPerc.as(p => p < 20 ? "txt-error txt-small" : "txt-subtext txt-small")}
+                                        class={batPerc.as(p => p <= 20 ? "txt-error txt-small" : "txt-subtext txt-small")}
                                         label={batPerc.as(p => `${Math.floor(p)}%`)}
                                     />
                                     <label
