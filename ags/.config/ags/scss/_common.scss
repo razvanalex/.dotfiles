@@ -79,6 +79,8 @@ tooltip {
     @include normal-rounding;
     background-color: opacify($color: $inverseSurface, $amount: 1);
     color: $inverseOnSurface;
+    padding: 0.682rem 1.023rem;
+    margin: 0.341rem;
 }
 
 /////////////////////////////////////////
