@@ -92,32 +92,41 @@ export default function Bluetooth() {
                             label={name.as(name => name || device.address)}
                             class="txt-small"
                         />
-                        <label
-                            halign={Gtk.Align.START}
-                            maxWidthChars={30}
-                            ellipsize={3}
-                            class="txt-subtext"
-                            label={connected.as((isConnected: any) => {
-                                // Check if we're in a transitioning state by checking connecting property
-                                if (connecting.get()) {
-                                    return "Connecting..."
-                                }
-
-                                // Check if disconnecting - device was connected but is no longer
-                                if (isTransitioning.get() && !isConnected) {
-                                    return "Disconnecting..."
-                                }
-
-                                // Show final state
-                                return isConnected ? "Connected" : (device.paired ? "Paired" : "")
-                            })}
-                        />
-                        <label
-                            halign={Gtk.Align.START}
-                            class="txt-subtext"
-                            visible={batPerc.as(p => p > -1)}
-                            label={batPerc.as(p => `Battery: ${Math.floor(p)}%`)}
-                        />
+                        <box orientation={Gtk.Orientation.HORIZONTAL} class="spacing-h-5">
+                            <label
+                                halign={Gtk.Align.START}
+                                maxWidthChars={30}
+                                ellipsize={3}
+                                class="txt-subtext"
+                                label={connected.as((isConnected: any) => {
+                                    if (connecting.get()) return "Connecting..."
+                                    if (isTransitioning.get() && !isConnected) return "Disconnecting..."
+                                    return isConnected ? "Connected" : (device.paired ? "Paired" : "")
+                                })}
+                            />
+                            <box visible={batPerc.as(p => p > -1)} class="spacing-h-5">
+                                <label class="txt-subtext" label="•" />
+                                <box class="spacing-h-2">
+                                    <label
+                                        class={batPerc.as(p => p < 20 ? "icon-material txt-error" : "icon-material txt-subtext")}
+                                        label={batPerc.as(p => {
+                                            if (p < 0) return ""
+                                            if (p >= 95) return "battery_full"
+                                            if (p >= 80) return "battery_6_bar"
+                                            if (p >= 60) return "battery_5_bar"
+                                            if (p >= 40) return "battery_4_bar"
+                                            if (p >= 30) return "battery_3_bar"
+                                            if (p >= 20) return "battery_2_bar"
+                                            return "battery_alert"
+                                        })}
+                                    />
+                                    <label
+                                        class={batPerc.as(p => p < 20 ? "txt-error txt-small" : "txt-subtext txt-small")}
+                                        label={batPerc.as(p => `${Math.floor(p)}%`)}
+                                    />
+                                </box>
+                            </box>
+                        </box>
                     </box>
                     <box class="spacing-h-5" valign={Gtk.Align.CENTER}>
                         <button
