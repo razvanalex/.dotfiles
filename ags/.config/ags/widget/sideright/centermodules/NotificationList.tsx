@@ -6,6 +6,7 @@ import Pango from "gi://Pango"
 import userOptions from "../../../lib/userOptions"
 import { For } from "ags"
 import { substitute } from "../../../lib/icons"
+import { isScreenshotNotification, ScreenshotNotificationPreview } from "../../../lib/notificationUtils"
 
 function guessMessageType(summary: string) {
     const str = summary.toLowerCase();
@@ -36,6 +37,24 @@ const getFriendlyNotifTimeString = (timeObject: number) => {
 }
 
 function NotificationIcon({ notification }: { notification: Notifd.Notification }) {
+    // Check if it's a screenshot notification
+    if (isScreenshotNotification(notification) && notification.image) {
+        // For screenshots, show screenshot icon
+        return (
+            <box
+                valign={Gtk.Align.CENTER}
+                hexpand={false}
+                class="notif-icon notif-icon-material-normal"
+                homogeneous
+            >
+                <label
+                    class="icon-material txt-huger"
+                    label="screenshot_monitor"
+                />
+            </box>
+        )
+    }
+
     // Check for image
     if (notification.image) {
         return (
@@ -103,6 +122,8 @@ function NotificationItem({ notification }: { notification: Notifd.Notification 
         >
             <box
                 class={`notif-${urgency} spacing-h-10`}
+                css="max-width: 260px; width: 100%;"
+                hexpand={false}
             >
                 <box valign={Gtk.Align.START} homogeneous>
                     <overlay>
@@ -112,13 +133,13 @@ function NotificationItem({ notification }: { notification: Notifd.Notification 
 
                 <box class="spacing-h-5" hexpand>
                     <box valign={Gtk.Align.CENTER} orientation={Gtk.Orientation.VERTICAL} hexpand>
-                        <box>
+                        <box hexpand>
                             <label
                                 xalign={0}
                                 class="txt-small txt-semibold titlefont"
                                 justify={Gtk.Justification.LEFT}
                                 hexpand
-                                maxWidthChars={30}
+                                maxWidthChars={20}
                                 ellipsize={Pango.EllipsizeMode.END}
                                 useMarkup={notification.summary.startsWith('<')}
                                 label={notification.summary}
@@ -141,7 +162,7 @@ function NotificationItem({ notification }: { notification: Notifd.Notification 
                                 class={`txt-smallie notif-body-${urgency}`}
                                 useMarkup
                                 justify={Gtk.Justification.LEFT}
-                                maxWidthChars={30}
+                                maxWidthChars={20}
                                 ellipsize={Pango.EllipsizeMode.END}
                                 label={notification.body.split("\n")[0]}
                             />
@@ -153,12 +174,13 @@ function NotificationItem({ notification }: { notification: Notifd.Notification 
                             revealChild={expanded}
                         >
                             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
+                                <ScreenshotNotificationPreview notification={notification} width={240} height={150} />
                                 <label
                                     xalign={0}
                                     class={`txt-smallie notif-body-${urgency}`}
                                     useMarkup
                                     justify={Gtk.Justification.LEFT}
-                                    maxWidthChars={30}
+                                    maxWidthChars={25}
                                     wrap
                                     label={notification.body}
                                 />
@@ -166,9 +188,16 @@ function NotificationItem({ notification }: { notification: Notifd.Notification 
                                     <button
                                         hexpand
                                         class={`notif-action notif-action-${urgency}`}
-                                        onClicked={() => destroyWithAnims()}
+                                        onClicked={destroyWithAnims}
                                     >
-                                        <label label="Close" />
+                                        <label label="Dismiss" />
+                                    </button>
+                                    <button
+                                        hexpand
+                                        class={`notif-action notif-action-${urgency}`}
+                                        onClicked={() => setExpanded(false)}
+                                    >
+                                        <label label="Collapse" />
                                     </button>
                                     {notification.get_actions().map(action => (
                                         <button
@@ -219,7 +248,7 @@ export default function NotificationList() {
     const [dndState, setDndState] = createState(notifd.get_dont_disturb())
 
     return (
-        <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5">
+        <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5" css="max-width: 280px;">
             <stack
                 visibleChildName={notifications.as(n => n.length > 0 ? "list" : "empty")}
                 transitionType={Gtk.StackTransitionType.CROSSFADE}
@@ -243,6 +272,7 @@ export default function NotificationList() {
                         <box
                             orientation={Gtk.Orientation.VERTICAL}
                             class="spacing-v-5-revealer"
+                            css="width: 100%;"
                         >
                             <For each={notifications}>
                                 {(n) => <NotificationItem notification={n} />}

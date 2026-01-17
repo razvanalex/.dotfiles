@@ -114,7 +114,21 @@ if [ "$ACTION" != "save" ] && [ "$ACTION" != "copy" ] && [ "$ACTION" != "edit" ]
 fi
 
 notify() {
-  notify-send -t 3000 -a grimblast "$@"
+   notify-send -t 3000 -a grimblast "$@"
+}
+
+notifyWithImage() {
+   local title=$1
+   local body=$2
+   local image=$3
+   
+   # Use gdbus to send notification with image hint
+   gdbus call --session --dest org.freedesktop.Notifications \
+     --object-path /org/freedesktop/Notifications \
+     --method org.freedesktop.Notifications.Notify \
+     'grimblast' 0 '' "$title" "$body" '[]' \
+     "{'image-path': <'file://$image'>}" 3000 2>/dev/null || \
+     notify-send -t 3000 -a grimblast "$title" "$body" -i "$image"
 }
 
 notifyOk() {
@@ -233,7 +247,7 @@ elif [ "$SUBJECT" = "area" ]; then
     resetFade
     exit 1
   fi
-  WHAT="Area"
+  WHAT="Area Screenshot"
   wait
 elif [ "$SUBJECT" = "window" ]; then
   die "Subject 'window' is now included in 'area'"
@@ -242,8 +256,27 @@ else
 fi
 
 if [ "$ACTION" = "copy" ]; then
-  takeScreenshot - "$GEOM" "$OUTPUT" | wl-copy --type image/png || die "Clipboard error"
-  notifyOk "$WHAT copied into clipboard"
+   # Save to temp file first
+   TEMP_FILE="/tmp/grimblast-$(date +%s).png"
+   echo "DEBUG: Taking screenshot to $TEMP_FILE" >&2
+   if takeScreenshot "$TEMP_FILE" "$GEOM" "$OUTPUT"; then
+     echo "DEBUG: Screenshot saved, checking file..." >&2
+     if [ -f "$TEMP_FILE" ]; then
+       echo "DEBUG: File exists, copying to clipboard..." >&2
+       # Copy from file to clipboard
+       cat "$TEMP_FILE" | wl-copy --type image/png || die "Clipboard error"
+       echo "DEBUG: Sending notification with image: $TEMP_FILE" >&2
+       # Send notification with image
+       notifyWithImage "$WHAT" "Copied into clipboard" "$TEMP_FILE"
+       # Clean up temp file after notification (with delay)
+       (sleep 10 && rm -f "$TEMP_FILE") &
+     else
+       echo "DEBUG: File does not exist at $TEMP_FILE" >&2
+       die "Screenshot file not created"
+     fi
+   else
+     die "Failed to take screenshot"
+   fi
 elif [ "$ACTION" = "save" ]; then
   if takeScreenshot "$FILE" "$GEOM" "$OUTPUT"; then
     TITLE="Screenshot of $SUBJECT"

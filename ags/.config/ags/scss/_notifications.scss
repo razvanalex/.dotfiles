@@ -111,6 +111,20 @@
     font-size: 2.182rem;
 }
 
+.notif-screenshot-preview {
+    @include notif-rounding;
+    border: 1px solid $outline;
+    background-color: $surfaceContainerLow;
+}
+
+.notif-expanded-image {
+    @include notif-rounding;
+    border: 1px solid $outline;
+    background-color: $surfaceContainerLow;
+    max-width: 240px;
+    max-height: 180px;
+}
+
 .notif-icon-material {
     background-color: $secondaryContainer;
     color: $onSecondaryContainer;

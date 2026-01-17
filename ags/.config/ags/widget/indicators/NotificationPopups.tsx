@@ -1,10 +1,11 @@
 import { Gtk, Gdk } from "ags/gtk4"
-import { createState, For, Binding } from "ags"
+import { createState, For, type Binding } from "ags"
 import Notifd from "gi://AstalNotifd"
 import GLib from "gi://GLib"
 import Pango from "gi://Pango"
 import userOptions from "../../lib/userOptions"
 import { substitute } from "../../lib/icons"
+import { isScreenshotNotification, ScreenshotNotificationIcon, ScreenshotNotificationPreview } from "../../lib/notificationUtils"
 
 function guessMessageType(summary: string) {
     const str = summary.toLowerCase();
@@ -20,7 +21,21 @@ function guessMessageType(summary: string) {
     return 'chat';
 }
 
-function NotificationIcon({ notification }: { notification: Notifd.Notification }) {
+function NotificationIcon({ notification, expanded }: { notification: Notifd.Notification, expanded?: any }) {
+    // For screenshots, return the utility component which handles icon switching
+    if (isScreenshotNotification(notification) && notification.image) {
+        return (
+            <box
+                valign={Gtk.Align.CENTER}
+                hexpand={false}
+                class="notif-icon notif-icon-material-normal"
+                homogeneous
+            >
+                <ScreenshotNotificationIcon notification={notification} expanded={expanded} />
+            </box>
+        )
+    }
+
     if (notification.image) {
         return (
             <box
@@ -157,7 +172,23 @@ function NotificationPopup(
             >
                 <box valign={Gtk.Align.START} homogeneous>
                     <overlay>
-                        <NotificationIcon notification={notification} />
+                        {(() => {
+                            if (isScreenshotNotification(notification) && notification.image) {
+                                // Use shared utility component for screenshot icon
+                                return (
+                                    <box
+                                        valign={Gtk.Align.CENTER}
+                                        hexpand={false}
+                                        class="notif-icon notif-icon-material-normal"
+                                        homogeneous
+                                    >
+                                        <ScreenshotNotificationIcon notification={notification} expanded={expanded} />
+                                    </box>
+                                )
+                            }
+
+                            return <NotificationIcon notification={notification} expanded={expanded} />
+                        })()}
                     </overlay>
                 </box>
 
@@ -175,6 +206,8 @@ function NotificationPopup(
                                 label={notification.summary}
                             />
                         </box>
+
+                        <box class="gap-v-5" />
 
                         <revealer
                             transitionType={Gtk.RevealerTransitionType.SLIDE_DOWN}
@@ -198,6 +231,7 @@ function NotificationPopup(
                             revealChild={expanded}
                         >
                             <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-10">
+                                <ScreenshotNotificationPreview notification={notification} />
                                 <label
                                     xalign={0}
                                     class={`txt-smallie notif-body-${urgency}`}
@@ -211,7 +245,7 @@ function NotificationPopup(
                                     <button
                                         hexpand
                                         class={`notif-action notif-action-${urgency}`}
-                                        onClicked={onRequestClose}
+                                        onClicked={onRequestHide}
                                     >
                                         <label label="Close" />
                                     </button>
