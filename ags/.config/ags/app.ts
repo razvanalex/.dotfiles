@@ -1,4 +1,5 @@
 import app from "ags/gtk4/app"
+import { Gtk } from "ags/gtk4"
 import { handleStyles, COMPILED_STYLE_DIR } from "./lib/styles"
 // import { startAutoDarkModeService } from "./services/darkmode"
 // import { firstRunWelcome, startBatteryWarningService } from "./services/messages"
@@ -18,6 +19,11 @@ app.start({
     main() {
         handleStyles(true)
         
+        const settings = Gtk.Settings.get_default()
+        if (settings) {
+            settings.gtk_enable_animations = true
+        }
+
         // Configure notification daemon to keep notifications
         const notifd = Notifd.get_default()
         notifd.set_ignore_timeout(true)
