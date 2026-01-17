@@ -4,48 +4,48 @@ import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import AstalBluetooth from "gi://AstalBluetooth"
 import userOptions from "../../../lib/userOptions"
+import UPower from "../../../services/UPower"
 
 export default function Bluetooth() {
     const bluetooth = AstalBluetooth.get_default()
     const devices = createBinding(bluetooth, "devices")
     const isPowered = createBinding(bluetooth, "isPowered")
 
+    const codecs = createPoll({}, 10000, async () => {
+        try {
+            const out = await execAsync("pw-dump")
+            const json = JSON.parse(out)
+            const map: Record<string, string> = {}
+            for (const obj of json) {
+                if (obj.info?.props?.["api.bluez5.address"] && obj.info?.props?.["api.bluez5.codec"]) {
+                    map[obj.info.props["api.bluez5.address"].toUpperCase()] = obj.info.props["api.bluez5.codec"].toUpperCase()
+                }
+            }
+            return map
+        } catch (e) {
+            return {}
+        }
+    })
+
     function BluetoothDevice({ device }: { device: AstalBluetooth.Device }) {
         const connected = createBinding(device, "connected")
         const connecting = createBinding(device, "connecting")
         const name = createBinding(device, "name")
-        const batPerc = createPoll(-1, 5000, async () => {
-            if (device.battery_percentage > -1) {
-                return device.battery_percentage
+        const batPerc = createPoll(-1, 2000, () => {
+            const p = device.battery_percentage
+            if (p > -1) {
+                 // AstalBluetooth: 0-1 is ratio (100% = 1.0), >1 is percentage
+                 return p > 1 ? p : p * 100
             }
-            try {
-                const out = await execAsync("upower -d")
-
-                const lines = out.split('\n');
-                let inDevice = false;
-                let foundPercentage = -1;
-
-                for (const line of lines) {
-                    if (line.includes("Device:")) {
-                        inDevice = false; // Reset on new device
-                    }
-                    if (line.toLowerCase().includes(device.address.toLowerCase())) {
-                        inDevice = true;
-                    }
-                    if (inDevice && line.trim().startsWith("percentage:")) {
-                        const p = parseInt(line.split(':')[1].trim().replace('%', ''));
-                        if (!isNaN(p)) {
-                            foundPercentage = p;
-                            break;
-                        }
-                    }
-                }
-
-                return foundPercentage;
-            } catch (e) {
-                console.log("Error fetching battery percentage:", e);
-                return -1;
+            
+            // Fallback to UPower service
+            const addr = device.address.toLowerCase()
+            const uDev = UPower.devices.find(d => d.serial.toLowerCase() === addr)
+            if (uDev && uDev.percentage >= 0) {
+                return uDev.percentage * 100
             }
+            
+            return -1
         })
 
         const [isTransitioning, setIsTransitioning] = createState(false)
@@ -95,7 +95,7 @@ export default function Bluetooth() {
                         <box orientation={Gtk.Orientation.HORIZONTAL} class="spacing-h-5">
                             <label
                                 halign={Gtk.Align.START}
-                                maxWidthChars={30}
+                                hexpand
                                 ellipsize={3}
                                 class="txt-subtext"
                                 label={connected.as((isConnected: any) => {
@@ -124,9 +124,16 @@ export default function Bluetooth() {
                                         class={batPerc.as(p => p < 20 ? "txt-error txt-small" : "txt-subtext txt-small")}
                                         label={batPerc.as(p => `${Math.floor(p)}%`)}
                                     />
+                                    <label
+                                        class="txt-subtext txt-small"
+                                        visible={codecs.as(c => !!c[device.address])}
+                                        label={codecs.as(c => {
+                                            const codec = c[device.address];
+                                            return codec ? ` • ${codec}` : "";
+                                        })}
+                                    />
                                 </box>
-                            </box>
-                        </box>
+                            </box>                        </box>
                     </box>
                     <box class="spacing-h-5" valign={Gtk.Align.CENTER}>
                         <button
