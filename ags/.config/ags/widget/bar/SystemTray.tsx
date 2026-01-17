@@ -4,43 +4,45 @@ import Tray from "gi://AstalTray"
 import userOptions from "../../lib/userOptions"
 
 function TrayItem({ item }: { item: Tray.TrayItem }) {
-    const tooltipBinding = createBinding(item, "tooltipMarkup")
+    const titleBinding = createBinding(item, "title")
+    const idBinding = createBinding(item, "id")
     const giconBinding = createBinding(item, "gicon")
-    const actionGroupBinding = createBinding(item, "actionGroup")
 
-    const btn = (
-        <button
+    const init = (self: Gtk.MenuButton) => {
+        self.menu_model = item.menu_model
+        self.insert_action_group("dbusmenu", item.action_group)
+        item.connect("notify::action-group", () => {
+            self.insert_action_group("dbusmenu", item.action_group)
+        })
+
+        // Override default click behavior
+        const controller = new Gtk.GestureClick()
+        controller.set_button(0) // Listen to all buttons
+        controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE) // Catch event before button
+        controller.connect("released", (gesture, n, x, y) => {
+            const btn = gesture.get_current_button()
+            if (btn === Gdk.BUTTON_PRIMARY) {
+                // Left Click: Activate the app
+                item.activate(x, y)
+                gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            } else if (btn === Gdk.BUTTON_SECONDARY) {
+                // Right Click: Open the menu
+                self.set_active(true)
+                gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            }
+        })
+        self.add_controller(controller)
+    }
+
+    return (
+        <menubutton
             class="bar-systray-item"
-            tooltipMarkup={tooltipBinding}
+            tooltipText={titleBinding.as(t => t || idBinding.get() || "System Tray Item")}
+            $={init}
         >
             <image gicon={giconBinding} halign={Gtk.Align.CENTER} css="min-width: 1.25rem; min-height: 1.25rem;" />
-        </button>
-    ) as Gtk.Button
-
-    actionGroupBinding.subscribe(ag => {
-        if (ag) btn.insert_action_group("dbusmenu", ag)
-    })
-
-    const click = new Gtk.GestureClick()
-    click.set_button(0) // Listen to all buttons
-    click.connect("released", (gesture, n, x, y) => {
-        const button = gesture.get_current_button()
-        if (button === Gdk.BUTTON_PRIMARY) {
-            item.activate(x, y)
-        } else if (button === Gdk.BUTTON_SECONDARY) {
-            const menuModel = item.menuModel
-            if (menuModel) {
-                const menu = Gtk.PopoverMenu.new_from_model(menuModel)
-                menu.set_parent(btn)
-                menu.popup()
-            } else {
-                item.activate(x, y)
-            }
-        }
-    })
-    btn.add_controller(click)
-
-    return btn
+        </menubutton>
+    )
 }
 
 export function SystemTray() {

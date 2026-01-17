@@ -52,6 +52,13 @@ menu>menuitem:active {
     background-color: $layer2Active;
 }
 
+separator {
+    background-color: mix($surfaceContainer, $onBackground, 80%);
+    min-height: 1px;
+    margin: 0.171rem 0;
+    min-width: 100%;
+}
+
 radio {
     @include full-rounding;
     margin: 0.273rem;
@@ -59,10 +66,6 @@ radio {
     min-height: 15px;
     border: 0.068rem solid $outline;
 }
-
-// radio:first-child {
-//     background-color: red;
-// }
 
 radio:checked {
     min-width: 8px;
@@ -95,7 +98,7 @@ tooltip {
 
 popover {
     @include elevation-border-softer;
-    padding: 0.681rem;
+    padding: 0; // Remove from outer container
     background: $surfaceContainerHigh;
     color: $onSurface;
     border-radius: 1.159rem;
@@ -103,6 +106,30 @@ popover {
     animation-duration: 40ms;
     animation-timing-function: ease-out;
     animation-iteration-count: 1;
+
+    contents, box, list {
+        padding: 0.159rem;
+        margin: 0;
+        padding-top: 0;
+    }
+
+    modelbutton {
+        min-height: 1.6rem;
+        min-width: 13rem;
+        padding: 0.2em 1rem;
+        background: transparent;
+        transition: 0.2s ease background-color;
+        border-radius: 0.545rem;
+        color: $onSurface;
+
+        &:hover, &:focus {
+            background-color: $layer2Hover;
+        }
+        
+        &:active {
+            background-color: $layer2Active;
+        }
+    }
 }
 
 
