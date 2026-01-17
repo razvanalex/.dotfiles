@@ -159,6 +159,8 @@ export default function Bluetooth() {
                                         const isConnected = connected.get()
                                         const isConnecting = connecting.get()
                                         
+                                        console.log(`${device.name}: opt=${opt}, connected=${isConnected}, connecting=${isConnecting}`)
+                                        
                                         // Use optimistic state if transitioning
                                         if (opt === true) return "Connecting..."
                                         if (opt === false) return "Disconnecting..."
