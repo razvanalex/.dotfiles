@@ -4,6 +4,11 @@ export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export PATH="${HOME}/.opencode/bin:$PATH"
 export PATH="${HOME}/.local/bin:$PATH"
 
+# Save huggingface data on a separate spare drive
+if [ -d "/mnt/data/razvanalex-local/huggingface/" ]; then
+    export HF_HOME="/mnt/data/razvanalex-local/huggingface/"
+fi
+
 # Editor
 export VISUAL=nvim
 export EDITOR=nvim
