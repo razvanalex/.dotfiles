@@ -3,6 +3,13 @@
 $bar_ws_width: 1.774rem;
 $bar_ws_width_focus: 0.614rem;
 $bar_ws_width_focus_active: 2.045rem;
+$bar_ws_transition_speed: 0.5s; // Animation speed for workspace occupy/de-occupy
+
+// Experiment with these curves:
+// cubic-bezier(0.25, 0.1, 0.25, 1) - gentle ease (almost linear but smooth)
+// cubic-bezier(0.5, 0, 0.5, 1) - symmetric ease-in-out
+// cubic-bezier(0.75, 0, 0.75, 1) - stronger symmetric
+$bar_ws_transition_curve: cubic-bezier(0.25, 0.1, 0.25, 1);
 
 @mixin bar-group-rounding {
     @include small-rounding;
@@ -88,8 +95,32 @@ $bar_ws_width_focus_active: 2.045rem;
     min-width: 35rem;
 }
 
+.bar-ws-wrapper {
+    padding-right: 0.3rem; // Extra space for rightmost cursor
+}
+
 .bar-ws-width {
     min-width: 18.341rem;
+}
+
+.bar-ws-cursor {
+    background-color: $workspaceLayer3;
+    border-radius: 2rem;
+    min-width: $bar_ws_width;
+    min-height: $bar_ws_width;
+    margin-top: 0.1rem;
+    margin-bottom: 0.1rem;
+    transition: all 0.2s cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+
+.bar-ws-active-text-only {
+    color: $workspaceOnLayer3;
+    transition: color 0.2s cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+
+.bar-ws-occupied-text {
+    color: $workspaceOnLayer2;
+    transition: color 0.2s cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 
 .bar-ws {
@@ -98,6 +129,18 @@ $bar_ws_width_focus_active: 2.045rem;
     color: $workspaceOnLayer1Inactive;
     margin-top: 0.1rem;
     margin-bottom: 0.1rem;
+    background-color: transparent;
+    box-shadow: none;
+    border: none;
+    font-variant-numeric: tabular-nums;
+    transition-property: background-color, border-radius, color;
+    transition-duration: $bar_ws_transition_speed;
+    transition-timing-function: $bar_ws_transition_curve;
+}
+
+.bar-ws label {
+    min-width: $bar_ws_width;
+    font-variant-numeric: tabular-nums;
 }
 
 .bar-ws-active {
@@ -106,28 +149,44 @@ $bar_ws_width_focus_active: 2.045rem;
     color: $workspaceOnLayer3;
     margin-top: 0.2rem;
     margin-bottom: 0.2rem;
+    transition: all 0.2s cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 
 .bar-ws-occupied {
-    background-color: $layer2;
+    background-color: $layer3;
     color: $workspaceOnLayer2;
     border-radius: 0;
+    transition-property: background-color, border-radius, color;
+    transition-duration: $bar_ws_transition_speed;
+    transition-timing-function: $bar_ws_transition_curve;
 }
 
 .bar-ws-occupied-single {
     border-radius: 2rem;
+    transition-property: background-color, border-radius;
+    transition-duration: $bar_ws_transition_speed;
+    transition-timing-function: $bar_ws_transition_curve;
 }
 
 .bar-ws-occupied-first {
     border-radius: 2rem 0 0 2rem;
+    transition-property: background-color, border-radius;
+    transition-duration: $bar_ws_transition_speed;
+    transition-timing-function: $bar_ws_transition_curve;
 }
 
 .bar-ws-occupied-middle {
     border-radius: 0;
+    transition-property: background-color, border-radius;
+    transition-duration: $bar_ws_transition_speed;
+    transition-timing-function: $bar_ws_transition_curve;
 }
 
 .bar-ws-occupied-last {
     border-radius: 0 2rem 2rem 0;
+    transition-property: background-color, border-radius;
+    transition-duration: $bar_ws_transition_speed;
+    transition-timing-function: $bar_ws_transition_curve;
 }
 
 
@@ -399,4 +458,8 @@ $bar_ws_width_focus_active: 2.045rem;
     min-width: 1.032rem;
     font-size: 1.032rem;
     padding: 0.205rem 0.341rem;
+}
+
+.bar-ws-active-transparent {
+    background-color: transparent !important;
 }
