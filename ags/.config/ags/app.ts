@@ -11,6 +11,7 @@ import Session from "./widget/Session"
 import Notifd from "gi://AstalNotifd"
 import Indicators from "./widget/Indicators"
 import brightness from "./services/Brightness"
+import wallpaper from "./services/Wallpaper"
 // import Dock from "./widget/Dock"
 // import userOptions from "./lib/userOptions"
 
@@ -27,6 +28,9 @@ app.start({
         // Configure notification daemon to keep notifications
         const notifd = Notifd.get_default()
         notifd.set_ignore_timeout(true)
+
+        // Initialize services
+        void wallpaper  // Ensure wallpaper service is loaded
 
         // startAutoDarkModeService()
         // firstRunWelcome()
