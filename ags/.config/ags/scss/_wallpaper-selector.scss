@@ -1,0 +1,414 @@
+// Wallpaper Selector Styles
+
+.wallpaper-selector-window {
+  background-color: $layer0;
+}
+
+.wallpaper-selector-shell {
+  background-color: $layer0;
+}
+
+.wallpaper-selector-sidebar {
+  padding: 1.091rem;
+  background-color: mix($layer0, $black, 64%);
+}
+
+.wallpaper-sidebar-hint {
+  @include mainfont;
+  font-size: 0.75rem;
+  color: $onLayer0Inactive;
+  opacity: 0.8;
+  margin-top: 0.545rem;
+}
+
+.wallpaper-sidebar-nav-item {
+  @include normal-rounding;
+  @include menu_decel;
+  @include mainfont;
+  min-height: 2.5rem;
+  background-color: transparent;
+  color: $onLayer0;
+  padding: 0.545rem 0.682rem;
+  margin-bottom: 0.136rem;
+
+  &:hover {
+    background-color: transparentize($onLayer0, 0.94);
+  }
+
+  &:active {
+    background-color: transparentize($onLayer0, 0.90);
+  }
+
+  &.active {
+    background-color: transparentize($primary, 0.86);
+    color: $onLayer0;
+  }
+
+  &:disabled {
+    color: transparentize($onLayer0, 0.6);
+    background-color: transparent;
+  }
+}
+
+
+
+.wallpaper-main-separator {
+  color: transparentize($onLayer0, 0.88);
+}
+
+.wallpaper-sidebar-separator {
+  min-height: 1px;
+  background-color: transparentize($onLayer1, 0.84);
+}
+
+.wallpaper-selector-main {
+  padding: 1.227rem;
+  background-color: $layer0;
+}
+
+.wallpaper-selector-title {
+  @include titlefont;
+  font-size: 1.364rem;
+  font-weight: 650;
+  color: $onLayer0;
+}
+
+.wallpaper-main-subtitle {
+  @include mainfont;
+  font-size: 0.841rem;
+  color: $onLayer0Inactive;
+}
+
+.wallpaper-main-header {
+  @include normal-rounding;
+  @include elevation-border;
+  @include menu_decel;
+  padding: 0.682rem 0.818rem;
+  background-color: $layer1;
+}
+
+.wallpaper-main-actions {
+  opacity: 0.95;
+}
+
+.wallpaper-header-button {
+  @include normal-rounding;
+  @include menu_decel;
+  @include mainfont;
+  min-height: 2.045rem;
+  padding: 0.273rem 0.682rem;
+  background-color: transparentize($onLayer1, 0.92);
+  color: $onLayer1;
+
+  &:hover {
+    background-color: transparentize($onLayer1, 0.88);
+  }
+
+  &:active {
+    background-color: transparentize($onLayer1, 0.84);
+  }
+
+  &.is-primary {
+    background-color: transparentize($primary, 0.2);
+    color: $onPrimary;
+
+    &:hover {
+      background-color: transparentize($primary, 0.1);
+    }
+  }
+}
+
+
+
+// Theme Selector
+.wallpaper-theme-selector {
+  min-height: 0;
+}
+
+.wallpaper-theme-list-scroll {
+  @include normal-rounding;
+  background-color: transparent;
+}
+
+.wallpaper-theme-list {
+  padding: 0.273rem;
+}
+
+.wallpaper-theme-item {
+  @include normal-rounding;
+  @include menu_decel;
+  min-height: 2.5rem;
+  padding: 0.545rem 0.682rem;
+  background-color: transparent;
+  margin-bottom: 0.136rem;
+
+  &:hover {
+    background-color: transparentize($onLayer0, 0.94);
+  }
+
+  &:active {
+    background-color: transparentize($onLayer0, 0.90);
+  }
+
+  &.active {
+    background-color: transparentize($primary, 0.86);
+  }
+}
+
+
+
+.wallpaper-theme-item-name {
+  @include mainfont;
+  color: $onLayer0;
+  font-size: 0.886rem;
+}
+
+.wallpaper-theme-item-icon {
+  @include mainfont;
+  opacity: 0.75;
+}
+
+.wallpaper-theme-count {
+  @include full-rounding;
+  @include mainfont;
+  min-width: 1.773rem;
+  min-height: 1.364rem;
+  font-size: 0.727rem;
+  font-weight: 650;
+  color: $onLayer0;
+  background-color: transparentize($onLayer0, 0.9);
+  padding: 0.068rem 0.341rem;
+}
+
+
+
+.wallpaper-theme-indicator {
+  @include mainfont;
+  color: $primary;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.wallpaper-theme-label {
+  @include mainfont;
+  font-size: 0.818rem;
+  font-weight: 700;
+  color: $onLayer0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-bottom: 0.273rem;
+}
+
+
+
+// Search Bar
+.wallpaper-search-container {
+  @include normal-rounding;
+  @include elevation-border;
+  padding: 0.273rem;
+  background-color: $layer1;
+}
+
+.wallpaper-search-entry {
+  @include mainfont;
+  @include menu_decel;
+  background-color: transparent;
+  border: none;
+  color: $onLayer1;
+  font-size: 0.886rem;
+  padding: 0.477rem 0.682rem;
+
+  &:focus {
+    outline: none;
+    background-color: transparentize($primary, 0.88);
+  }
+}
+
+// Image Grid
+.wallpaper-grid-scroll {
+  background-color: transparent;
+
+  scrollbar {
+    trough {
+      @include full-rounding;
+      min-width: 0.545rem;
+      background-color: transparent;
+    }
+
+    slider {
+      @include full-rounding;
+      @include element_decel;
+      min-width: 0.273rem;
+      min-height: 2.045rem;
+      background-color: transparentize($onSurfaceVariant, 0.65);
+    }
+
+    slider:hover,
+    slider:focus {
+      background-color: transparentize($onSurfaceVariant, 0.5);
+    }
+
+    slider:active {
+      background-color: transparentize($onSurface, 0.4);
+    }
+  }
+}
+
+.wallpaper-grid-scrollbar {
+  trough {
+    @include full-rounding;
+    min-width: 0.545rem;
+    background-color: transparent;
+  }
+
+  slider {
+    @include full-rounding;
+    @include element_decel;
+    min-width: 0.273rem;
+    min-height: 2.045rem;
+    background-color: transparentize($onSurfaceVariant, 0.65);
+  }
+
+  slider:hover,
+  slider:focus {
+    background-color: transparentize($onSurfaceVariant, 0.5);
+  }
+
+  slider:active {
+    background-color: transparentize($onSurface, 0.4);
+  }
+}
+
+.wallpaper-grid {
+  padding: 0.545rem;
+}
+
+
+.wallpaper-placeholder-view {
+  @include large-rounding;
+  @include elevation-border;
+  background-color: transparentize($layer1, 0.4);
+  margin: 0.682rem;
+  padding: 1.364rem;
+}
+
+.wallpaper-placeholder-title {
+  @include titlefont;
+  font-size: 1.227rem;
+  color: $onLayer1;
+}
+
+.wallpaper-placeholder-subtitle {
+  @include mainfont;
+  font-size: 0.886rem;
+  color: $onLayer1Inactive;
+}
+
+// Image Card
+.wallpaper-card {
+  margin: 0.273rem;
+
+  &.selected {
+    .wallpaper-thumbnail {
+      border: 2px solid transparentize($secondary, 0.08);
+      box-shadow: 0 0 0 1px transparentize($secondary, 0.55);
+    }
+  }
+
+  &.active {
+    .wallpaper-thumbnail {
+      border: 2px solid $primary;
+      box-shadow: 0 0 0 1px transparentize($primary, 0.5);
+    }
+
+    .active-indicator {
+      opacity: 1;
+    }
+  }
+}
+
+.wallpaper-card-button {
+  @include normal-rounding;
+  @include menu_decel;
+  background: transparent;
+  border: none;
+  padding: 0;
+
+  &:focus,
+  &:focus-visible {
+    box-shadow: 0 0 0 2px transparentize($secondary, 0.45);
+  }
+
+  &:hover {
+    background: transparent;
+
+    .wallpaper-thumbnail {
+      border-color: $primary;
+      box-shadow: 0 4px 8px transparentize($black, 0.7);
+    }
+  }
+
+  &:active {
+    .wallpaper-thumbnail {
+      box-shadow: 0 2px 4px transparentize($black, 0.8);
+    }
+  }
+}
+
+.wallpaper-thumbnail {
+  @include normal-rounding;
+  min-width: 280px;
+  min-height: 158px;
+  border: 1px solid transparentize($onLayer0, 0.82);
+  background-color: $layer1;
+  transition: all 170ms cubic-bezier(0.1, 1, 0, 1);
+}
+
+.wallpaper-image {
+  @include normal-rounding;
+}
+
+.wallpaper-thumbnail-error {
+  @include mainfont;
+  font-size: 2rem;
+  color: $onLayer1Inactive;
+}
+
+.active-indicator {
+  margin: 0.545rem;
+}
+
+.checkmark {
+  @include mainfont;
+  font-size: 1.091rem;
+  font-weight: 700;
+  color: $onPrimary;
+  background-color: $primary;
+  border-radius: 9999px;
+  min-width: 1.705rem;
+  min-height: 1.705rem;
+  padding: 0;
+}
+
+.wallpaper-filename {
+  @include mainfont;
+  font-size: 0.818rem;
+  color: $onLayer1;
+  margin-top: 0.545rem;
+}
+
+.gif-badge-container {
+  margin: 0.545rem;
+}
+
+.gif-badge {
+  @include mainfont;
+  font-size: 0.682rem;
+  color: $onLayer0;
+  background-color: transparentize($layer0, 0.15);
+  border-radius: 9999px;
+  min-width: 1.636rem;
+  min-height: 1.636rem;
+  padding: 0;
+}
