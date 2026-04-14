@@ -1,3 +1,4 @@
+import Logger from "../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import { execAsync } from "ags/process"
 import userOptions from "../../lib/userOptions"
@@ -271,7 +272,7 @@ export function HyprlandWorkspaces() {
                     // Handle occupied state
                     if (isOccupied || isActive) {
                         if (!child.has_css_class("bar-ws-occupied")) {
-                            console.log(`[WS CSS] Adding occupied to workspace ${id}`)
+                            Logger.info(`[WS CSS] Adding occupied to workspace ${id}`)
                             child.add_css_class("bar-ws-occupied")
                         }
                         
@@ -288,7 +289,7 @@ export function HyprlandWorkspaces() {
                         // Not occupied - remove all occupied classes
                         // Add a small delay to ensure GTK processes the class removal with transition
                         if (child.has_css_class("bar-ws-occupied")) {
-                            console.log(`[WS CSS] Removing occupied from workspace ${id}`)
+                            Logger.info(`[WS CSS] Removing occupied from workspace ${id}`)
                             // Capture child reference for setTimeout
                             const element = child
                             // Force a style recalculation by querying a property
@@ -347,7 +348,7 @@ export function HyprlandWorkspaces() {
         // If widgets aren't laid out yet (width = 0), retry after a short delay
         // Keep cursor hidden until we have valid measurements
         if (!allWidthsValid && relativeIndex > 0) {
-            console.log(`[WS] Buttons not laid out yet, retrying cursor position in 50ms`)
+            Logger.info(`[WS] Buttons not laid out yet, retrying cursor position in 50ms`)
             cursor.set_visible(false)
             setTimeout(() => updateCursorPosition(currentId, start), 50)
             return
@@ -373,7 +374,7 @@ export function HyprlandWorkspaces() {
         })
         controller.connect("scroll", (_, _dx, dy) => {
             const direction = dy > 0 ? "+1" : "-1"
-            execAsync(`hyprctl dispatch workspace ${direction}`).catch(console.error)
+            execAsync(`hyprctl dispatch workspace ${direction}`).catch(e => Logger.error(e))
             return true
         })
         overlay.add_controller(controller)

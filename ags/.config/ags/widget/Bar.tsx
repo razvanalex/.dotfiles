@@ -10,6 +10,7 @@ import StatusIcons from "./bar/StatusIcons"
 import { SystemTray } from "./bar/SystemTray"
 import SystemMonitor from "./bar/SystemMonitor"
 import Battery from "gi://AstalBattery"
+import Logger from "../lib/logger"
 
 interface BatteryInfo {
     percentage: number
@@ -98,7 +99,7 @@ function Utilities() {
                 icon="screenshot_region"
                 onClicked={() => {
                     execAsync(`${GLib.getenv("HOME")}/.dotfiles/ags/.config/ags/scripts/grimblast.sh copy area`)
-                        .catch(console.error)
+                        .catch(e => Logger.error(e))
                 }}
             />
             <UtilButton
@@ -106,7 +107,7 @@ function Utilities() {
                 icon="screenshot_monitor"
                 onClicked={() => {
                     execAsync(`${GLib.getenv("HOME")}/.dotfiles/ags/.config/ags/scripts/grimblast.sh copy screen`)
-                        .catch(console.error)
+                        .catch(e => Logger.error(e))
                 }}
             />
             <UtilButton

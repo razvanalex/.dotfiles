@@ -122,7 +122,7 @@ function NotificationItem({ notification }: { notification: Notifd.Notification 
         >
             <box
                 class={`notif-${urgency} spacing-h-10`}
-                css="max-width: 260px; width: 100%;"
+                widthRequest={260}
                 hexpand={false}
             >
                 <box valign={Gtk.Align.START} homogeneous>
@@ -248,7 +248,7 @@ export default function NotificationList() {
     const [dndState, setDndState] = createState(notifd.get_dont_disturb())
 
     return (
-        <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5" css="max-width: 280px;">
+        <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5" widthRequest={280}>
             <stack
                 visibleChildName={notifications.as(n => n.length > 0 ? "list" : "empty")}
                 transitionType={Gtk.StackTransitionType.CROSSFADE}
@@ -272,7 +272,7 @@ export default function NotificationList() {
                         <box
                             orientation={Gtk.Orientation.VERTICAL}
                             class="spacing-v-5-revealer"
-                            css="width: 100%;"
+                            hexpand
                         >
                             <For each={notifications}>
                                 {(n) => <NotificationItem notification={n} />}

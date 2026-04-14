@@ -1,3 +1,4 @@
+import Logger from "../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
 import { parseMarkdown } from "../../lib/markdown"
@@ -95,7 +96,7 @@ export default function ChatMessage({
      */
     const handleCopy = () => {
         // Copy implementation depends on AGS/GTK clipboard support
-        console.log("Copied to clipboard:", message.content)
+        Logger.info("Copied to clipboard:", message.content)
     }
 
     /**
@@ -113,12 +114,12 @@ export default function ChatMessage({
                             onSave={
                                 message.role === "user"
                                     ? (newCode) => {
-                                          const newContent = editedContent.get().replace(
-                                              block.content,
-                                              newCode
-                                          )
-                                          setEditedContent(newContent)
-                                      }
+                                        const newContent = editedContent.get().replace(
+                                            block.content,
+                                            newCode
+                                        )
+                                        setEditedContent(newContent)
+                                    }
                                     : undefined
                             }
                         />
@@ -138,12 +139,12 @@ export default function ChatMessage({
                             onSave={
                                 message.role === "user"
                                     ? (newText) => {
-                                          const newContent = editedContent.get().replace(
-                                              block.content,
-                                              newText
-                                          )
-                                          setEditedContent(newContent)
-                                      }
+                                        const newContent = editedContent.get().replace(
+                                            block.content,
+                                            newText
+                                        )
+                                        setEditedContent(newContent)
+                                    }
                                     : undefined
                             }
                         />
@@ -205,14 +206,14 @@ export default function ChatMessage({
         })
     }
 
-     return (
-         <box
-             class={`chat-message chat-message-${message.role}`}
-             orientation={Gtk.Orientation.VERTICAL}
-             spacing={3}
-             halign={message.role === "user" ? Gtk.Align.END : Gtk.Align.START}
-             widthRequest={300}
-         >
+    return (
+        <box
+            class={`chat-message chat-message-${message.role}`}
+            orientation={Gtk.Orientation.VERTICAL}
+            spacing={3}
+            halign={message.role === "user" ? Gtk.Align.END : Gtk.Align.START}
+            widthRequest={300}
+        >
             {/* Message Header */}
             <MessageHeader
                 role={message.role}

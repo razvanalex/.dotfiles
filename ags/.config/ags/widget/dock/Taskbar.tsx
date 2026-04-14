@@ -1,3 +1,4 @@
+import Logger from "../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
 import GLib from "gi://GLib"
@@ -28,7 +29,7 @@ function getHyprlandClients(): HyprlandClient[] {
       return JSON.parse(output)
     }
   } catch (e) {
-    console.error("Failed to get Hyprland clients:", e)
+    Logger.error("Failed to get Hyprland clients:", e)
   }
   return []
 }
@@ -102,6 +103,12 @@ export function Taskbar() {
             tooltipText={`${btn.title} (${btn.class})`}
             onClicked={() => focusWindow(btn.address)}
           />
+        ))
+      )}
+    </box>
+  )
+}
+>
         ))
       )}
     </box>

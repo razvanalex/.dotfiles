@@ -1,3 +1,4 @@
+import Logger from "../../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
 
@@ -86,7 +87,7 @@ export default function CodeBlock({
                         tooltipText="Copy code"
                         onClicked={() => {
                             // Copy to clipboard (implementation depends on AGS)
-                            console.log("Copy code:", code)
+                            Logger.info("Copy code:", code)
                         }}
                     >
                         <label label="content_copy" />

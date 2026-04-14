@@ -5,19 +5,20 @@ import AudioControls from "./centermodules/AudioControls"
 import Bluetooth from "./centermodules/Bluetooth"
 import WifiNetworks from "./centermodules/WifiNetworks"
 import Configure from "./centermodules/Configure"
+import Logger from "../../lib/logger"
 import { execAsync } from "ags/process"
 
 const tabs = [
     { icon: "notifications", name: "Notifications", component: () => <NotificationList />, onFocus: undefined },
     { icon: "volume_up", name: "Audio controls", component: () => <AudioControls />, onFocus: undefined },
     { icon: "bluetooth", name: "Bluetooth", component: () => <Bluetooth />, onFocus: undefined },
-    { icon: "wifi", name: "Wifi networks", component: () => <WifiNetworks />, onFocus: () => execAsync("nmcli dev wifi list").catch(console.error) },
+    { icon: "wifi", name: "Wifi networks", component: () => <WifiNetworks />, onFocus: () => execAsync("nmcli dev wifi list").catch(e => Logger.error(e)) },
     { icon: "tune", name: "Live config", component: () => <Configure />, onFocus: undefined },
 ]
 
 // State for tab switching, exported for keybind access
 let currentTab = 0
-let setCurrentTab: (v: number) => void = () => {}
+let setCurrentTab: (v: number) => void = () => { }
 
 export function nextTab() {
     setCurrentTab((currentTab + 1) % tabs.length)
@@ -29,7 +30,7 @@ export function prevTab() {
 
 export default function SidebarOptionsStack() {
     const [activeTab, setActiveTab] = createState(0)
-    
+
     // Store references for external access
     currentTab = activeTab.get()
     setCurrentTab = (v: number) => {
@@ -37,7 +38,7 @@ export default function SidebarOptionsStack() {
         currentTab = v
         if (tabs[v].onFocus) tabs[v].onFocus!()
     }
-    
+
     // Subscribe to changes
     activeTab.subscribe(() => {
         currentTab = activeTab.get()

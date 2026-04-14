@@ -2,6 +2,9 @@ import { Gtk } from "ags/gtk4";
 import { createState } from "ags";
 import GLib from "gi://GLib";
 import { execAsync } from "ags/process";
+import Logger from "../../lib/logger";
+
+const log = Logger.withScope('Music')
 
 interface PlayerState {
     status: "playing" | "paused" | "stopped";
@@ -94,11 +97,11 @@ async function updatePlayerState() {
 }
 
 GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
-    updatePlayerState().catch(console.error);
+    updatePlayerState().catch(e => log.error(e));
     return true;
 });
 
-updatePlayerState().catch(console.error);
+updatePlayerState().catch(e => log.error(e));
 
 function formatTime(seconds: number): string {
     const min = Math.floor(seconds / 60);
@@ -111,7 +114,7 @@ function PlayButton() {
         <button
             class="osd-music-controlbtn"
             onClicked={() => {
-                execAsync("playerctl play-pause").catch(console.error);
+                execAsync("playerctl play-pause").catch(e => log.error(e));
             }}
         >
             <label
@@ -127,7 +130,7 @@ function PreviousButton() {
         <button
             class="osd-music-controlbtn"
             onClicked={() => {
-                execAsync("playerctl previous").catch(console.error);
+                execAsync("playerctl previous").catch(e => log.error(e));
             }}
         >
             <label class="icon-material osd-music-controlbtn-txt" label="skip_previous" />
@@ -140,7 +143,7 @@ function NextButton() {
         <button
             class="osd-music-controlbtn"
             onClicked={() => {
-                execAsync("playerctl next").catch(console.error);
+                execAsync("playerctl next").catch(e => log.error(e));
             }}
         >
             <label class="icon-material osd-music-controlbtn-txt" label="skip_next" />
@@ -150,72 +153,4 @@ function NextButton() {
 
 export default function MusicControls() {
     return ""
-    //     return (
-    //         <revealer
-    //             transitionType={Gtk.RevealerTransitionType.SLIDE_DOWN}
-    //             revealChild={playerState.as((s) => s.available)}
-    //             transitionDuration={200}
-    //         >
-    //             <box class="osd-music spacing-h-20" visible={playerState.as((s) => s.available)}>
-    //                 <box class="osd-music-cover" valign={Gtk.Align.CENTER}>
-    //                     <box class="osd-music-cover-art" homogeneous>
-    //                         {playerState.as((s) =>
-    //                             s.coverUrl && s.coverUrl.startsWith("file://") ? (
-    //                                 <box
-    //                                     css={`background-image: url('${s.coverUrl.replace("file://", "")}');`}
-    //                                     class="osd-music-cover-real"
-    //                                 />
-    //                             ) : (
-    //                                 <box class="osd-music-cover-fallback" homogeneous>
-    //                                     <label class="icon-material txt-gigantic" label="music_note" />
-    //                                 </box>
-    //                             )
-    //                         )}
-    //                     </box>
-    //                 </box>
-    //
-    //                 <box orientation={Gtk.Orientation.VERTICAL} class="spacing-v-5 osd-music-info">
-    //                     <box orientation={Gtk.Orientation.VERTICAL} valign={Gtk.Align.CENTER} hexpand>
-    //                         <label
-    //                             class="osd-music-title"
-    //                             label={playerState.as((s) => s.title || "No music playing")}
-    //                             xalign={0}
-    //                             ellipsize={3}
-    //                         />
-    //                         <label
-    //                             class="osd-music-artists"
-    //                             label={playerState.as((s) => s.artist || "")}
-    //                             xalign={0}
-    //                             ellipsize={3}
-    //                         />
-    //                     </box>
-    //
-    //                     <box vexpand />
-    //
-    //                     <box class="spacing-h-10">
-    //                         <box class="spacing-h-3" valign={Gtk.Align.CENTER}>
-    //                             <PreviousButton />
-    //                             <NextButton />
-    //                         </box>
-    //
-    //                         <box hexpand />
-    //
-    //                         <PlayButton />
-    //
-    //                         <revealer
-    //                             transitionType={Gtk.RevealerTransitionType.SLIDE_LEFT}
-    //                             revealChild={playerState.as((s) => s.available)}
-    //                             transitionDuration={200}
-    //                         >
-    //                             <box class="osd-music-pill spacing-h-5" valign={Gtk.Align.CENTER}>
-    //                                 <label label={playerState.as((s) => formatTime(s.position))} />
-    //                                 <label label="/" />
-    //                                 <label label={playerState.as((s) => formatTime(s.length))} />
-    //                             </box>
-    //                         </revealer>
-    //                     </box>
-    //                 </box>
-    //             </box>
-    //         </revealer>
-    //     );
 }

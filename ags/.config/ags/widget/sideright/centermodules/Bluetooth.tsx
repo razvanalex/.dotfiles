@@ -1,3 +1,4 @@
+import Logger from "../../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState, createBinding, For } from "ags"
 import { createPoll } from "ags/time"
@@ -6,47 +7,62 @@ import AstalBluetooth from "gi://AstalBluetooth"
 import userOptions from "../../../lib/userOptions"
 import UPower from "../../../services/UPower"
 
+const log = Logger.withScope('Bluetooth')
+
+async function getBluez5AudioCodecs(): Promise<Record<string, string>> {
+    try {
+        const out = await execAsync("pw-dump")
+        const json = JSON.parse(out)
+        const map: Record<string, string> = {}
+
+        for (const obj of json) {
+            const bluez5Addr = obj.info?.props?.["api.bluez5.address"]
+            const bluez5Codec = obj.info?.props?.["api.bluez5.codec"]
+
+            if (bluez5Addr && bluez5Codec) {
+                map[bluez5Addr.toUpperCase()] = bluez5Codec.toUpperCase()
+            }
+        }
+
+        return map
+    } catch (e) {
+        log.error("Failed to get audio codecs:", e)
+        return {}
+    }
+}
+
+function getBatteryPercentage(device: AstalBluetooth.Device) {
+    return (): number => {
+        const p = device.battery_percentage
+        if (p > -1) {
+            // AstalBluetooth: 0-1 is ratio (100% = 1.0), >1 is percentage
+            return p > 1 ? p : p * 100
+        }
+
+        // Fallback to UPower service
+        const addr = device.address.toLowerCase()
+        const uDev = UPower.devices.find(d => d.serial.toLowerCase() === addr)
+
+        if (uDev && uDev.percentage >= 0) {
+            return uDev.percentage * 100
+        }
+
+        return -1
+    }
+}
+
 export default function Bluetooth() {
     const bluetooth = AstalBluetooth.get_default()
     const devices = createBinding(bluetooth, "devices")
     const isPowered = createBinding(bluetooth, "isPowered")
 
-    const codecs = createPoll({}, 10000, async () => {
-        try {
-            const out = await execAsync("pw-dump")
-            const json = JSON.parse(out)
-            const map: Record<string, string> = {}
-            for (const obj of json) {
-                if (obj.info?.props?.["api.bluez5.address"] && obj.info?.props?.["api.bluez5.codec"]) {
-                    map[obj.info.props["api.bluez5.address"].toUpperCase()] = obj.info.props["api.bluez5.codec"].toUpperCase()
-                }
-            }
-            return map
-        } catch (e) {
-            return {}
-        }
-    })
+    const codecs = createPoll({}, 10000, getBluez5AudioCodecs)
 
     function BluetoothDevice({ device }: { device: AstalBluetooth.Device }) {
         const connected = createBinding(device, "connected")
         const connecting = createBinding(device, "connecting")
         const name = createBinding(device, "name")
-        const batPerc = createPoll(-1, 2000, () => {
-            const p = device.battery_percentage
-            if (p > -1) {
-                // AstalBluetooth: 0-1 is ratio (100% = 1.0), >1 is percentage
-                return p > 1 ? p : p * 100
-            }
-
-            // Fallback to UPower service
-            const addr = device.address.toLowerCase()
-            const uDev = UPower.devices.find(d => d.serial.toLowerCase() === addr)
-            if (uDev && uDev.percentage >= 0) {
-                return uDev.percentage * 100
-            }
-
-            return -1
-        })
+        const batPerc = createPoll(-1, 2000, getBatteryPercentage(device))
 
         const [isTransitioning, setIsTransitioning] = createState(false)
         const [optimisticState, setOptimisticState] = createState<boolean | null>(null)
@@ -60,17 +76,17 @@ export default function Bluetooth() {
             const isConnected = connected.get()
             const p = batPerc.get()
             const opt = optimisticState.get()
-            
+
             // Hide immediately if user clicked disconnect (optimistic state is false)
             if (opt === false) {
                 setShowBattery(false)
                 return
             }
-            
+
             // Otherwise, show only when connected AND battery available
             setShowBattery(isConnected && p > -1)
         }
-        
+
         connected.subscribe(updateBatteryVisibility)
         batPerc.subscribe(updateBatteryVisibility)
         optimisticState.subscribe(updateBatteryVisibility)
@@ -116,7 +132,7 @@ export default function Bluetooth() {
                     await execAsync(["bluetoothctl", "connect", device.address])
                 }
             } catch (err) {
-                console.error(`Bluetooth connection error: ${err}`)
+                log.error(`Bluetooth connection error: ${err}`)
                 // Revert optimistic state on error
                 if (fallbackTimeout) {
                     clearTimeout(fallbackTimeout)
@@ -158,13 +174,13 @@ export default function Bluetooth() {
                                     return optimisticState.as(opt => {
                                         const isConnected = connected.get()
                                         const isConnecting = connecting.get()
-                                        
-                                        console.log(`${device.name}: opt=${opt}, connected=${isConnected}, connecting=${isConnecting}`)
-                                        
+
+                                        log.info(`Device status: ${device.name}: opt=${opt}, connected=${isConnected}, connecting=${isConnecting}`)
+
                                         // Use optimistic state if transitioning
                                         if (opt === true) return "Connecting..."
                                         if (opt === false) return "Disconnecting..."
-                                        
+
                                         if (isConnecting) return "Connecting..."
                                         return isConnected ? "Connected" : (device.paired ? "Paired" : "")
                                     })

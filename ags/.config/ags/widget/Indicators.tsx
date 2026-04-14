@@ -1,3 +1,4 @@
+import Logger from "../lib/logger"
 import app from "ags/gtk4/app";
 import { Astal, Gtk, Gdk } from "ags/gtk4";
 import { createState } from "ags";
@@ -19,7 +20,7 @@ export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
 
   // Sync window visibility
   const updateVisibility = () => {
-      console.log("Indicators: visibility check", notifications.get().length, osdVisible.get())
+      Logger.info("Indicators: visibility check", notifications.get().length, osdVisible.get())
       setWindowVisible(notifications.get().length > 0 || osdVisible.get());
   }
   

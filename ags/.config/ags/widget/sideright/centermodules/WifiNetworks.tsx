@@ -1,3 +1,4 @@
+import Logger from "../../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState, createBinding, For } from "ags"
 import { execAsync } from "ags/process"
@@ -17,7 +18,7 @@ function WifiNetwork({ accessPoint, wifi }: { accessPoint: Network.AccessPoint, 
         <button
             class="sidebar-wifinetworks-network"
             onClicked={() => {
-                execAsync(`nmcli device wifi connect ${accessPoint.bssid}`).catch(console.error)
+                execAsync(`nmcli device wifi connect ${accessPoint.bssid}`).catch(e => Logger.error(e))
             }}
         >
             <box class="spacing-h-10">
@@ -99,7 +100,7 @@ function CurrentNetwork() {
                                     onActivate={(self) => {
                                         setShowAuth(false)
                                         execAsync(`nmcli device wifi connect '${authSsid.get()}' password '${self.get_text()}'`)
-                                            .catch(console.error)
+                                            .catch(e => Logger.error(e))
                                     }}
                                 />
                             </box>
@@ -132,7 +133,7 @@ export default function WifiNetworks() {
     const wifiEnabled = createBinding(wifi, "enabled")
 
     // Trigger a wifi scan
-    execAsync("nmcli dev wifi list").catch(console.error)
+    execAsync("nmcli dev wifi list").catch(e => Logger.error(e))
 
     const accessPoints = createBinding(wifi, "accessPoints")
     const uniqueAccessPoints = accessPoints.as(aps => {

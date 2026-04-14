@@ -1,3 +1,4 @@
+import Logger from "../../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState, type Binding } from "ags"
 import { execAsync, exec } from "ags/process"
@@ -123,7 +124,7 @@ function HyprlandToggle({
         const result = exec(`hyprctl getoption -j ${option}`)
         initValue = JSON.parse(result).int !== 0
     } catch (e) {
-        console.error(e)
+        Logger.error(e)
     }
 
     return (
@@ -134,7 +135,7 @@ function HyprlandToggle({
             value={initValue}
             onChange={(newValue) => {
                 execAsync(["hyprctl", "keyword", option, `${newValue ? enableValue : disableValue}`])
-                    .catch(console.error)
+                    .catch(e => Logger.error(e))
                 if (extraOnChange) extraOnChange(newValue)
             }}
         />
@@ -163,7 +164,7 @@ function HyprlandSpinButton({
         const result = exec(`hyprctl getoption -j ${option}`)
         initValue = JSON.parse(result).int
     } catch (e) {
-        console.error(e)
+        Logger.error(e)
     }
 
     return (
@@ -177,7 +178,7 @@ function HyprlandSpinButton({
             step={step}
             onChange={(newValue) => {
                 execAsync(["hyprctl", "keyword", option, `${newValue}`])
-                    .catch(console.error)
+                    .catch(e => Logger.error(e))
             }}
         />
     )
@@ -283,7 +284,7 @@ function ColorSchemeSettings() {
                             `mkdir -p ${stateDir}/ags/user && sed -i "2s/.*/${transparency}/" ${stateDir}/ags/user/colormode.txt`
                         ]).then(() =>
                             execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh`])
-                        ).catch(console.error)
+                        ).catch(e => Logger.error(e))
                     }}
                 />
 
@@ -296,8 +297,8 @@ function ColorSchemeSettings() {
                         initIndex={[0, gradienceInit]}
                         onChange={(value) => {
                             const ADWAITA_BLUE = "#3584E4";
-                            if (value) execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh - --yes-gradience`]).catch(console.error);
-                            else execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh "${ADWAITA_BLUE}" --no-gradience`]).catch(console.error);
+                            if (value) execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh - --yes-gradience`]).catch(e => Logger.error(e));
+                            else execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh "${ADWAITA_BLUE}" --no-gradience`]).catch(e => Logger.error(e));
                         }}
                     />
                 </box>
@@ -310,7 +311,7 @@ function ColorSchemeSettings() {
                     onChange={(value) => {
                         execAsync(["bash", "-c", `mkdir -p ${stateDir}/ags/user && sed -i "3s/.*/${value}/" ${stateDir}/ags/user/colormode.txt`])
                             .then(() => execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh`]))
-                            .catch(console.error)
+                            .catch(e => Logger.error(e))
                     }}
                 />
             </box>
@@ -420,7 +421,7 @@ export default function Configure() {
                                     `mkdir -p ${stateDir}/ags/user && sed -i "2s/.*/${transparency}/" ${stateDir}/ags/user/colormode.txt`
                                 ]).then(() =>
                                     execAsync(["bash", "-c", `${configDir}/ags/scripts/color_generation/switchcolor.sh`])
-                                ).catch(console.error)
+                                ).catch(e => Logger.error(e))
                             }}
                         />
                         <HyprlandToggle
@@ -461,7 +462,7 @@ export default function Configure() {
                             option="animations:enabled"
                             extraOnChange={(newValue) => {
                                 execAsync(["gsettings", "set", "org.gnome.desktop.interface", "enable-animations", `${newValue}`])
-                                    .catch(console.error)
+                                    .catch(e => Logger.error(e))
                             }}
                         />
                         <Subcategory>

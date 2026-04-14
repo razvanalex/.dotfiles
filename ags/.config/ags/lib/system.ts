@@ -2,6 +2,7 @@ import GLib from "gi://GLib"
 import { execNoExcept, execAsyncNoExcept } from "../lib/proc"
 import { readFile } from "ags/file"
 import { createState } from "ags"
+import Logger from "./logger"
 
 export const distroID = execNoExcept(`bash -c 'cat /etc/os-release | grep "^ID=" | cut -d "=" -f 2 | sed "s/\\"//g"'`).trim()
 export const isDebianDistro = ["linuxmint", "ubuntu", "debian", "zorin", "popos", "raspbian", "kali"].includes(distroID)
@@ -30,7 +31,7 @@ export function toggleDarkMode() {
 
     execAsyncNoExcept(`bash -c "mkdir -p ${stateDir}/ags/user && sed -i '1s/.*/${lightdark}/' ${stateDir}/ags/user/colormode.txt"`)
         .then(() => execAsyncNoExcept(`bash -c "${configDir}/ags/scripts/color_generation/switchcolor.sh"`))
-        .catch(console.error)
+        .catch(e => Logger.error(e))
 }
 
 export const hasPlasmaIntegration = !!execNoExcept('bash -c "command -v plasma-browser-integration-host"')

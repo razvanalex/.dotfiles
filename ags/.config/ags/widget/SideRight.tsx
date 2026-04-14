@@ -4,7 +4,7 @@ import userOptions from "../lib/userOptions"
 import { execAsync } from "ags/process"
 import { execBashAsync } from "../lib/proc"
 import { createPoll } from "ags/time"
-import GLib from "gi://GLib"
+import Logger from "../lib/logger"
 
 import QuickToggles from "./sideright/QuickToggles"
 import SidebarOptionsStack, { nextTab, prevTab } from "./sideright/SidebarOptionsStack"
@@ -15,19 +15,19 @@ function checkKeybind(keyval: number, state: Gdk.ModifierType, keybindStr: strin
     const parts = keybindStr.split("+")
     const key = parts[parts.length - 1]
     const mods = parts.slice(0, -1)
-    
+
     const hasCtrl = mods.includes("Ctrl")
     const hasShift = mods.includes("Shift")
     const hasAlt = mods.includes("Alt")
-    
+
     const stateHasCtrl = (state & Gdk.ModifierType.CONTROL_MASK) !== 0
     const stateHasShift = (state & Gdk.ModifierType.SHIFT_MASK) !== 0
     const stateHasAlt = (state & Gdk.ModifierType.ALT_MASK) !== 0
-    
+
     if (hasCtrl !== stateHasCtrl) return false
     if (hasShift !== stateHasShift) return false
     if (hasAlt !== stateHasAlt) return false
-    
+
     const keyName = Gdk.keyval_name(keyval)
     return keyName?.toLowerCase() === key.toLowerCase()
 }
@@ -45,28 +45,28 @@ function TimeRow() {
     return (
         <box class="spacing-h-10 sidebar-group-invisible-morehorizpad">
             <label class="icon-material txt txt-larger" label="info" />
-            <label 
-                class="txt-small txt" 
+            <label
+                class="txt-small txt"
                 label={uptime}
                 halign={Gtk.Align.CENTER}
             />
             <box hexpand />
-            <button 
-                class="sidebar-iconbutton icon-material txt-norm" 
+            <button
+                class="sidebar-iconbutton icon-material txt-norm"
                 tooltipText="Reload"
                 onClicked={() => execBashAsync("hyprctl reload; killall ags ydotool; ags &")}
             >
                 <label label="refresh" />
             </button>
-             <button 
-                class="sidebar-iconbutton icon-material txt-norm" 
+            <button
+                class="sidebar-iconbutton icon-material txt-norm"
                 tooltipText="Settings"
                 onClicked={() => execBashAsync(userOptions.apps.settings)}
             >
                 <label label="settings" />
             </button>
-             <button 
-                class="sidebar-iconbutton icon-material txt-norm" 
+            <button
+                class="sidebar-iconbutton icon-material txt-norm"
                 tooltipText="Power"
                 onClicked={() => {
                     const monitors = app.get_monitors()
@@ -83,7 +83,7 @@ function TimeRow() {
 
 export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
     const { TOP, RIGHT, BOTTOM, LEFT } = Astal.WindowAnchor
-    console.log("Creating SideRight window for monitor " + index)
+    Logger.info("Creating SideRight window for monitor " + index)
 
     try {
         return (
@@ -96,7 +96,7 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
                 keymode={Astal.Keymode.ON_DEMAND}
                 visible={false}
                 $={(self: Gtk.Window) => {
-                    console.log("SideRight window setup " + self.name)
+                    Logger.info("SideRight window setup " + self.name)
                     const controller = new Gtk.EventControllerKey()
                     controller.connect("key-pressed", (_, keyval, keycode, state) => {
                         // Close on Escape
@@ -104,7 +104,7 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
                             self.visible = false
                             return true
                         }
-                        
+
                         // Tab navigation keybinds
                         if (checkKeybind(keyval, state, userOptions.keybinds.sidebar.options.nextTab)) {
                             nextTab()
@@ -114,19 +114,19 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
                             prevTab()
                             return true
                         }
-                        
+
                         return false
                     })
                     self.add_controller(controller)
                 }}
             >
                 <box>
-                    <button 
-                        hexpand 
+                    <button
+                        hexpand
                         css="background: transparent; border: none; box-shadow: none;"
-                        onClicked={() => app.toggle_window(`sideright${index}`)} 
+                        onClicked={() => app.toggle_window(`sideright${index}`)}
                     />
-                    <box 
+                    <box
                         orientation={Gtk.Orientation.VERTICAL}
                         class="sidebar-right spacing-v-15"
                         hexpand={false}
@@ -144,7 +144,7 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
             </window>
         )
     } catch (e) {
-        console.error("Error creating SideRight window:", e)
+        Logger.error("Error creating SideRight window:", e)
         return <window name={`sideright${index}`} application={app}><label label="Error creating window. Check logs." /></window>
     }
 }

@@ -1,3 +1,4 @@
+import Logger from "../../lib/logger"
 import { Gtk, Gdk } from "ags/gtk4"
 import { execAsync, exec } from "ags/process"
 import { createState, createBinding } from "ags"
@@ -109,7 +110,7 @@ export function ModuleInvertColors() {
             const shader = JSON.parse(out).str.trim()
             setEnabled(shader !== "[[EMPTY]]" && shader !== "")
         } catch (e) {
-            console.error(e)
+            Logger.error(e)
         }
     }
 
@@ -129,7 +130,7 @@ export function ModuleInvertColors() {
                         setEnabled(true)
                     }
                 } catch (e) {
-                    console.error(e)
+                    Logger.error(e)
                 }
             }}
             child={<label class="icon-material txt-norm" label="invert_colors" />}

@@ -1,3 +1,4 @@
+import Logger from "../../lib/logger"
 import Gio from "gi://Gio"
 import GLib from "gi://GLib"
 import { execNoExcept } from "../../lib/proc"
@@ -29,7 +30,7 @@ function getHyprlandClients(): HyprlandClient[] {
       return JSON.parse(output)
     }
   } catch (e) {
-    console.error("Failed to get Hyprland clients:", e)
+    Logger.error("Failed to get Hyprland clients:", e)
   }
   return []
 }
@@ -40,7 +41,7 @@ function launchApp(desktopId: string) {
     try {
       appInfo.launch([], null)
     } catch (e) {
-      console.error(`Failed to launch ${desktopId}:`, e)
+      Logger.error(`Failed to launch ${desktopId}:`, e)
     }
   }
 }
@@ -87,6 +88,12 @@ export function PinnedApps() {
             }}
             onMiddleClick={() => launchApp(appName)}
           />
+        )
+      })}
+    </box>
+  )
+}
+/>
         )
       })}
     </box>

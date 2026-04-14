@@ -121,8 +121,8 @@
     @include notif-rounding;
     border: 1px solid $outline;
     background-color: $surfaceContainerLow;
-    max-width: 240px;
-    max-height: 180px;
+    min-width: 240px;
+    min-height: 180px;
 }
 
 .notif-icon-material {

@@ -5,6 +5,7 @@ import { execBash } from "../lib/proc"
 import { writeFile } from "ags/file"
 import { darkMode } from "./system"
 import userOptions from "./userOptions"
+import Logger from "./logger"
 
 export const COMPILED_STYLE_DIR = `${GLib.get_user_cache_dir()}/ags/user/generated`
 
@@ -29,9 +30,9 @@ export function handleStyles(resetMusic: boolean = false) {
         const path = `${GLib.get_user_state_dir()}/ags/scss/_mixin_overrides.scss`
         writeFile(path, mixinOverrides)
 
-        console.log("Mixin overrides written to", path)
+        Logger.info("Mixin overrides written to", path)
     } catch (e) {
-        console.error("Failed to write mixin overrides:", e)
+        Logger.error("Failed to write mixin overrides:", e)
     }
 
     // Compile and apply
@@ -56,8 +57,8 @@ async function applyStyle() {
 
         app.reset_css()
         app.apply_css(`${COMPILED_STYLE_DIR}/style.css`)
-        console.log("[LOG] Styles loaded:", `${COMPILED_STYLE_DIR}/style.css`)
+        Logger.info("Styles loaded:", `${COMPILED_STYLE_DIR}/style.css`)
     } catch (e) {
-        console.error("Failed to apply styles:", e)
+        Logger.error("Failed to apply styles:", e)
     }
 }

@@ -1,3 +1,4 @@
+import Logger from "../lib/logger"
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
@@ -137,24 +138,15 @@ export default function Session(monitor: Gdk.Monitor, index: number) {
 
 
     const close = () => app.get_windows().forEach(w => {
-
         if (w.name.startsWith("session")) w.visible = false
-
     })
 
-
-
-    const lock = () => { close(); execAsync(["loginctl", "lock-session"]).catch(console.error) }
-
-    const logout = () => { close(); execAsync(["bash", "-c", "pkill Hyprland || pkill sway || pkill niri || loginctl terminate-user $USER"]).catch(console.error) }
-
-    const sleep = () => { close(); execAsync(["bash", "-c", "systemctl suspend || loginctl suspend"]).catch(console.error) }
-
-    const hibernate = () => { close(); execAsync(["bash", "-c", "systemctl hibernate || loginctl hibernate"]).catch(console.error) }
-
-    const shutdown = () => { close(); execAsync(["bash", "-c", "systemctl poweroff || loginctl poweroff"]).catch(console.error) }
-
-    const reboot = () => { close(); execAsync(["bash", "-c", "systemctl reboot || loginctl reboot"]).catch(console.error) }
+    const lock = () => { close(); execAsync(["loginctl", "lock-session"]).catch(e => Logger.error(e)) }
+    const logout = () => { close(); execAsync(["bash", "-c", "pkill Hyprland || pkill sway || pkill niri || loginctl terminate-user $USER"]).catch(e => Logger.error(e)) }
+    const sleep = () => { close(); execAsync(["bash", "-c", "systemctl suspend || loginctl suspend"]).catch(e => Logger.error(e)) }
+    const hibernate = () => { close(); execAsync(["bash", "-c", "systemctl hibernate || loginctl hibernate"]).catch(e => Logger.error(e)) }
+    const shutdown = () => { close(); execAsync(["bash", "-c", "systemctl poweroff || loginctl poweroff"]).catch(e => Logger.error(e)) }
+    const reboot = () => { close(); execAsync(["bash", "-c", "systemctl reboot || loginctl reboot"]).catch(e => Logger.error(e)) }
 
 
 
