@@ -1,6 +1,9 @@
+import Logger from "../lib/logger"
 import GLib from "gi://GLib"
 import { createState } from "ags"
 import { readFile, writeFile } from "ags/file"
+
+import { PATHS, ensureDirectory } from "../lib/constants"
 
 export interface ChatMessage {
     role: "user" | "assistant"
@@ -17,7 +20,7 @@ const defaultHistory: ChatHistory = {
     gemini: []
 }
 
-const historyFile = `${GLib.get_user_config_dir()}/ags/chat_history.json`
+const historyFile = PATHS.chatHistory
 const [historyState, setHistoryState] = createState<ChatHistory>(defaultHistory)
 
 // Load history on initialization
@@ -35,11 +38,10 @@ function loadHistory() {
 function saveHistory(history: ChatHistory) {
     try {
         const content = JSON.stringify(history, null, 2)
-        // Create config directory if it doesn't exist
-        GLib.mkdir_with_parents(`${GLib.get_user_config_dir()}/ags`, 0o755)
+        ensureDirectory(historyFile)
         writeFile(historyFile, content)
     } catch (e) {
-        console.error("Failed to save chat history:", e)
+        Logger.error("Failed to save chat history:", e)
     }
 }
 

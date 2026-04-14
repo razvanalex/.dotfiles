@@ -1,7 +1,9 @@
+import Logger from "../lib/logger"
 import GLib from "gi://GLib"
 import Gio from "gi://Gio"
 import { createState } from "ags"
 import { readFile, writeFile } from "ags/file"
+import { PATHS, ensureDirectory } from "../lib/constants"
 
 interface ApiKeys {
     gpt: string
@@ -13,7 +15,7 @@ const defaultKeys: ApiKeys = {
     gemini: ""
 }
 
-const keysFile = `${GLib.get_user_config_dir()}/ags/api_keys.json`
+const keysFile = PATHS.apiKeys
 const [keysState, setKeysState] = createState<ApiKeys>(defaultKeys)
 
 // Load keys on initialization
@@ -25,12 +27,12 @@ function loadKeys() {
             const loaded = JSON.parse(contents) as ApiKeys
             setKeysState(loaded)
         } else {
-            // Create config directory if it doesn't exist
-            GLib.mkdir_with_parents(`${GLib.get_user_config_dir()}/ags`, 0o755)
+            // Create config directory and file if it doesn't exist
+            ensureDirectory(keysFile)
             saveKeys(defaultKeys)
         }
     } catch (e) {
-        console.error("Failed to load API keys:", e)
+        Logger.error("Failed to load API keys:", e)
         setKeysState(defaultKeys)
     }
 }
@@ -38,11 +40,10 @@ function loadKeys() {
 function saveKeys(keys: ApiKeys) {
     try {
         const content = JSON.stringify(keys, null, 2)
-        // Create config directory if it doesn't exist
-        GLib.mkdir_with_parents(`${GLib.get_user_config_dir()}/ags`, 0o755)
+        ensureDirectory(keysFile)
         writeFile(keysFile, content)
     } catch (e) {
-        console.error("Failed to save API keys:", e)
+        Logger.error("Failed to save API keys:", e)
     }
 }
 

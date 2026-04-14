@@ -1,5 +1,8 @@
 import { execAsync } from "ags/process"
 import GLib from "gi://GLib"
+import Logger from "./logger"
+
+import { PATHS, CONFIG_DIR, ensureDirectory } from "./constants"
 
 export type TransitionType = 
     | "none" 
@@ -31,6 +34,8 @@ export interface TransitionOptions {
 
 export interface WallpaperConfig {
     wallpaperDir: string
+    recursiveSearch: boolean
+    includeHidden: boolean
     transition: TransitionOptions
     colorGenerationScript: string
     stateFile: string
@@ -38,14 +43,16 @@ export interface WallpaperConfig {
 
 export const DEFAULT_CONFIG: WallpaperConfig = {
     wallpaperDir: `${GLib.get_home_dir()}/Pictures/Wallpapers`,
+    recursiveSearch: true,
+    includeHidden: false,
     transition: {
         fps: 60,
         type: "any",
         duration: 1,
         bezier: ".54,0,.34,.99"
     },
-    colorGenerationScript: `${GLib.get_home_dir()}/.config/ags/scripts/color_generation/colorgen.sh`,
-    stateFile: `${GLib.get_home_dir()}/.config/ags/wallpaper_state.json`
+    colorGenerationScript: `${CONFIG_DIR}/scripts/color_generation/colorgen.sh`,
+    stateFile: PATHS.wallpaperState
 }
 
 /**
@@ -62,8 +69,16 @@ export function expandPath(path: string): string {
  * Find all image files in a directory (jpg, jpeg, png, gif)
  * @throws Error if directory doesn't exist or no images found
  */
-export async function findImages(directory: string): Promise<string[]> {
+export async function findImages(
+    directory: string,
+    options?: {
+        recursiveSearch?: boolean
+        includeHidden?: boolean
+    },
+): Promise<string[]> {
     const expandedDir = expandPath(directory)
+    const recursiveSearch = options?.recursiveSearch ?? true
+    const includeHidden = options?.includeHidden ?? false
     
     // Check if directory exists
     if (!GLib.file_test(expandedDir, GLib.FileTest.IS_DIR)) {
@@ -71,9 +86,16 @@ export async function findImages(directory: string): Promise<string[]> {
     }
 
     try {
-        const output = await execAsync([
+        const findArgs = [
             "find",
             expandedDir,
+        ]
+
+        if (!recursiveSearch) {
+            findArgs.push("-maxdepth", "1")
+        }
+
+        findArgs.push(
             "-type", "f",
             "(",
             "-iname", "*.jpg",
@@ -81,7 +103,14 @@ export async function findImages(directory: string): Promise<string[]> {
             "-o", "-iname", "*.png",
             "-o", "-iname", "*.gif",
             ")",
-            "-not", "-path", `${expandedDir}/.*`
+        )
+
+        if (!includeHidden) {
+            findArgs.push("-not", "-path", `${expandedDir}/.*`, "-not", "-path", "*/.*")
+        }
+
+        const output = await execAsync([
+            ...findArgs,
         ])
 
         const images = output.trim().split("\n").filter(line => line.length > 0)
@@ -96,6 +125,55 @@ export async function findImages(directory: string): Promise<string[]> {
             throw error
         }
         throw new Error(`Failed to find images in ${expandedDir}: ${error}`)
+    }
+}
+
+/**
+ * Find first image file in a directory according to discovery options.
+ * Returns empty string when no image is found.
+ */
+export async function findFirstImage(
+    directory: string,
+    options?: {
+        recursiveSearch?: boolean
+        includeHidden?: boolean
+    },
+): Promise<string> {
+    const expandedDir = expandPath(directory)
+    const recursiveSearch = options?.recursiveSearch ?? true
+    const includeHidden = options?.includeHidden ?? false
+
+    if (!GLib.file_test(expandedDir, GLib.FileTest.IS_DIR)) {
+        throw new Error(`Directory does not exist: ${expandedDir}`)
+    }
+
+    const args = ["find", expandedDir]
+
+    if (!recursiveSearch) {
+        args.push("-maxdepth", "1")
+    }
+
+    args.push(
+        "-type", "f",
+        "(",
+        "-iname", "*.jpg",
+        "-o", "-iname", "*.jpeg",
+        "-o", "-iname", "*.png",
+        "-o", "-iname", "*.gif",
+        ")",
+    )
+
+    if (!includeHidden) {
+        args.push("-not", "-path", `${expandedDir}/.*`, "-not", "-path", "*/.*")
+    }
+
+    args.push("-print", "-quit")
+
+    try {
+        const output = await execAsync(args)
+        return output.trim()
+    } catch {
+        return ""
     }
 }
 
@@ -117,7 +195,7 @@ export async function triggerColorGen(script: string, imagePath: string): Promis
     
     // Check if script exists
     if (!GLib.file_test(expandedScript, GLib.FileTest.EXISTS)) {
-        console.warn(`Color generation script not found: ${expandedScript}`)
+        Logger.warn(`Color generation script not found: ${expandedScript}`)
         return
     }
 
@@ -126,7 +204,7 @@ export async function triggerColorGen(script: string, imagePath: string): Promis
         const venvActivate = `${GLib.get_home_dir()}/.config/ags/scripts/.venv/bin/activate`
         await execAsync(`bash -c 'source ${venvActivate} && ${expandedScript} "${imagePath}" --apply'`)
     } catch (error) {
-        console.error("Failed to trigger color generation:", error)
+        Logger.error("Failed to trigger color generation:", error)
         // Non-blocking error - don't throw
     }
 }
@@ -190,7 +268,7 @@ export function loadConfig(configPath: string): WallpaperConfig {
                 }
             }
         } catch (error) {
-            console.error("Failed to load config, using defaults:", error)
+            Logger.error("Failed to load config, using defaults:", error)
             return DEFAULT_CONFIG
         }
     } else {
@@ -208,9 +286,10 @@ export function saveConfig(configPath: string, config: WallpaperConfig): void {
     const json = JSON.stringify(config, null, 2)
     
     try {
+        ensureDirectory(expandedPath)
         GLib.file_set_contents(expandedPath, json)
     } catch (error) {
-        console.error("Failed to save config:", error)
+        Logger.error("Failed to save config:", error)
     }
 }
 
@@ -229,7 +308,7 @@ export function loadState(statePath: string): { currentWallpaper: string } | nul
         const text = new TextDecoder().decode(contents[1])
         return JSON.parse(text)
     } catch (error) {
-        console.error("Failed to load state:", error)
+        Logger.error("Failed to load state:", error)
         return null
     }
 }
@@ -242,8 +321,9 @@ export function saveState(statePath: string, state: { currentWallpaper: string }
     const json = JSON.stringify(state, null, 2)
     
     try {
+        ensureDirectory(expandedPath)
         GLib.file_set_contents(expandedPath, json)
     } catch (error) {
-        console.error("Failed to save state:", error)
+        Logger.error("Failed to save state:", error)
     }
 }

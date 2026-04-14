@@ -1,2 +1,16 @@
 node_modules/
 @girs/
+api_keys.json
+wallpaper_config.json
+
+# State and dynamic config files
+wallpaper_state.json
+wallpaper_engine_state.json
+chat_history.json
+
+# AI/Agent Documentation
+AGENTS.md
+CHAT_SETUP_GUIDE.md
+CHAT_UI_GUIDE.md
+QUICK_START.md
+services/WALLPAPER_SERVICE.md

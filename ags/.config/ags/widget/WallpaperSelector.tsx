@@ -2,6 +2,7 @@ import app from "ags/gtk4/app"
 import { Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
 import { loadConfig } from "../lib/wallpaper"
+import { PATHS } from "../lib/constants"
 import GLib from "gi://GLib"
 import type { NavSection } from "./wallpaperselector/types"
 import SidebarNav from "./wallpaperselector/SidebarNav"
@@ -12,7 +13,7 @@ import RecentSection from "./wallpaperselector/sections/RecentSection"
 import AboutSection from "./wallpaperselector/sections/AboutSection"
 
 export default function WallpaperSelector(monitor: Gdk.Monitor, index: number) {
-    const configPath = `${GLib.get_home_dir()}/.config/ags/wallpaper_config.json`
+    const configPath = PATHS.wallpaperConfig
     const config = loadConfig(configPath)
     const wallpaperDir = config.wallpaperDir
 

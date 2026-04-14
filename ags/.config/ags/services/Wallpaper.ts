@@ -1,11 +1,13 @@
 import GObject from "gi://GObject"
 import GLib from "gi://GLib"
 import { execAsync } from "ags/process"
+import Logger from "../lib/logger"
 import {
     WallpaperConfig,
     TransitionOptions,
     expandPath,
     findImages,
+    findFirstImage,
     selectRandom,
     triggerColorGen,
     buildTransitionParams,
@@ -14,6 +16,8 @@ import {
     loadState,
     saveState
 } from "../lib/wallpaper"
+
+const log = Logger.withScope('Wallpaper')
 
 class Wallpaper extends GObject.Object {
     static {
@@ -48,6 +52,9 @@ class Wallpaper extends GObject.Object {
     #currentWallpaper = ""
     #isAnimating = false
     #autoChangeTimer: number | null = null
+    #autoChangeDirectory: string | null = null
+    #autoChangeOptions: TransitionOptions | undefined = undefined
+    #autoChangePicker: (() => Promise<string>) | null = null
     #config: WallpaperConfig
     #configPath: string
 
@@ -76,12 +83,12 @@ class Wallpaper extends GObject.Object {
         if (state?.currentWallpaper) {
             this.#currentWallpaper = state.currentWallpaper
             this.notify("current-wallpaper")
-            console.log(`Wallpaper: Restored last wallpaper: ${this.#currentWallpaper}`)
+            log.info(`Restored last wallpaper: ${this.#currentWallpaper}`)
         }
 
         // Ensure awww daemon is running
         this.#ensureAwwwDaemon().catch(err => {
-            console.error("Wallpaper: Failed to start awww daemon:", err)
+            log.error(`Failed to start awww daemon: ${err}`)
         })
     }
 
@@ -92,10 +99,10 @@ class Wallpaper extends GObject.Object {
         try {
             // Check if daemon is running
             await execAsync("awww query")
-            console.log("Wallpaper: awww daemon is already running")
+            log.info("awww daemon is already running")
         } catch {
             // Start daemon
-            console.log("Wallpaper: Starting awww daemon...")
+            log.info("Starting awww daemon...")
             try {
                 await execAsync("awww-daemon --format xrgb &")
                 // Give it a moment to start
@@ -103,7 +110,7 @@ class Wallpaper extends GObject.Object {
                     resolve(null)
                     return GLib.SOURCE_REMOVE
                 }))
-                console.log("Wallpaper: awww daemon started")
+                log.info("awww daemon started")
             } catch (error) {
                 throw new Error(`Failed to start awww daemon: ${error}`)
             }
@@ -151,7 +158,7 @@ class Wallpaper extends GObject.Object {
             // Emit signal
             this.emit("wallpaper-changed", expandedPath)
 
-            console.log(`Wallpaper: Applied ${expandedPath}`)
+            log.info(`Applied ${expandedPath}`)
         } catch (error) {
             const errorMsg = `Failed to apply wallpaper: ${error}`
             this.emit("wallpaper-error", errorMsg)
@@ -194,7 +201,10 @@ class Wallpaper extends GObject.Object {
         const dir = directory || this.#config.wallpaperDir
 
         try {
-            const images = await findImages(dir)
+            const images = await findImages(dir, {
+                recursiveSearch: this.#config.recursiveSearch,
+                includeHidden: this.#config.includeHidden,
+            })
             const randomImage = selectRandom(images)
             await this.#applyWallpaper(randomImage, options)
         } catch (error) {
@@ -211,9 +221,32 @@ class Wallpaper extends GObject.Object {
         const dir = directory || this.#config.wallpaperDir
         
         try {
-            return await findImages(dir)
+            return await findImages(dir, {
+                recursiveSearch: this.#config.recursiveSearch,
+                includeHidden: this.#config.includeHidden,
+            })
         } catch (error) {
+            const message = String(error)
+            if (message.includes("No images found in directory")) {
+                return []
+            }
+
             const errorMsg = `Failed to get wallpapers: ${error}`
+            this.emit("wallpaper-error", errorMsg)
+            throw new Error(errorMsg)
+        }
+    }
+
+    async getFirstWallpaper(directory?: string): Promise<string> {
+        const dir = directory || this.#config.wallpaperDir
+
+        try {
+            return await findFirstImage(dir, {
+                recursiveSearch: this.#config.recursiveSearch,
+                includeHidden: this.#config.includeHidden,
+            })
+        } catch (error) {
+            const errorMsg = `Failed to get first wallpaper: ${error}`
             this.emit("wallpaper-error", errorMsg)
             throw new Error(errorMsg)
         }
@@ -229,42 +262,115 @@ class Wallpaper extends GObject.Object {
     /**
      * Start auto-changing wallpapers at intervals
      */
-    async startAutoChange(directory?: string, interval?: number, options?: TransitionOptions): Promise<void> {
+    async startAutoChange(
+        directory?: string,
+        interval?: number,
+        options?: TransitionOptions,
+        picker?: () => Promise<string>,
+    ): Promise<void> {
         // Stop any existing auto-change
         this.stopAutoChange()
 
         const dir = directory || this.#config.wallpaperDir
         const intervalMs = (interval || 3000) * 1000 // Default 3000 seconds
+        this.#autoChangeDirectory = dir
+        this.#autoChangeOptions = options
+        this.#autoChangePicker = picker || null
 
         try {
-            // Verify directory has images first
-            const images = await findImages(dir)
-            
-            if (images.length === 0) {
-                const errorMsg = `No images found in directory: ${dir}`
-                this.emit("wallpaper-error", errorMsg)
-                throw new Error(errorMsg)
-            }
+            if (this.#autoChangePicker) {
+                const selected = await this.#autoChangePicker()
+                if (!selected) {
+                    const errorMsg = "Auto-change picker returned no wallpaper"
+                    this.emit("wallpaper-error", errorMsg)
+                    throw new Error(errorMsg)
+                }
+                await this.#applyWallpaper(selected, options)
+            } else {
+                const images = await findImages(dir, {
+                    recursiveSearch: this.#config.recursiveSearch,
+                    includeHidden: this.#config.includeHidden,
+                })
 
-            // Apply first wallpaper immediately
-            const randomImage = selectRandom(images)
-            await this.#applyWallpaper(randomImage, options)
+                if (images.length === 0) {
+                    const errorMsg = `No images found in directory: ${dir}`
+                    this.emit("wallpaper-error", errorMsg)
+                    throw new Error(errorMsg)
+                }
+
+                const randomImage = selectRandom(images)
+                await this.#applyWallpaper(randomImage, options)
+            }
 
             // Set up timer for subsequent changes
             this.#autoChangeTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, intervalMs, () => {
-                // Async operation in timer - don't await
-                this.setRandomWallpaper(dir, options).catch(err => {
-                    console.error("Auto-change error:", err)
-                })
+                if (this.#autoChangePicker) {
+                    void this.#autoChangePicker()
+                        .then((path) => {
+                            if (!path) throw new Error("Auto-change picker returned no wallpaper")
+                            return this.setWallpaper(path, options)
+                        })
+                        .catch(err => {
+                            log.error(`Auto-change error: ${err}`)
+                        })
+                } else {
+                    this.setRandomWallpaper(dir, options).catch(err => {
+                        log.error(`Auto-change error: ${err}`)
+                    })
+                }
                 return GLib.SOURCE_CONTINUE
             })
 
-            console.log(`Wallpaper: Auto-change started (interval: ${interval}s)`)
+            log.info(`Auto-change started (interval: ${interval}s)`)
         } catch (error) {
             const errorMsg = `Failed to start auto-change: ${error}`
             this.emit("wallpaper-error", errorMsg)
             throw new Error(errorMsg)
         }
+    }
+
+    async updateAutoChangeInterval(interval: number): Promise<void> {
+        const intervalMs = interval * 1000
+        const dir = this.#autoChangeDirectory || this.#config.wallpaperDir
+        const options = this.#autoChangeOptions
+        const picker = this.#autoChangePicker
+
+        if (!picker) {
+            const images = await findImages(dir, {
+                recursiveSearch: this.#config.recursiveSearch,
+                includeHidden: this.#config.includeHidden,
+            })
+            if (images.length === 0) {
+                const errorMsg = `No images found in directory: ${dir}`
+                this.emit("wallpaper-error", errorMsg)
+                throw new Error(errorMsg)
+            }
+        }
+
+        if (this.#autoChangeTimer !== null) {
+            GLib.source_remove(this.#autoChangeTimer)
+            this.#autoChangeTimer = null
+        }
+
+        this.#autoChangeTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, intervalMs, () => {
+            if (picker) {
+                void picker()
+                    .then((path) => {
+                        if (!path) throw new Error("Auto-change picker returned no wallpaper")
+                        return this.setWallpaper(path, options)
+                    })
+                    .catch(err => {
+                        log.error(`Auto-change error: ${err}`)
+                    })
+            } else {
+                this.setRandomWallpaper(dir, options).catch(err => {
+                    log.error(`Auto-change error: ${err}`)
+                })
+            }
+            return GLib.SOURCE_CONTINUE
+        })
+
+        log.info(`Auto-change interval updated to ${interval}s`)
     }
 
     /**
@@ -274,7 +380,8 @@ class Wallpaper extends GObject.Object {
         if (this.#autoChangeTimer !== null) {
             GLib.source_remove(this.#autoChangeTimer)
             this.#autoChangeTimer = null
-            console.log("Wallpaper: Auto-change stopped")
+            this.#autoChangePicker = null
+            log.info("Auto-change stopped")
         }
     }
 
@@ -298,7 +405,7 @@ class Wallpaper extends GObject.Object {
             }
         }
         saveConfig(this.#configPath, this.#config)
-        console.log("Wallpaper: Configuration updated")
+        log.info("Configuration updated")
     }
 
     /**
