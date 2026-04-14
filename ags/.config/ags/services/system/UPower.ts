@@ -1,4 +1,4 @@
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 import GObject from "gi://GObject"
 import GLib from "gi://GLib"
 import { execAsync } from "ags/process"

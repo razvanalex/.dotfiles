@@ -1,6 +1,6 @@
 import { execAsync } from "ags/process"
 import GLib from "gi://GLib"
-import Logger from "./logger"
+import Logger from "lib/logger"
 
 /**
  * Load list of theme directories from wallpaper base directory

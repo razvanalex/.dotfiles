@@ -1,6 +1,6 @@
 import Gio from "gi://Gio"
 import { Gtk, Gdk } from "ags/gtk4"
-import userOptions from "./userOptions"
+import userOptions from "services/options/Options"
 
 export function levenshteinDistance(a: string, b: string): number {
     if (!a.length) return b.length

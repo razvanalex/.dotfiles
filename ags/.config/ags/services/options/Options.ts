@@ -1,4 +1,5 @@
-import Logger from "./logger"
+import GObject from "gi://GObject"
+import Logger from "lib/logger"
 import GLib from "gi://GLib"
 
 export interface UserOptions {
@@ -379,15 +380,64 @@ const defaultOptions: UserOptions = {
     },
 }
 
-export let userOptions: UserOptions = defaultOptions
+class OptionsService extends GObject.Object {
+    static {
+        GObject.registerClass({
+            Signals: {
+                "changed": {},
+            }
+        }, this)
+    }
 
-// Try to load user overrides
-try {
-    const userOverridesPath = `${GLib.get_user_config_dir()}/ags/user_options.ts`
-    // Note: In v2, dynamic imports work differently. For now, using defaults.
-    // Users can modify this file directly or create a separate override mechanism
-} catch (e) {
-    Logger.info("Using default options")
+    private _options: UserOptions = defaultOptions
+
+    constructor() {
+        super()
+        this.load()
+    }
+
+    private load() {
+        try {
+            const userOverridesPath = `${GLib.get_user_config_dir()}/ags/user_options.ts`
+            // Note: In v2, dynamic imports work differently. For now, using defaults.
+            // Users can modify this file directly or create a separate override mechanism
+            Logger.info("Using default options")
+        } catch (e) {
+            Logger.info("Using default options")
+        }
+    }
+
+    get options() {
+        return this._options
+    }
+
+    // Proxy properties for easier access
+    get ai() { return this._options.ai }
+    get animations() { return this._options.animations }
+    get appearance() { return this._options.appearance }
+    get apps() { return this._options.apps }
+    get battery() { return this._options.battery }
+    get brightness() { return this._options.brightness }
+    get cheatsheet() { return this._options.cheatsheet }
+    get gaming() { return this._options.gaming }
+    get monitors() { return this._options.monitors }
+    get music() { return this._options.music }
+    get onScreenKeyboard() { return this._options.onScreenKeyboard }
+    get overview() { return this._options.overview }
+    get sidebar() { return this._options.sidebar }
+    get search() { return this._options.search }
+    get time() { return this._options.time }
+    get weather() { return this._options.weather }
+    get workspaces() { return this._options.workspaces }
+    get dock() { return this._options.dock }
+    get icons() { return this._options.icons }
+    get keybinds() { return this._options.keybinds }
+
+    update(newOptions: Partial<UserOptions>) {
+        this._options = { ...this._options, ...newOptions }
+        this.emit("changed")
+    }
 }
 
-export default userOptions
+const service = new OptionsService()
+export default service

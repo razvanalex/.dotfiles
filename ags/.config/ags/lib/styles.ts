@@ -1,10 +1,10 @@
 import GLib from "gi://GLib"
 import app from "ags/gtk4/app"
 import { exec } from "ags/process"
-import { execBash } from "../lib/proc"
+import { execBash } from "lib/proc"
 import { writeFile } from "ags/file"
-import { darkMode } from "./system"
-import userOptions from "./userOptions"
+import SystemService from "services/system/System"
+import userOptions from "services/options/Options"
 import Logger from "./logger"
 
 export const COMPILED_STYLE_DIR = `${GLib.get_user_cache_dir()}/ags/user/generated`
@@ -18,7 +18,7 @@ export function handleStyles(resetMusic: boolean = false) {
     }
 
     // Generate overrides
-    const lightdark = darkMode.get() ? "dark" : "light"
+    const lightdark = SystemService.dark_mode ? "dark" : "light"
     const symbolicIconTheme = userOptions.icons.symbolicIconTheme[lightdark as "dark" | "light"]
 
     const mixinOverrides = `@mixin symbolic-icon {

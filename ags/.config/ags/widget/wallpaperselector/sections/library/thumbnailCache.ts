@@ -1,6 +1,6 @@
 import { execAsync } from "ags/process"
 import GLib from "gi://GLib"
-import Logger from "../../../../lib/logger"
+import Logger from "lib/logger"
 import {
     WALLPAPER_CARD_WIDTH,
     WALLPAPER_CARD_IMAGE_HEIGHT,

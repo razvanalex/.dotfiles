@@ -1,15 +1,15 @@
 import { createState } from "ags"
 import type { Accessor } from "ags"
 import { execAsync } from "ags/process"
-import wallpaperService from "../../../../services/Wallpaper"
+import wallpaperService from "services/wallpaper/Wallpaper"
 import type {
     EngineMode,
     EngineState,
     WallpaperSourceType,
     WallpaperStrategy,
 } from "../../types"
-import { loadConfig } from "../../../../lib/wallpaper"
-import { PATHS } from "../../../../lib/constants"
+import { loadConfig } from "services/wallpaper/utils/wallpaper"
+import { PATHS } from "lib/constants"
 import GLib from "gi://GLib"
 
 interface CreateSettingsControllerProps {

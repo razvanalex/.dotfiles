@@ -1,9 +1,9 @@
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 import GLib from "gi://GLib"
 import { createState } from "ags"
 import { readFile, writeFile } from "ags/file"
 
-import { PATHS, ensureDirectory } from "../lib/constants"
+import { PATHS, ensureDirectory } from "lib/constants"
 
 export interface ChatMessage {
     role: "user" | "assistant"

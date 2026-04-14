@@ -1,9 +1,9 @@
-import Logger from "../../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState, createBinding, For } from "ags"
 import { execAsync } from "ags/process"
 import Network from "gi://AstalNetwork"
-import userOptions from "../../../lib/userOptions"
+import userOptions from "services/options/Options"
 
 const SIGNAL_STRENGTH_ICONS: Record<string, string> = {
     "network-wireless-signal-excellent-symbolic": "signal_wifi_4_bar",

@@ -1,7 +1,7 @@
-import Logger from "../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk } from "ags/gtk4"
 import { execAsync } from "ags/process"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 import Hyprland from "gi://AstalHyprland"
 
 const hypr = Hyprland.get_default()

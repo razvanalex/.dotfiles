@@ -1,7 +1,7 @@
 import GObject from "gi://GObject"
 import GLib from "gi://GLib"
 import { execAsync } from "ags/process"
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 import {
     WallpaperConfig,
     TransitionOptions,
@@ -15,8 +15,8 @@ import {
     saveConfig,
     loadState,
     saveState
-} from "../lib/wallpaper"
-import { PATHS } from "../lib/constants"
+} from "./utils/wallpaper"
+import { PATHS } from "lib/constants"
 
 const log = Logger.withScope('Wallpaper')
 

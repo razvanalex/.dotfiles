@@ -1,10 +1,10 @@
-import Logger from "../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
 import GLib from "gi://GLib"
-import { execNoExcept } from "../../lib/proc"
-import { getAllFiles, searchIcons, substitute } from "../../lib/icons"
-import userOptions from "../../lib/userOptions"
+import { execNoExcept } from "lib/proc"
+import { getAllFiles, searchIcons, substitute } from "lib/icons"
+import userOptions from "services/options/Options"
 import { AppButton } from "./DockComponents"
 
 interface HyprlandClient {

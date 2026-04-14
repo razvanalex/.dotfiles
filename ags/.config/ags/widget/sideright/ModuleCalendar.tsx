@@ -1,7 +1,7 @@
 import { Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
 import { getCalendarLayout, CalendarDay } from "./CalendarLayout"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 import TodoWidget from "./TodoWidget"
 
 function getDateInXMonthsTime(x: number) {

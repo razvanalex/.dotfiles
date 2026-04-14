@@ -1,11 +1,11 @@
-import Logger from "../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk, Gdk } from "ags/gtk4"
 import { execAsync, exec } from "ags/process"
 import { createState, createBinding } from "ags"
 import Network from "gi://AstalNetwork"
 import Bluetooth from "gi://AstalBluetooth"
 import { NetworkIndicator, BluetoothIndicator } from "../bar/StatusIcons"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 import GLib from "gi://GLib"
 
 function ToggleButton({ 

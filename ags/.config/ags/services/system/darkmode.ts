@@ -1,7 +1,7 @@
 import GLib from "gi://GLib"
 import { interval } from "ags/time"
-import { darkMode, setDarkMode, toggleDarkMode } from "../lib/system"
-import userOptions from "../lib/userOptions"
+import { darkMode, setDarkMode, toggleDarkMode } from "./System"
+import userOptions from "../options/Options"
 
 function timeBefore(time1: number[], time2: number[]): boolean {
     if (time1[0] === time2[0]) return time1[1] < time2[1]

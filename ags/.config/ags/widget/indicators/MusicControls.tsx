@@ -2,7 +2,7 @@ import { Gtk } from "ags/gtk4";
 import { createState } from "ags";
 import GLib from "gi://GLib";
 import { execAsync } from "ags/process";
-import Logger from "../../lib/logger";
+import Logger from "lib/logger";
 
 const log = Logger.withScope('Music')
 

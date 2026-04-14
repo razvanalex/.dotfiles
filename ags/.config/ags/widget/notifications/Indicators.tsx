@@ -1,13 +1,13 @@
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 import app from "ags/gtk4/app";
 import { Astal, Gtk, Gdk } from "ags/gtk4";
 import { createState } from "ags";
 import Notifd from "gi://AstalNotifd";
 import GLib from "gi://GLib";
-import userOptions from "../lib/userOptions";
-import MusicControls from "./indicators/MusicControls";
-import NotificationPopups from "./indicators/NotificationPopups";
-import Osd from "./indicators/Osd";
+import userOptions from "services/options/Options";
+import MusicControls from "../indicators/MusicControls";
+import NotificationPopups from "../indicators/NotificationPopups";
+import Osd from "../indicators/Osd";
 
 export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
   const { TOP } = Astal.WindowAnchor;

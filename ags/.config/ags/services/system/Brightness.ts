@@ -1,6 +1,6 @@
 import GObject from "gi://GObject"
 import { execAsync } from "ags/process"
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 
 const log = Logger.withScope('Brightness')
 

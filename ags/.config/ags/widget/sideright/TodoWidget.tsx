@@ -1,7 +1,7 @@
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
-import userOptions from "../../lib/userOptions"
-import todoService, { type TodoItem } from "../../lib/todo"
+import userOptions from "services/options/Options"
+import todoService, { type TodoItem } from "services/todo/Todo"
 import { For } from "ags"
 
 function TodoItemComponent({ item, index, isDone }: { item: TodoItem; index: number; isDone: boolean }) {
@@ -74,11 +74,11 @@ function TodoItemComponent({ item, index, isDone }: { item: TodoItem; index: num
 }
 
 function TodoList({ isDone }: { isDone: boolean }) {
-    const [todos, setTodos] = createState<TodoItem[]>(todoService.getTodos)
+    const [todos, setTodos] = createState<TodoItem[]>(todoService.todos)
 
     // Subscribe to todo updates
-    todoService.subscribe((newTodos) => {
-        setTodos(newTodos)
+    todoService.connect("changed", () => {
+        setTodos(todoService.todos)
     })
 
     return (

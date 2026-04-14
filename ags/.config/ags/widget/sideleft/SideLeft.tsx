@@ -1,10 +1,10 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
-import userOptions from "../lib/userOptions"
-import ChatWidget from "./sideleft/ChatWidget"
-import ToolsPanel from "./sideleft/ToolsPanel"
-import Logger from "../lib/logger"
+import userOptions from "services/options/Options"
+import ChatWidget from "./ChatWidget"
+import ToolsPanel from "./ToolsPanel"
+import Logger from "lib/logger"
 
 function TabButton({ label, isActive, onClicked }: { label: string; isActive: any; onClicked: () => void }) {
     return (

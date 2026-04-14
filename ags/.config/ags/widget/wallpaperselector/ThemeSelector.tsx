@@ -1,4 +1,4 @@
-import Logger from "../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk } from "ags/gtk4"
 import type { Accessor } from "ags"
 import { createState } from "ags"
@@ -6,7 +6,7 @@ import {
     countImages,
     loadThemes,
     updateCurrentTheme,
-} from "../../lib/wallpaperUtils"
+} from "lib/wallpaperUtils"
 
 export default function ThemeSelector({
     wallpaperDir,

@@ -1,7 +1,7 @@
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
 import GLib from "gi://GLib"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 
 export function DockSeparator() {
   return (

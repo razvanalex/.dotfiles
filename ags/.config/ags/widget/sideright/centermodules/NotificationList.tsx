@@ -3,10 +3,10 @@ import { createState, createBinding } from "ags"
 import Notifd from "gi://AstalNotifd"
 import GLib from "gi://GLib"
 import Pango from "gi://Pango"
-import userOptions from "../../../lib/userOptions"
+import userOptions from "services/options/Options"
 import { For } from "ags"
-import { substitute } from "../../../lib/icons"
-import { isScreenshotNotification, ScreenshotNotificationPreview } from "../../../lib/notificationUtils"
+import { substitute } from "lib/icons"
+import { isScreenshotNotification, ScreenshotNotificationIcon, ScreenshotNotificationPreview } from "../../notifications/Utils"
 
 function guessMessageType(summary: string) {
     const str = summary.toLowerCase();

@@ -1,22 +1,22 @@
 import app from "ags/gtk4/app"
 import { Gtk } from "ags/gtk4"
-import { handleStyles, COMPILED_STYLE_DIR } from "./lib/styles"
-// import { startAutoDarkModeService } from "./services/darkmode"
-// import { firstRunWelcome, startBatteryWarningService } from "./services/messages"
-// import Crosshair from "./widget/modules/Crosshair"
-import Bar from "./widget/Bar"
-import SideLeft from "./widget/SideLeft"
-import SideRight from "./widget/SideRight"
-import Session from "./widget/Session"
-import WallpaperSelector from "./widget/WallpaperSelector"
+import { handleStyles, COMPILED_STYLE_DIR } from "lib/styles"
+// import { startAutoDarkModeService } from "services/system/darkmode"
+// import { firstRunWelcome, startBatteryWarningService } from "services/ai/messages"
+// import Crosshair from "widget/modules/Crosshair"
+import Bar from "widget/bar/Bar"
+import SideLeft from "widget/sideleft/SideLeft"
+import SideRight from "widget/sideright/SideRight"
+import Session from "widget/session/Session"
+import WallpaperSelector from "widget/wallpaperselector/WallpaperSelector"
 import Notifd from "gi://AstalNotifd"
-import Indicators from "./widget/Indicators"
-import brightness from "./services/Brightness"
-import wallpaper from "./services/Wallpaper"
-import Logger from "./lib/logger"
+import Indicators from "widget/notifications/Indicators"
+import brightness from "services/system/Brightness"
+import wallpaper from "services/wallpaper/Wallpaper"
+import Logger from "lib/logger"
 import GLib from "gi://GLib"
-import { PATHS } from "./lib/constants"
-import { findImages, loadConfig } from "./lib/wallpaper"
+import { PATHS } from "lib/constants"
+import { findImages, loadConfig } from "services/wallpaper/utils/wallpaper"
 import {
     loadEngineState,
     normalizeEngineState,
@@ -25,10 +25,10 @@ import {
     type WallpaperEngineState,
     type WallpaperSourceType,
     type WallpaperStrategy,
-} from "./lib/wallpaperEngine"
-import { getCurrentTheme, fuzzyFilter } from "./lib/wallpaperUtils"
-// import Dock from "./widget/Dock"
-// import userOptions from "./lib/userOptions"
+} from "services/wallpaper/utils/wallpaperEngine"
+import { getCurrentTheme, fuzzyFilter } from "services/wallpaper/utils/wallpaperUtils"
+// import Dock from "widget/Dock"
+// import userOptions from "services/options/Options"
 
 app.start({
     css: `${COMPILED_STYLE_DIR}/style.css`,

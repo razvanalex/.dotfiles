@@ -1,16 +1,16 @@
-import Logger from "../../../../lib/logger"
+import Logger from "lib/logger"
 import { createState } from "ags"
 import type { Accessor } from "ags"
 import { execAsync } from "ags/process"
-import wallpaperService from "../../../../services/Wallpaper"
+import wallpaperService from "services/wallpaper/Wallpaper"
 import {
     getCurrentTheme,
     fuzzyFilter,
     loadThemes,
     updateCurrentTheme,
-} from "../../../../lib/wallpaperUtils"
-import { loadConfig } from "../../../../lib/wallpaper"
-import { PATHS } from "../../../../lib/constants"
+} from "services/wallpaper/utils/wallpaperUtils"
+import { loadConfig } from "services/wallpaper/utils/wallpaper"
+import { PATHS } from "lib/constants"
 import GLib from "gi://GLib"
 import GObject from "gi://GObject"
 import {

@@ -1,8 +1,8 @@
 import { execAsync } from "ags/process"
 import GLib from "gi://GLib"
-import Logger from "./logger"
+import Logger from "lib/logger"
 
-import { PATHS, CONFIG_DIR, ensureDirectory } from "./constants"
+import { PATHS, CONFIG_DIR, ensureDirectory } from "lib/constants"
 
 export type TransitionType = 
     | "none" 

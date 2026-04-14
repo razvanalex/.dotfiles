@@ -1,10 +1,10 @@
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
-import userOptions from "../../lib/userOptions"
-import apiKeyManager from "../../services/ApiKeyManager"
-import chatHistoryManager from "../../services/ChatHistoryManager"
-import gptService from "../../services/GPT"
-import geminiService from "../../services/Gemini"
+import userOptions from "services/options/Options"
+import apiKeyManager from "services/ai/ApiKeyManager"
+import chatHistoryManager from "services/ai/ChatHistoryManager"
+import gptService from "services/ai/GPT"
+import geminiService from "services/ai/Gemini"
 
 function ApiKeyInput({ 
     provider, 

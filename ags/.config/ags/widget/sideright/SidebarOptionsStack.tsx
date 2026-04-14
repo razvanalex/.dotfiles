@@ -5,7 +5,7 @@ import AudioControls from "./centermodules/AudioControls"
 import Bluetooth from "./centermodules/Bluetooth"
 import WifiNetworks from "./centermodules/WifiNetworks"
 import Configure from "./centermodules/Configure"
-import Logger from "../../lib/logger"
+import Logger from "lib/logger"
 import { execAsync } from "ags/process"
 
 const tabs = [

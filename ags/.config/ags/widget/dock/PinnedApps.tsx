@@ -1,10 +1,10 @@
-import Logger from "../../lib/logger"
+import Logger from "lib/logger"
 import Gio from "gi://Gio"
 import GLib from "gi://GLib"
-import { execNoExcept } from "../../lib/proc"
-import { getAllFiles, searchIcons } from "../../lib/icons"
-import { substitute } from "../../lib/icons"
-import userOptions from "../../lib/userOptions"
+import { execNoExcept } from "lib/proc"
+import { getAllFiles, searchIcons } from "lib/icons"
+import { substitute } from "lib/icons"
+import userOptions from "services/options/Options"
 import { AppButton } from "./DockComponents"
 
 interface HyprlandClient {

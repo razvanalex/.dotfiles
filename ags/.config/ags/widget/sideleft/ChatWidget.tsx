@@ -1,11 +1,11 @@
 import { Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
 import { For } from "ags"
-import userOptions from "../../lib/userOptions"
-import gptService from "../../services/GPT"
-import geminiService from "../../services/Gemini"
-import chatHistoryManager from "../../services/ChatHistoryManager"
-import apiKeyManager from "../../services/ApiKeyManager"
+import userOptions from "services/options/Options"
+import gptService from "services/ai/GPT"
+import geminiService from "services/ai/Gemini"
+import chatHistoryManager from "services/ai/ChatHistoryManager"
+import apiKeyManager from "services/ai/ApiKeyManager"
 import ChatMessage from "./ChatMessage"
 
 type Message = {

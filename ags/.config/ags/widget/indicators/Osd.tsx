@@ -1,9 +1,9 @@
 import { Gtk } from "ags/gtk4"
 import { createState, createBinding, onCleanup } from "ags"
 import Wp from "gi://AstalWp"
-import BrightnessService from "../../services/Brightness"
+import BrightnessService from "services/system/Brightness"
 import GLib from "gi://GLib"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 
 export default function Osd({ onVisible }: { onVisible?: (v: boolean) => void }) {
     const wp = Wp.get_default()?.get_audio()

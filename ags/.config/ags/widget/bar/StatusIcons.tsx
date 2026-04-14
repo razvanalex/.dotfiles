@@ -4,7 +4,7 @@ import Network from "gi://AstalNetwork"
 import Bluetooth from "gi://AstalBluetooth"
 import Wp from "gi://AstalWp"
 import Notifd from "gi://AstalNotifd"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 
 export function NetworkIndicator() {
     const network = Network.get_default()

@@ -1,8 +1,8 @@
 import { Gtk, Gdk } from "ags/gtk4"
 import { createState, createBinding, For } from "ags"
 import Wp from "gi://AstalWp"
-import userOptions from "../../../lib/userOptions"
-import { substitute } from "../../../lib/icons"
+import userOptions from "services/options/Options"
+import { substitute } from "lib/icons"
 
 function AppVolume({ stream }: { stream: Wp.Stream }) {
     const volume = createBinding(stream, "volume")
@@ -54,7 +54,7 @@ function AppVolume({ stream }: { stream: Wp.Stream }) {
     )
 }
 
-import { iconExists } from "../../../lib/icons"
+import { iconExists } from "lib/icons"
 
 function AudioDeviceSelector({ input = false }: { input?: boolean }) {
     const wp = Wp.get_default()!

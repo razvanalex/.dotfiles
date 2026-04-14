@@ -1,6 +1,6 @@
 import GLib from "gi://GLib"
-import { PATHS, ensureDirectory } from "./constants"
-import Logger from "./logger"
+import { PATHS, ensureDirectory } from "lib/constants"
+import Logger from "lib/logger"
 
 export type WallpaperMode = "manual" | "automatic"
 export type WallpaperSourceType =

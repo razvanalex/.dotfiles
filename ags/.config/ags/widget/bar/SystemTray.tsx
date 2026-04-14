@@ -1,7 +1,7 @@
 import { Gtk, Gdk } from "ags/gtk4"
 import { createState, createBinding, For } from "ags"
 import Tray from "gi://AstalTray"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 
 function TrayItem({ item }: { item: Tray.TrayItem }) {
     const titleBinding = createBinding(item, "title")

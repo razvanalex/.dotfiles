@@ -1,10 +1,10 @@
-import Logger from "../../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk } from "ags/gtk4"
-import { createState, type Binding } from "ags"
+import { createState, createBinding, type Binding } from "ags"
 import { execAsync, exec } from "ags/process"
 import GLib from "gi://GLib"
-import userOptions from "../../../lib/userOptions"
-import { darkMode, toggleDarkMode } from "../../../lib/system"
+import userOptions from "services/options/Options"
+import SystemService from "services/system/System"
 
 function ConfigGap({ vertical = true, size = 5 }: { vertical?: boolean, size?: number }) {
     return <box class={`gap-${vertical ? 'v' : 'h'}-${size}`} />
@@ -269,8 +269,8 @@ function ColorSchemeSettings() {
                     icon="dark_mode"
                     name="Dark Mode"
                     desc="Ya should go to sleep!"
-                    value={darkMode}
-                    onChange={() => toggleDarkMode()}
+                    value={createBinding(SystemService, "dark-mode")}
+                    onChange={() => SystemService.toggleDarkMode()}
                 />
                 <ConfigToggle
                     icon="border_clear"

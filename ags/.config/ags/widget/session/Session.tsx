@@ -1,9 +1,9 @@
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { createState } from "ags"
 import { execAsync } from "ags/process"
-import userOptions from "../lib/userOptions"
+import userOptions from "services/options/Options"
 
 function SessionButton({ 
 

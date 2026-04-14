@@ -1,6 +1,6 @@
 import app from "ags/gtk4/app"
 import { Astal, Gdk, Gtk } from "ags/gtk4"
-import userOptions from "../../lib/userOptions"
+import userOptions from "services/options/Options"
 
 export default function Crosshair(gdkmonitor: Gdk.Monitor, index: number = 0) {
   const { size, color } = userOptions.gaming.crosshair

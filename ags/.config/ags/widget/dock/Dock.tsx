@@ -1,10 +1,10 @@
 import { Gtk, Gdk, Astal } from "ags/gtk4"
 import app from "ags/gtk4/app"
 import { createState } from "ags"
-import { DockSeparator, LauncherButton } from "./dock/DockComponents"
-import { PinnedApps } from "./dock/PinnedApps"
-import { Taskbar } from "./dock/Taskbar"
-import userOptions from "../lib/userOptions"
+import { DockSeparator, LauncherButton } from "./DockComponents"
+import { PinnedApps } from "./PinnedApps"
+import { Taskbar } from "./Taskbar"
+import userOptions from "services/options/Options"
 
 export default function Dock(gdkmonitor: Gdk.Monitor, index: number = 0) {
   const revealed = createState(false)

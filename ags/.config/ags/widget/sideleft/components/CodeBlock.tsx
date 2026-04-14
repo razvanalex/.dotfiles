@@ -1,4 +1,4 @@
-import Logger from "../../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState } from "ags"
 

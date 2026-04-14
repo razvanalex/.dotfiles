@@ -1,11 +1,11 @@
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 import GLib from "gi://GLib"
 import Gio from "gi://Gio"
-import { execAsyncNoExcept } from "../lib/proc"
+import { execAsyncNoExcept } from "lib/proc"
 import { writeFile } from "ags/file"
 import { timeout } from "ags/time"
 import { onCleanup } from "ags"
-import userOptions from "../lib/userOptions"
+import userOptions from "../options/Options"
 
 export function fileExists(filePath: string): boolean {
     const file = Gio.File.new_for_path(filePath)

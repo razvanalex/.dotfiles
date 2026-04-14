@@ -3,7 +3,7 @@ import { createState } from "ags"
 import { execAsync } from "ags/process"
 import SectionHeader from "./SectionHeader"
 import WallpaperGridView from "../WallpaperGridView.js"
-import wallpaperService from "../../../services/Wallpaper"
+import wallpaperService from "services/wallpaper/Wallpaper"
 import type { GridItem } from "../WallpaperGridView.js"
 
 export default function RecentSection() {

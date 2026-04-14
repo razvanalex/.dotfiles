@@ -1,11 +1,11 @@
-import Logger from "../../../lib/logger"
+import Logger from "lib/logger"
 import { Gtk } from "ags/gtk4"
 import { createState, createBinding, For } from "ags"
 import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import AstalBluetooth from "gi://AstalBluetooth"
-import userOptions from "../../../lib/userOptions"
-import UPower from "../../../services/UPower"
+import userOptions from "services/options/Options"
+import UPower from "services/system/UPower"
 
 const log = Logger.withScope('Bluetooth')
 

@@ -1,14 +1,14 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
-import userOptions from "../lib/userOptions"
+import userOptions from "services/options/Options"
 import { execAsync } from "ags/process"
-import { execBashAsync } from "../lib/proc"
+import { execBashAsync } from "lib/proc"
 import { createPoll } from "ags/time"
-import Logger from "../lib/logger"
+import Logger from "lib/logger"
 
-import QuickToggles from "./sideright/QuickToggles"
-import SidebarOptionsStack, { nextTab, prevTab } from "./sideright/SidebarOptionsStack"
-import ModuleCalendar from "./sideright/ModuleCalendar"
+import QuickToggles from "./QuickToggles"
+import SidebarOptionsStack, { nextTab, prevTab } from "./SidebarOptionsStack"
+import ModuleCalendar from "./ModuleCalendar"
 
 // Helper to check keybinds
 function checkKeybind(keyval: number, state: Gdk.ModifierType, keybindStr: string): boolean {
@@ -144,7 +144,8 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
             </window>
         )
     } catch (e) {
-        Logger.error("Error creating SideRight window:", e)
+        const error = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack}` : String(e)
+        Logger.error("Error creating SideRight window: " + error)
         return <window name={`sideright${index}`} application={app}><label label="Error creating window. Check logs." /></window>
     }
 }
