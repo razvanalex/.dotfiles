@@ -4,15 +4,15 @@ import { Gtk } from "ags/gtk4";
 import userOptions from "services/options/Options";
 
 export function DockSeparator() {
-	return <box class="dock-separator" />;
+    return <box class="dock-separator" />;
 }
 
 interface AppButtonProps {
-	icon: string;
-	tooltipText: string;
-	onClicked: () => void;
-	onMiddleClick?: () => void;
-	class?: string;
+    icon: string;
+    tooltipText: string;
+    onClicked: () => void;
+    onMiddleClick?: () => void;
+    class?: string;
 }
 
 export function AppButton({ icon, tooltipText, onClicked, onMiddleClick, class = "" }: AppButtonProps) {

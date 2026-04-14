@@ -6,93 +6,95 @@ import userOptions from "services/options/Options";
 import { AppButton } from "./DockComponents";
 
 interface HyprlandClient {
-	address: string;
-	class: string;
-	title: string;
-	workspace: { id: number };
+    address: string;
+    class: string;
+    title: string;
+    workspace: { id: number };
 }
 
 const iconFiles = userOptions.icons.searchPaths.flatMap((path) =>
-	getAllFiles(path),
+    getAllFiles(path),
 );
 
 const _cachePath: Record<string, string> = {};
 
 function focusWindow(address: string) {
-	execNoExcept(`hyprctl dispatch focuswindow address:${address}`);
+    execNoExcept(`hyprctl dispatch focuswindow address:${address}`);
 }
 
 function getHyprlandClients(): HyprlandClient[] {
-	try {
-		const output = execNoExcept("hyprctl clients -j");
-		if (output) {
-			return JSON.parse(output);
-		}
-	} catch (e) {
-		Logger.error("Failed to get Hyprland clients:", e);
-	}
-	return [];
+    try {
+        const output = execNoExcept("hyprctl clients -j");
+        if (output) {
+            return JSON.parse(output);
+        }
+    } catch (e) {
+        Logger.error("Failed to get Hyprland clients:", e);
+    }
+    return [];
 }
 
 function launchApp(desktopId: string) {
-	const appInfo = Gio.DesktopAppInfo.new(desktopId);
-	if (appInfo) {
-		try {
-			appInfo.launch([], null);
-		} catch (e) {
-			Logger.error(`Failed to launch ${desktopId}:`, e);
-		}
-	}
+    const appInfo = Gio.DesktopAppInfo.new(desktopId);
+    if (appInfo) {
+        try {
+            appInfo.launch([], null);
+        } catch (e) {
+            Logger.error(`Failed to launch ${desktopId}:`, e);
+        }
+    }
 }
 
 function getAppIcon(appName: string): string {
-	const appInfo = Gio.DesktopAppInfo.new(appName);
-	if (appInfo) {
-		const icon = appInfo.get_icon();
-		if (icon) {
-			return icon.to_string();
-		}
-	}
+    const appInfo = Gio.DesktopAppInfo.new(appName);
+    if (appInfo) {
+        const icon = appInfo.get_icon();
+        if (icon) {
+            return icon.to_string();
+        }
+    }
 
-	if (userOptions.dock.searchPinnedAppIcons) {
-		return searchIcons(appName, iconFiles);
-	}
+    if (userOptions.dock.searchPinnedAppIcons) {
+        return searchIcons(appName, iconFiles);
+    }
 
-	return appName;
+    return appName;
 }
 
 export function PinnedApps() {
-	const pinnedApps = userOptions.dock.pinnedApps;
+    const pinnedApps = userOptions.dock.pinnedApps;
 
-	return (
-		<box class="dock-apps" homogeneous>
-			{pinnedApps.map((appName) => {
-				const icon = getAppIcon(appName);
+    return (
+        <box class="dock-apps" homogeneous>
+            {pinnedApps.map((appName) => {
+                const icon = getAppIcon(appName);
 
-				return (
-					<AppButton
-						icon={icon}
-						tooltipText={appName}
-						onClicked={() => {
-							const clients = getHyprlandClients();
-							const running = clients.find((client) =>
-								client.class.toLowerCase().includes(appName.toLowerCase()),
-							);
+                return (
+                    <AppButton
+                        icon={icon}
+                        tooltipText={appName}
+                        onClicked={() => {
+                            const clients = getHyprlandClients();
+                            const running = clients.find((client) =>
+                                client.class
+                                    .toLowerCase()
+                                    .includes(appName.toLowerCase()),
+                            );
 
-							if (running) {
-								focusWindow(running.address);
-							} else {
-								launchApp(appName);
-							}
-						}}
-						onMiddleClick={() => launchApp(appName)}
-					/>
-				);
-			})}
-		</box>
-	);
+                            if (running) {
+                                focusWindow(running.address);
+                            } else {
+                                launchApp(appName);
+                            }
+                        }}
+                        onMiddleClick={() => launchApp(appName)}
+                    />
+                );
+            })}
+        </box>
+    );
 }
-/;;;;;>;
+/;;;;;;;;;>;
 )
       })}
     </box>

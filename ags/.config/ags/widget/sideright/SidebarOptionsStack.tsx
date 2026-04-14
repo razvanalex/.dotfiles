@@ -9,37 +9,37 @@ import NotificationList from "./centermodules/NotificationList";
 import WifiNetworks from "./centermodules/WifiNetworks";
 
 const tabs = [
-	{
-		icon: "notifications",
-		name: "Notifications",
-		component: () => <NotificationList />,
-		onFocus: undefined,
-	},
-	{
-		icon: "volume_up",
-		name: "Audio controls",
-		component: () => <AudioControls />,
-		onFocus: undefined,
-	},
-	{
-		icon: "bluetooth",
-		name: "Bluetooth",
-		component: () => <Bluetooth />,
-		onFocus: undefined,
-	},
-	{
-		icon: "wifi",
-		name: "Wifi networks",
-		component: () => <WifiNetworks />,
-		onFocus: () =>
-			execAsync("nmcli dev wifi list").catch((e) => Logger.error(e)),
-	},
-	{
-		icon: "tune",
-		name: "Live config",
-		component: () => <Configure />,
-		onFocus: undefined,
-	},
+    {
+        icon: "notifications",
+        name: "Notifications",
+        component: () => <NotificationList />,
+        onFocus: undefined,
+    },
+    {
+        icon: "volume_up",
+        name: "Audio controls",
+        component: () => <AudioControls />,
+        onFocus: undefined,
+    },
+    {
+        icon: "bluetooth",
+        name: "Bluetooth",
+        component: () => <Bluetooth />,
+        onFocus: undefined,
+    },
+    {
+        icon: "wifi",
+        name: "Wifi networks",
+        component: () => <WifiNetworks />,
+        onFocus: () =>
+            execAsync("nmcli dev wifi list").catch((e) => Logger.error(e)),
+    },
+    {
+        icon: "tune",
+        name: "Live config",
+        component: () => <Configure />,
+        onFocus: undefined,
+    },
 ];
 
 // State for tab switching, exported for keybind access
@@ -47,69 +47,72 @@ let currentTab = 0;
 let setCurrentTab: (v: number) => void = () => {};
 
 export function nextTab() {
-	setCurrentTab((currentTab + 1) % tabs.length);
+    setCurrentTab((currentTab + 1) % tabs.length);
 }
 
 export function prevTab() {
-	setCurrentTab((currentTab - 1 + tabs.length) % tabs.length);
+    setCurrentTab((currentTab - 1 + tabs.length) % tabs.length);
 }
 
 export default function SidebarOptionsStack() {
-	const [activeTab, setActiveTab] = createState(0);
+    const [activeTab, setActiveTab] = createState(0);
 
-	// Store references for external access
-	currentTab = activeTab.get();
-	setCurrentTab = (v: number) => {
-		setActiveTab(v);
-		currentTab = v;
-		if (tabs[v].onFocus) tabs[v].onFocus?.();
-	};
+    // Store references for external access
+    currentTab = activeTab.get();
+    setCurrentTab = (v: number) => {
+        setActiveTab(v);
+        currentTab = v;
+        if (tabs[v].onFocus) tabs[v].onFocus?.();
+    };
 
-	// Subscribe to changes
-	activeTab.subscribe(() => {
-		currentTab = activeTab.get();
-	});
+    // Subscribe to changes
+    activeTab.subscribe(() => {
+        currentTab = activeTab.get();
+    });
 
-	return (
-		<box orientation={Gtk.Orientation.VERTICAL} class="sidebar-group">
-			<box halign={Gtk.Align.CENTER} class="sidebar-icontabswitcher">
-				{tabs.map((tab, index) => (
-					<button
-						class={activeTab.as(
-							(current) =>
-								`sidebar-iconbutton ${current === index ? "sidebar-button-active" : ""}`,
-						)}
-						onClicked={() => {
-							setActiveTab(index);
-							if (tab.onFocus) tab.onFocus();
-						}}
-						tooltipText={tab.name}
-					>
-						<label class="icon-material txt-norm" label={tab.icon} />
-					</button>
-				))}
-			</box>
-			<stack
-				vexpand
-				visibleChildName={activeTab.as((i) => `tab-${i}`)}
-				transitionType={Gtk.StackTransitionType.SLIDE_LEFT_RIGHT}
-			>
-				<box $type="named" name="tab-0">
-					<NotificationList />
-				</box>
-				<box $type="named" name="tab-1">
-					<AudioControls />
-				</box>
-				<box $type="named" name="tab-2">
-					<Bluetooth />
-				</box>
-				<box $type="named" name="tab-3">
-					<WifiNetworks />
-				</box>
-				<box $type="named" name="tab-4" vexpand>
-					<Configure />
-				</box>
-			</stack>
-		</box>
-	);
+    return (
+        <box orientation={Gtk.Orientation.VERTICAL} class="sidebar-group">
+            <box halign={Gtk.Align.CENTER} class="sidebar-icontabswitcher">
+                {tabs.map((tab, index) => (
+                    <button
+                        class={activeTab.as(
+                            (current) =>
+                                `sidebar-iconbutton ${current === index ? "sidebar-button-active" : ""}`,
+                        )}
+                        onClicked={() => {
+                            setActiveTab(index);
+                            if (tab.onFocus) tab.onFocus();
+                        }}
+                        tooltipText={tab.name}
+                    >
+                        <label
+                            class="icon-material txt-norm"
+                            label={tab.icon}
+                        />
+                    </button>
+                ))}
+            </box>
+            <stack
+                vexpand
+                visibleChildName={activeTab.as((i) => `tab-${i}`)}
+                transitionType={Gtk.StackTransitionType.SLIDE_LEFT_RIGHT}
+            >
+                <box $type="named" name="tab-0">
+                    <NotificationList />
+                </box>
+                <box $type="named" name="tab-1">
+                    <AudioControls />
+                </box>
+                <box $type="named" name="tab-2">
+                    <Bluetooth />
+                </box>
+                <box $type="named" name="tab-3">
+                    <WifiNetworks />
+                </box>
+                <box $type="named" name="tab-4" vexpand>
+                    <Configure />
+                </box>
+            </stack>
+        </box>
+    );
 }

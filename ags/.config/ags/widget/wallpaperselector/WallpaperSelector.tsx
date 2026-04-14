@@ -1,8 +1,8 @@
 import { createState } from "ags";
-import { createPoll } from "ags/time";
 import { Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { execAsync } from "ags/process";
+import { createPoll } from "ags/time";
 import { PATHS } from "lib/constants";
 import { loadConfig } from "services/wallpaper/utils/wallpaper";
 import SidebarNav from "./SidebarNav";
@@ -14,251 +14,263 @@ import SettingsSection from "./sections/SettingsSection";
 import type { NavSection } from "./types";
 
 export default function WallpaperSelector(
-	_monitor: Gdk.Monitor,
-	index: number,
+    _monitor: Gdk.Monitor,
+    index: number,
 ) {
-	const configPath = PATHS.wallpaperConfig;
-	const config = loadConfig(configPath);
-	const wallpaperDir = config.wallpaperDir;
+    const configPath = PATHS.wallpaperConfig;
+    const config = loadConfig(configPath);
+    const wallpaperDir = config.wallpaperDir;
 
-	const [navSection, setNavSection] = createState<NavSection>("library");
+    const [navSection, setNavSection] = createState<NavSection>("library");
 
-	const [discoveryRefreshSignal, setDiscoveryRefreshSignal] = createState(0);
+    const [discoveryRefreshSignal, setDiscoveryRefreshSignal] = createState(0);
 
-	// --- Engine State Polling for Playback Pill ---
-	const [isEngineRunning, setIsEngineRunning] = createState(false);
-	createPoll(0, 2000, async () => {
-		try {
-			const result = await execAsync(["ags", "request", "wallpaper", "engine", "get"]);
-			const parsed = JSON.parse(result.trim());
-			setIsEngineRunning(Boolean(parsed.isRunning));
-		} catch {
-			setIsEngineRunning(false);
-		}
-		return 0; // The return value doesn't matter for the poll
-	});
+    // --- Engine State Polling for Playback Pill ---
+    const [isEngineRunning, setIsEngineRunning] = createState(false);
+    createPoll(0, 2000, async () => {
+        try {
+            const result = await execAsync([
+                "ags",
+                "request",
+                "wallpaper",
+                "engine",
+                "get",
+            ]);
+            const parsed = JSON.parse(result.trim());
+            setIsEngineRunning(Boolean(parsed.isRunning));
+        } catch {
+            setIsEngineRunning(false);
+        }
+        return 0; // The return value doesn't matter for the poll
+    });
 
-	const handleNavChange = (section: NavSection) => {
-		setNavSection(section);
-	};
+    const handleNavChange = (section: NavSection) => {
+        setNavSection(section);
+    };
 
-	// Create a regular GTK window
-	const windowName = `wallpaper-selector${index}`;
-	const win = new Gtk.Window({
-		application: app,
-		title: "Wallpaper Selector",
-		default_width: 1000,
-		default_height: 700,
-		hide_on_close: true,
-	});
-	win.set_name(windowName);
-	win.add_css_class("wallpaper-selector-window");
-	win.set_visible(false);
+    // Create a regular GTK window
+    const windowName = `wallpaper-selector${index}`;
+    const win = new Gtk.Window({
+        application: app,
+        title: "Wallpaper Selector",
+        default_width: 1000,
+        default_height: 700,
+        hide_on_close: true,
+    });
+    win.set_name(windowName);
+    win.add_css_class("wallpaper-selector-window");
+    win.set_visible(false);
 
-	// Minimum size
-	win.set_size_request(600, 400);
+    // Minimum size
+    win.set_size_request(600, 400);
 
-	// Escape to close
-	const controller = new Gtk.EventControllerKey();
-	controller.connect("key-pressed", (_, keyval) => {
-		if (keyval === Gdk.KEY_Escape) {
-			win.set_visible(false);
-			return true;
-		}
-		return false;
-	});
-	win.add_controller(controller);
+    // Escape to close
+    const controller = new Gtk.EventControllerKey();
+    controller.connect("key-pressed", (_, keyval) => {
+        if (keyval === Gdk.KEY_Escape) {
+            win.set_visible(false);
+            return true;
+        }
+        return false;
+    });
+    win.add_controller(controller);
 
-	// --- Root Box (Vertical: HeaderBar + Content) ---
-	const rootBox = new Gtk.Box({
-		orientation: Gtk.Orientation.VERTICAL,
-		css_classes: ["wallpaper-selector-root"],
-	});
+    // --- Root Box (Vertical: HeaderBar + Content) ---
+    const rootBox = new Gtk.Box({
+        orientation: Gtk.Orientation.VERTICAL,
+        css_classes: ["wallpaper-selector-root"],
+    });
 
-	// --- Global HeaderBar ---
-	const headerBar = new Gtk.Box({
-		orientation: Gtk.Orientation.HORIZONTAL,
-		css_classes: ["wallpaper-global-headerbar"],
-	});
+    // --- Global HeaderBar ---
+    const headerBar = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        css_classes: ["wallpaper-global-headerbar"],
+    });
 
-	// Header Left: Search Icon (Aligned with sidebar width)
-	const [isSearchVisible, setIsSearchVisible] = createState(false);
-	const searchBtn = new Gtk.Button({ icon_name: "system-search-symbolic" });
-	searchBtn.add_css_class("wallpaper-header-icon-btn");
-	searchBtn.connect("clicked", () => {
-		handleNavChange("library");
-		setIsSearchVisible(!isSearchVisible.get());
-	});
-	
-	const headerLeft = new Gtk.Box({
-		orientation: Gtk.Orientation.HORIZONTAL,
-		spacing: 8,
-		halign: Gtk.Align.START,
-		hexpand: false,
-	});
-	headerLeft.set_size_request(220, -1);
-	headerLeft.append(searchBtn);
-	headerBar.append(headerLeft);
+    // Header Left: Search Icon (Aligned with sidebar width)
+    const [isSearchVisible, setIsSearchVisible] = createState(false);
+    const searchBtn = new Gtk.Button({ icon_name: "system-search-symbolic" });
+    searchBtn.add_css_class("wallpaper-header-icon-btn");
+    searchBtn.connect("clicked", () => {
+        handleNavChange("library");
+        setIsSearchVisible(!isSearchVisible.get());
+    });
 
-	// Header Center: Window Title
-	const windowTitle = new Gtk.Label({ label: "Wallpaper Selector" });
-	windowTitle.add_css_class("wallpaper-header-title");
-	windowTitle.set_halign(Gtk.Align.CENTER);
-	windowTitle.set_hexpand(true);
-	headerBar.append(windowTitle);
+    const headerLeft = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 8,
+        halign: Gtk.Align.START,
+        hexpand: false,
+    });
+    headerLeft.set_size_request(220, -1);
+    headerLeft.append(searchBtn);
+    headerBar.append(headerLeft);
 
-	// Header Right: AI Sparkle, Settings, Close
-	const headerRight = new Gtk.Box({
-		orientation: Gtk.Orientation.HORIZONTAL,
-		spacing: 8,
-		halign: Gtk.Align.END,
-		hexpand: false,
-	});
-	// Try to match width on right side to keep title perfectly centered
-	headerRight.set_size_request(220, -1);
-	
-	// spacer to push icons to the right
-	const rightSpacer = new Gtk.Box({ hexpand: true });
-	headerRight.append(rightSpacer);
-	
-	const aiBtn = new Gtk.Button({ icon_name: "starred-symbolic" }); // Fallback icon for sparkle
-	aiBtn.add_css_class("wallpaper-header-icon-btn");
-	// AI Mock flow: when clicked, populate search and trigger AI query (to be implemented)
-	aiBtn.connect("clicked", () => {
-		searchEntry.set_text("AI: Find me a dark anime theme");
-	});
-	headerRight.append(aiBtn);
+    // Header Center: Window Title
+    const windowTitle = new Gtk.Label({ label: "Wallpaper Selector" });
+    windowTitle.add_css_class("wallpaper-header-title");
+    windowTitle.set_halign(Gtk.Align.CENTER);
+    windowTitle.set_hexpand(true);
+    headerBar.append(windowTitle);
 
-	const settingsBtn = new Gtk.Button({ icon_name: "emblem-system-symbolic" });
-	settingsBtn.add_css_class("wallpaper-header-icon-btn");
-	settingsBtn.connect("clicked", () => handleNavChange("settings"));
-	headerRight.append(settingsBtn);
+    // Header Right: AI Sparkle, Settings, Close
+    const headerRight = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 8,
+        halign: Gtk.Align.END,
+        hexpand: false,
+    });
+    // Try to match width on right side to keep title perfectly centered
+    headerRight.set_size_request(220, -1);
 
-	const closeBtn = new Gtk.Button({ icon_name: "window-close-symbolic" });
-	closeBtn.add_css_class("wallpaper-header-icon-btn");
-	closeBtn.connect("clicked", () => win.set_visible(false));
-	headerRight.append(closeBtn);
-	
-	headerBar.append(headerRight);
+    // spacer to push icons to the right
+    const rightSpacer = new Gtk.Box({ hexpand: true });
+    headerRight.append(rightSpacer);
 
-	rootBox.append(headerBar);
+    const aiBtn = new Gtk.Button({ icon_name: "starred-symbolic" });
+    aiBtn.add_css_class("wallpaper-header-icon-btn");
+    headerRight.append(aiBtn);
 
-	// --- Content Area (Horizontal: Sidebar + Main) ---
-	const contentBox = new Gtk.Box({
-		orientation: Gtk.Orientation.HORIZONTAL,
-		hexpand: true,
-		vexpand: true,
-	});
+    const settingsBtn = new Gtk.Button({ icon_name: "emblem-system-symbolic" });
+    settingsBtn.add_css_class("wallpaper-header-icon-btn");
+    settingsBtn.connect("clicked", () => handleNavChange("settings"));
+    headerRight.append(settingsBtn);
 
-	const sidebar = SidebarNav({
-		activeSection: navSection,
-		onSectionChange: handleNavChange,
-	});
+    const closeBtn = new Gtk.Button({ icon_name: "window-close-symbolic" });
+    closeBtn.add_css_class("wallpaper-header-icon-btn");
+    closeBtn.connect("clicked", () => win.set_visible(false));
+    headerRight.append(closeBtn);
 
-	// --- Main Content Overlay (Main Area + Pill) ---
-	const mainContentOverlay = new Gtk.Overlay();
-	mainContentOverlay.set_hexpand(true);
-	mainContentOverlay.set_vexpand(true);
-	
-	const mainArea = new Gtk.Box({
-		orientation: Gtk.Orientation.VERTICAL,
-		spacing: 0,
-		hexpand: true,
-		vexpand: true,
-		css_classes: ["wallpaper-selector-main-area"],
-	});
+    headerBar.append(headerRight);
 
-	const librarySection = LibrarySection({
-		wallpaperDir,
-		refreshSignal: discoveryRefreshSignal,
-		isSearchVisible: isSearchVisible,
-	});
+    rootBox.append(headerBar);
 
-	const settingsSection = SettingsSection({
-		onDiscoveryChanged: () => {
-			setDiscoveryRefreshSignal(discoveryRefreshSignal.get() + 1);
-		},
-	});
+    // --- Content Area (Horizontal: Sidebar + Main) ---
+    const contentBox = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        hexpand: true,
+        vexpand: true,
+    });
 
-	const favoritesSection = FavoritesSection();
-	const recentSection = RecentSection();
-	const aboutSection = AboutSection();
+    const sidebar = SidebarNav({
+        activeSection: navSection,
+        onSectionChange: handleNavChange,
+    });
 
-	mainArea.append(librarySection);
-	mainArea.append(favoritesSection);
-	mainArea.append(recentSection);
-	mainArea.append(settingsSection);
-	mainArea.append(aboutSection);
+    // --- Main Content Overlay (Main Area + Pill) ---
+    const mainContentOverlay = new Gtk.Overlay();
+    mainContentOverlay.set_hexpand(true);
+    mainContentOverlay.set_vexpand(true);
 
-	const updateMainContentVisibility = () => {
-		const section = navSection.get();
+    const mainArea = new Gtk.Box({
+        orientation: Gtk.Orientation.VERTICAL,
+        spacing: 0,
+        hexpand: true,
+        vexpand: true,
+        css_classes: ["wallpaper-selector-main-area"],
+    });
 
-		librarySection.set_visible(section === "library");
-		favoritesSection.set_visible(section === "favorites");
-		recentSection.set_visible(section === "recent");
-		settingsSection.set_visible(section === "settings");
-		aboutSection.set_visible(section === "about");
-	};
+    const librarySection = LibrarySection({
+        wallpaperDir,
+        refreshSignal: discoveryRefreshSignal,
+        isSearchVisible: isSearchVisible,
+    });
 
-	navSection.subscribe(updateMainContentVisibility);
-	updateMainContentVisibility();
+    const settingsSection = SettingsSection({
+        onDiscoveryChanged: () => {
+            setDiscoveryRefreshSignal(discoveryRefreshSignal.get() + 1);
+        },
+    });
 
-	mainContentOverlay.set_child(mainArea);
+    const favoritesSection = FavoritesSection();
+    const recentSection = RecentSection();
+    const aboutSection = AboutSection();
 
-	// --- Overlay for Floating Playback Pill ---
-	const playbackPill = new Gtk.Revealer({
-		transitionType: Gtk.RevealerTransitionType.SLIDE_UP,
-		valign: Gtk.Align.END,
-		halign: Gtk.Align.CENTER,
-		margin_bottom: 24,
-	});
-	
-	const pillBox = new Gtk.Box({
-		orientation: Gtk.Orientation.HORIZONTAL,
-		spacing: 8,
-		css_classes: ["wallpaper-playback-pill"],
-	});
-	
-	const prevBtn = new Gtk.Button({ icon_name: "media-skip-backward-symbolic" });
-	prevBtn.connect("clicked", () => {
-		void execAsync(["ags", "request", "wallpaper", "prev"]);
-	});
+    mainArea.append(librarySection);
+    mainArea.append(favoritesSection);
+    mainArea.append(recentSection);
+    mainArea.append(settingsSection);
+    mainArea.append(aboutSection);
 
-	const playBtn = new Gtk.Button({ icon_name: "media-playback-pause-symbolic" }); // It's visible when running, so it pauses
-	playBtn.connect("clicked", () => {
-		void execAsync(["ags", "request", "wallpaper", "pause"]).then(() => {
-			setIsEngineRunning(false);
-		});
-	});
+    const updateMainContentVisibility = () => {
+        const section = navSection.get();
 
-	const nextBtn = new Gtk.Button({ icon_name: "media-skip-forward-symbolic" });
-	nextBtn.connect("clicked", () => {
-		void execAsync(["ags", "request", "wallpaper", "next"]);
-	});
-	
-	[prevBtn, playBtn, nextBtn].forEach(btn => {
-		btn.add_css_class("pill-btn");
-		pillBox.append(btn);
-	});
-	
-	playbackPill.set_child(pillBox);
+        librarySection.set_visible(section === "library");
+        favoritesSection.set_visible(section === "favorites");
+        recentSection.set_visible(section === "recent");
+        settingsSection.set_visible(section === "settings");
+        aboutSection.set_visible(section === "about");
+    };
 
-	// Bind play button icon to engine running state
-	isEngineRunning.subscribe((running) => {
-		playBtn.set_icon_name(running ? "media-playback-pause-symbolic" : "media-playback-start-symbolic");
-	});
+    navSection.subscribe(updateMainContentVisibility);
+    updateMainContentVisibility();
 
-	// Make pill always visible to allow starting/stopping globally
-	playbackPill.set_reveal_child(true);
+    mainContentOverlay.set_child(mainArea);
 
-	mainContentOverlay.add_overlay(playbackPill);
+    // --- Overlay for Floating Playback Pill ---
+    const playbackPill = new Gtk.Revealer({
+        transitionType: Gtk.RevealerTransitionType.SLIDE_UP,
+        valign: Gtk.Align.END,
+        halign: Gtk.Align.CENTER,
+        margin_bottom: 24,
+    });
 
-	// Append sidebar and main content to the contentBox
-	contentBox.append(sidebar);
-	contentBox.append(mainContentOverlay);
-	rootBox.append(contentBox);
+    const pillBox = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 8,
+        css_classes: ["wallpaper-playback-pill"],
+    });
 
-	win.set_child(rootBox);
+    const prevBtn = new Gtk.Button({
+        icon_name: "media-skip-backward-symbolic",
+    });
+    prevBtn.connect("clicked", () => {
+        void execAsync(["ags", "request", "wallpaper", "prev"]);
+    });
 
-	return win;
+    const playBtn = new Gtk.Button({
+        icon_name: "media-playback-pause-symbolic",
+    }); // It's visible when running, so it pauses
+    playBtn.connect("clicked", () => {
+        void execAsync(["ags", "request", "wallpaper", "pause"]).then(() => {
+            setIsEngineRunning(false);
+        });
+    });
+
+    const nextBtn = new Gtk.Button({
+        icon_name: "media-skip-forward-symbolic",
+    });
+    nextBtn.connect("clicked", () => {
+        void execAsync(["ags", "request", "wallpaper", "next"]);
+    });
+
+    [prevBtn, playBtn, nextBtn].forEach((btn) => {
+        btn.add_css_class("pill-btn");
+        pillBox.append(btn);
+    });
+
+    playbackPill.set_child(pillBox);
+
+    // Bind play button icon to engine running state
+    isEngineRunning.subscribe((running) => {
+        playBtn.set_icon_name(
+            running
+                ? "media-playback-pause-symbolic"
+                : "media-playback-start-symbolic",
+        );
+    });
+
+    // Make pill always visible to allow starting/stopping globally
+    playbackPill.set_reveal_child(true);
+
+    mainContentOverlay.add_overlay(playbackPill);
+
+    // Append sidebar and main content to the contentBox
+    contentBox.append(sidebar);
+    contentBox.append(mainContentOverlay);
+    rootBox.append(contentBox);
+
+    win.set_child(rootBox);
+
+    return win;
 }
