@@ -34,6 +34,7 @@ function logPreviewDebug(message: string) {
 interface CreateLibraryDataControllerProps {
 	wallpaperDir: string;
 	refreshSignal?: Accessor<number>;
+	searchQuery?: Accessor<string>;
 }
 
 export interface LibraryDataController {
@@ -60,6 +61,7 @@ export interface LibraryDataController {
 export function createLibraryDataController({
 	wallpaperDir,
 	refreshSignal,
+	searchQuery,
 }: CreateLibraryDataControllerProps): LibraryDataController {
 	const configPath = PATHS.wallpaperConfig;
 
@@ -414,14 +416,16 @@ export function createLibraryDataController({
 			const themeDir = `${wallpaperDir}/${theme}`;
 			const images = await wallpaperService.getWallpapers(themeDir);
 			setAllImages(images);
-			setFilteredImages(images);
+			const currentQuery = searchQuery ? searchQuery.get() : _searchQuery.get();
+			setFilteredImages(fuzzyFilter(images, currentQuery));
+			
 			const current = currentWallpaper.get();
 			if (current && images.includes(current)) {
 				setSelectedWallpaper(current);
 			} else {
 				setSelectedWallpaper(images[0] || "");
 			}
-			setSearchQuery("");
+			if (!searchQuery) setSearchQuery("");
 		} catch (error) {
 			Logger.error(`Failed to load images for theme ${theme}:`, error);
 			setAllImages([]);
@@ -548,20 +552,6 @@ export function createLibraryDataController({
 		});
 	}
 
-	const handleThemeChange = async (newTheme: string) => {
-		invalidateWallpaperPreviewQueue();
-		setBrowsingTheme(newTheme);
-		setLibraryView("wallpapers");
-		await loadImagesForTheme(newTheme);
-	};
-
-	const handleBackToThemes = () => {
-		invalidateWallpaperPreviewQueue();
-		setLibraryView("themes");
-		setSearchQuery("");
-		setFilteredThemes(themes.get());
-	};
-
 	const handleSearchChange = (query: string) => {
 		setSearchQuery(query);
 
@@ -572,6 +562,27 @@ export function createLibraryDataController({
 
 		const filtered = fuzzyFilter(allImages.get(), query);
 		setFilteredImages(filtered);
+	};
+
+	if (searchQuery) {
+		searchQuery.subscribe((query) => {
+			handleSearchChange(query);
+		});
+	}
+
+	const handleThemeChange = async (newTheme: string) => {
+		invalidateWallpaperPreviewQueue();
+		setBrowsingTheme(newTheme);
+		setLibraryView("wallpapers");
+		await loadImagesForTheme(newTheme);
+	};
+
+	const handleBackToThemes = () => {
+		invalidateWallpaperPreviewQueue();
+		setLibraryView("themes");
+		const currentQuery = searchQuery ? searchQuery.get() : _searchQuery.get();
+		if (!searchQuery) setSearchQuery("");
+		setFilteredThemes(fuzzyThemeFilter(themes.get(), currentQuery));
 	};
 
 	const handleSelectImage = (path: string) => {
@@ -636,6 +647,7 @@ export function createLibraryDataController({
 		wallpaperPreviewThumbs,
 		themeItems,
 		imageItems,
+		searchQueryValue: _searchQuery,
 		ensureThemePreviewRange,
 		ensureWallpaperPreviewRange,
 		handleThemeChange,

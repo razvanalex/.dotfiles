@@ -13,63 +13,69 @@ export default function SidebarNav({
 }: SidebarNavProps) {
 	const sidebar = new Gtk.Box({
 		orientation: Gtk.Orientation.VERTICAL,
-		spacing: 14,
+		spacing: 0,
 		vexpand: true,
 		css_classes: ["wallpaper-selector-sidebar"],
 	});
 	sidebar.set_size_request(220, -1);
 	sidebar.set_hexpand(false);
 
-	const navBox = new Gtk.Box({
-		orientation: Gtk.Orientation.VERTICAL,
-		spacing: 6,
-		css_classes: ["wallpaper-sidebar-nav"],
+	const listBox = new Gtk.ListBox({
+		css_classes: ["wallpaper-sidebar-list"],
+		selection_mode: Gtk.SelectionMode.SINGLE,
 	});
 
-	const menuLabel = new Gtk.Label({ label: "Library" });
-	menuLabel.add_css_class("wallpaper-theme-label");
-	menuLabel.set_halign(Gtk.Align.START);
-	navBox.append(menuLabel);
+	const navItems: { section: NavSection; label: string; icon: string }[] = [
+		{ section: "library", label: "Library", icon: "view-grid-symbolic" },
+		{ section: "favorites", label: "Favorites", icon: "emblem-favorite-symbolic" },
+		{ section: "recent", label: "Recent", icon: "document-open-recent-symbolic" },
+		{ section: "settings", label: "Settings", icon: "emblem-system-symbolic" },
+		{ section: "about", label: "About", icon: "dialog-information-symbolic" },
+	];
 
-	const navButtons: Record<NavSection, Gtk.Button> = {
-		library: new Gtk.Button(),
-		favorites: new Gtk.Button(),
-		recent: new Gtk.Button(),
-		settings: new Gtk.Button(),
-		about: new Gtk.Button(),
-	};
+	const rows: Record<string, Gtk.ListBoxRow> = {};
 
-	const createNavButton = (label: string, section: NavSection) => {
-		const button = navButtons[section];
-		button.add_css_class("wallpaper-sidebar-nav-item");
-		const buttonLabel = new Gtk.Label({ label, xalign: 0 });
-		button.set_child(buttonLabel);
-		button.connect("clicked", () => onSectionChange(section));
-		navBox.append(button);
-	};
-
-	createNavButton("Library", "library");
-	createNavButton("Favorites", "favorites");
-	createNavButton("Recent", "recent");
-	createNavButton("Settings", "settings");
-	createNavButton("About", "about");
-
-	const updateNavActiveState = () => {
-		const active = activeSection.get();
-		Object.entries(navButtons).forEach(([section, button]) => {
-			if (section === active) button.add_css_class("active");
-			else button.remove_css_class("active");
+	navItems.forEach(({ section, label, icon }) => {
+		const row = new Gtk.ListBoxRow({
+			css_classes: ["wallpaper-sidebar-row"],
 		});
+		rows[section] = row;
+
+		const box = new Gtk.Box({
+			orientation: Gtk.Orientation.HORIZONTAL,
+			spacing: 12,
+			css_classes: ["wallpaper-sidebar-item"],
+		});
+
+		const iconLabel = new Gtk.Image({ icon_name: icon });
+		box.append(iconLabel);
+
+		const textLabel = new Gtk.Label({ label, xalign: 0 });
+		box.append(textLabel);
+
+		row.set_child(box);
+		listBox.append(row);
+	});
+
+	listBox.connect("row-activated", (_, row) => {
+		const index = row.get_index();
+		if (index >= 0 && index < navItems.length) {
+			onSectionChange(navItems[index].section);
+		}
+	});
+
+	const updateSelection = () => {
+		const active = activeSection.get();
+		const row = rows[active];
+		if (row) {
+			listBox.select_row(row);
+		}
 	};
 
-	activeSection.subscribe(updateNavActiveState);
-	updateNavActiveState();
+	activeSection.subscribe(updateSelection);
+	updateSelection();
 
-	sidebar.append(navBox);
-
-	const sidebarSep = new Gtk.Box();
-	sidebarSep.add_css_class("wallpaper-sidebar-separator");
-	sidebar.append(sidebarSep);
+	sidebar.append(listBox);
 
 	return sidebar;
 }

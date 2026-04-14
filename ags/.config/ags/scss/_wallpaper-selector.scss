@@ -4,13 +4,156 @@
   background-color: $layer0;
 }
 
-.wallpaper-selector-shell {
+.wallpaper-selector-root {
   background-color: $layer0;
 }
 
+// --- Global HeaderBar ---
+.wallpaper-global-headerbar {
+  padding: 0.6rem 0.8rem;
+  background-color: $layer0;
+  border-bottom: 1px solid mix($surfaceContainer, $onBackground, 80%);
+}
+
+.wallpaper-omnibar {
+  @include normal-rounding;
+  background-color: $surfaceContainerLow;
+  color: $onSurface;
+  border: 1px solid mix($surfaceContainer, $onBackground, 70%);
+  padding: 0.4rem 0.8rem;
+  min-height: 2.2rem;
+  
+  &:focus {
+    background-color: $surfaceContainer;
+    border-color: $primary;
+  }
+}
+
+.wallpaper-header-title {
+  @include titlefont;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: $onSurface;
+}
+
+.wallpaper-header-icon-btn {
+  @include normal-rounding;
+  @include element_decel;
+  background-color: transparent;
+  color: $onSurface;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  padding: 0.2rem;
+  
+  &:hover {
+    background-color: $layer0Hover;
+  }
+  
+  &:active {
+    background-color: $layer0Active;
+  }
+}
+
+// --- Sidebar (Native ListBox) ---
 .wallpaper-selector-sidebar {
-  padding: 1.091rem;
-  background-color: mix($layer0, $black, 64%);
+  padding: 0.8rem;
+  background-color: $surfaceContainerLowest;
+  border-right: 1px solid mix($surfaceContainer, $onBackground, 80%);
+}
+
+.wallpaper-sidebar-list {
+  background-color: transparent;
+}
+
+.wallpaper-sidebar-row {
+  @include normal-rounding;
+  @include element_decel;
+  padding: 0.4rem;
+  margin-bottom: 0.2rem;
+  background-color: transparent;
+  color: $onSurface;
+  
+  &:hover {
+    background-color: $layer0Hover;
+  }
+  
+  &:selected {
+    background-color: transparentize($primary, 0.8);
+    color: $primary;
+    font-weight: 500;
+  }
+}
+
+.wallpaper-sidebar-item {
+  padding: 0.2rem 0.4rem;
+}
+
+// --- Floating Playback Pill ---
+.wallpaper-playback-pill {
+  border-radius: 9999px; // Full pill rounding
+  background-color: mix($layer2, $black, 85%); // Dark gray translucent
+  border: 1px solid mix($surfaceContainerHigh, $onBackground, 80%);
+  padding: 0.3rem 0.6rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.pill-btn {
+  @include full-rounding;
+  @include element_decel;
+  background-color: transparent;
+  color: $onSurface;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  
+  &:hover {
+    background-color: $layer2Hover;
+  }
+  
+  &:active {
+    background-color: $layer2Active;
+  }
+}
+
+// --- Library Action Bar (Breadcrumbs) ---
+.wallpaper-library-actionbar {
+  padding: 0.4rem 0rem;
+}
+
+.wallpaper-breadcrumb-btn {
+  @include normal-rounding;
+  @include element_decel;
+  background-color: transparent;
+  color: $onSurfaceVariant;
+  font-weight: 500;
+  padding: 0.4rem 0.6rem;
+  
+  &:hover {
+    background-color: $layer0Hover;
+    color: $onSurface;
+  }
+  &:active {
+    background-color: $layer0Active;
+  }
+}
+
+.wallpaper-breadcrumb-sep {
+  color: $onSurfaceVariant;
+  font-size: 1.2rem;
+  margin: 0 0.2rem;
+  opacity: 0.7;
+}
+
+.wallpaper-breadcrumb-current {
+  @include titlefont;
+  font-weight: 600;
+  color: $onSurface;
+  font-size: 1.1rem;
+  padding-left: 0.2rem;
+}
+
+// --- Old Styles (Kept for compatibility) ---
+.wallpaper-selector-shell {
+  background-color: $layer0;
 }
 
 .wallpaper-sidebar-hint {
@@ -21,44 +164,8 @@
   margin-top: 0.545rem;
 }
 
-.wallpaper-sidebar-nav-item {
-  @include normal-rounding;
-  @include menu_decel;
-  @include mainfont;
-  min-height: 2.5rem;
-  background-color: transparent;
-  color: $onLayer0;
-  padding: 0.545rem 0.682rem;
-  margin-bottom: 0.136rem;
-
-  &:hover {
-    background-color: transparentize($onLayer0, 0.94);
-  }
-
-  &:active {
-    background-color: transparentize($onLayer0, 0.90);
-  }
-
-  &.active {
-    background-color: transparentize($primary, 0.86);
-    color: $onLayer0;
-  }
-
-  &:disabled {
-    color: transparentize($onLayer0, 0.6);
-    background-color: transparent;
-  }
-}
-
-
-
 .wallpaper-main-separator {
   color: transparentize($onLayer0, 0.88);
-}
-
-.wallpaper-sidebar-separator {
-  min-height: 1px;
-  background-color: transparentize($onLayer1, 0.84);
 }
 
 .wallpaper-selector-main {
@@ -118,8 +225,6 @@
   }
 }
 
-
-
 // Theme Selector
 .wallpaper-theme-selector {
   min-height: 0;
@@ -155,8 +260,6 @@
   }
 }
 
-
-
 .wallpaper-theme-item-name {
   @include mainfont;
   color: $onLayer0;
@@ -180,8 +283,6 @@
   padding: 0.068rem 0.341rem;
 }
 
-
-
 .wallpaper-theme-indicator {
   @include mainfont;
   color: $primary;
@@ -199,8 +300,6 @@
   opacity: 0.7;
   margin-bottom: 0.273rem;
 }
-
-
 
 // Search Bar
 .wallpaper-search-container {
@@ -284,7 +383,6 @@
   padding: 0.545rem;
 }
 
-
 .wallpaper-placeholder-view {
   @include large-rounding;
   @include elevation-border;
@@ -307,19 +405,19 @@
 
 // Image Card
 .wallpaper-card {
-  margin: 0.273rem;
+  margin: 0.4rem;
 
   &.selected {
     .wallpaper-thumbnail {
-      border: 2px solid transparentize($secondary, 0.08);
-      box-shadow: 0 0 0 1px transparentize($secondary, 0.55);
+      border: 2px solid transparentize($secondary, 0.3);
+      box-shadow: none;
     }
   }
 
   &.active {
     .wallpaper-thumbnail {
       border: 2px solid $primary;
-      box-shadow: 0 0 0 1px transparentize($primary, 0.5);
+      box-shadow: none;
     }
 
     .active-indicator {
@@ -330,7 +428,7 @@
 
 .wallpaper-card-button {
   @include normal-rounding;
-  @include menu_decel;
+  @include element_decel;
   background: transparent;
   border: none;
   padding: 0;
@@ -344,25 +442,27 @@
     background: transparent;
 
     .wallpaper-thumbnail {
-      border-color: $primary;
-      box-shadow: 0 4px 8px transparentize($black, 0.7);
+      border-color: mix($primary, $layer0, 40%);
+      // Subtle Adwaita hover shadow
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
   }
 
   &:active {
     .wallpaper-thumbnail {
-      box-shadow: 0 2px 4px transparentize($black, 0.8);
+      box-shadow: none;
+      transform: scale(0.98);
     }
   }
 }
 
 .wallpaper-thumbnail {
-  @include normal-rounding;
+  border-radius: 12px; // Adwaita standard
   min-width: 280px;
   min-height: 158px;
-  border: 1px solid transparentize($onLayer0, 0.82);
-  background-color: $layer1;
-  transition: all 170ms cubic-bezier(0.1, 1, 0, 1);
+  border: 1px solid mix($surfaceContainer, $onBackground, 70%);
+  background-color: $surfaceContainerLowest;
+  transition: all 150ms cubic-bezier(0.2, 0, 0, 1); // Snappy Adwaita curve
 
   &.is-placeholder {
     background-image: linear-gradient(
@@ -374,7 +474,7 @@
 }
 
 .wallpaper-image {
-  @include normal-rounding;
+  border-radius: 11px; // Inner rounding to avoid clipping border
 }
 
 .wallpaper-thumbnail-error {

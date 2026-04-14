@@ -1,68 +1,50 @@
 import { Gdk, Gtk } from "ags/gtk4";
-import SearchBar from "../../SearchBar";
 import WallpaperGridView from "../../WallpaperGridView.js";
 import type { LibraryDataController } from "./controller";
 
 export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 	const root = new Gtk.Box({
 		orientation: Gtk.Orientation.VERTICAL,
-		spacing: 12,
+		spacing: 0,
 		hexpand: true,
 		vexpand: true,
 		css_classes: ["wallpaper-selector-main"],
 	});
 
-	const header = new Gtk.Box({
+	// --- Action Bar (Breadcrumbs & Tools) ---
+	const actionBar = new Gtk.Box({
 		orientation: Gtk.Orientation.HORIZONTAL,
 		spacing: 8,
-		css_classes: ["wallpaper-main-header"],
+		css_classes: ["wallpaper-library-actionbar"],
 	});
+	actionBar.set_margin_bottom(12);
 
-	const headerText = new Gtk.Box({
-		orientation: Gtk.Orientation.VERTICAL,
+	const breadcrumbBox = new Gtk.Box({
+		orientation: Gtk.Orientation.HORIZONTAL,
+		spacing: 4,
 		hexpand: true,
+		valign: Gtk.Align.CENTER,
 	});
 
-	const title = new Gtk.Label({ label: "Library" });
-	title.add_css_class("wallpaper-selector-title");
-	title.set_halign(Gtk.Align.START);
-	headerText.append(title);
+	const breadcrumbLibrary = new Gtk.Button({ label: "Library" });
+	breadcrumbLibrary.add_css_class("wallpaper-breadcrumb-btn");
+	breadcrumbLibrary.connect("clicked", controller.handleBackToThemes);
+	breadcrumbBox.append(breadcrumbLibrary);
 
-	const subtitle = new Gtk.Label({ label: "" });
-	subtitle.add_css_class("wallpaper-main-subtitle");
-	subtitle.set_halign(Gtk.Align.START);
-	const updateHeader = () => {
-		const mode = controller.libraryView.get();
+	const breadcrumbSeparator = new Gtk.Label({ label: "›" });
+	breadcrumbSeparator.add_css_class("wallpaper-breadcrumb-sep");
+	breadcrumbBox.append(breadcrumbSeparator);
 
-		if (mode === "themes") {
-			title.set_label("Library");
-			subtitle.set_label(`${controller.filteredThemes.get().length} themes`);
-			return;
-		}
+	const breadcrumbTheme = new Gtk.Label({ label: "" });
+	breadcrumbTheme.add_css_class("wallpaper-breadcrumb-current");
+	breadcrumbBox.append(breadcrumbTheme);
 
-		const theme = controller.browsingTheme.get();
-		title.set_label(theme || "Wallpapers");
-		subtitle.set_label(`${controller.filteredImages.get().length} wallpapers`);
-	};
-	controller.filteredImages.subscribe(updateHeader);
-	controller.filteredThemes.subscribe(updateHeader);
-	controller.browsingTheme.subscribe(updateHeader);
-	controller.libraryView.subscribe(updateHeader);
-	updateHeader();
-	headerText.append(subtitle);
-
-	header.append(headerText);
+	actionBar.append(breadcrumbBox);
 
 	const headerActions = new Gtk.Box({
 		orientation: Gtk.Orientation.HORIZONTAL,
 		spacing: 8,
-		css_classes: ["wallpaper-main-actions"],
 	});
-
-	const backBtn = new Gtk.Button({ label: "Back" });
-	backBtn.add_css_class("wallpaper-header-button");
-	backBtn.connect("clicked", controller.handleBackToThemes);
-	headerActions.append(backBtn);
 
 	const randomBtn = new Gtk.Button({ label: "Random" });
 	randomBtn.add_css_class("wallpaper-header-button");
@@ -88,34 +70,17 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 		if (selected) void controller.handleActivateImage(selected);
 	});
 	headerActions.append(applyBtn);
+	
+	actionBar.append(headerActions);
+	root.append(actionBar);
 
-	const updateHeaderActions = () => {
-		const showWallpaperActions = controller.libraryView.get() === "wallpapers";
-		backBtn.set_visible(showWallpaperActions);
-		randomBtn.set_visible(showWallpaperActions);
-		favoriteBtn.set_visible(showWallpaperActions);
-		applyBtn.set_visible(showWallpaperActions);
-
-		const selected = controller.selectedWallpaper.get();
-		applyBtn.set_sensitive(Boolean(selected));
-		favoriteBtn.set_sensitive(Boolean(selected));
-		favoriteBtn.set_label(
-			controller.selectedIsFavorite.get() ? "Unfavorite" : "Favorite",
-		);
-	};
-	controller.libraryView.subscribe(updateHeaderActions);
-	controller.selectedWallpaper.subscribe(updateHeaderActions);
-	controller.selectedIsFavorite.subscribe(updateHeaderActions);
-	updateHeaderActions();
-
-	header.append(headerActions);
-	root.append(header);
-
-	const searchBar = SearchBar({
-		onSearchChange: controller.handleSearchChange,
-		placeholder: "Search...",
+	// --- Stack for Master/Detail ---
+	const stack = new Gtk.Stack({
+		transition_type: Gtk.StackTransitionType.SLIDE_LEFT_RIGHT,
+		transition_duration: 300,
+		hexpand: true,
+		vexpand: true,
 	});
-	root.append(searchBar as Gtk.Widget);
 
 	const libraryThemeGrid = WallpaperGridView({
 		items: controller.themeItems,
@@ -137,20 +102,60 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 		onVisibleRangeChange: controller.ensureWallpaperPreviewRange,
 	});
 
-	root.append(libraryThemeGrid as Gtk.Widget);
-	root.append(wallpaperGrid as Gtk.Widget);
+	// --- AI Results Mock View ---
+	const aiResultsBox = new Gtk.Box({
+		orientation: Gtk.Orientation.VERTICAL,
+		spacing: 12,
+		valign: Gtk.Align.CENTER,
+		halign: Gtk.Align.CENTER,
+		hexpand: true,
+		vexpand: true,
+	});
+	const aiIcon = new Gtk.Image({ icon_name: "face-smile-symbolic", pixel_size: 64 });
+	aiIcon.add_css_class("wallpaper-thumbnail-error");
+	const aiLabel = new Gtk.Label({ label: "✨ AI is curating wallpapers for you..." });
+	aiLabel.add_css_class("wallpaper-placeholder-title");
+	aiResultsBox.append(aiIcon);
+	aiResultsBox.append(aiLabel);
 
-	const updateMainContentVisibility = () => {
-		const inThemes = controller.libraryView.get() === "themes";
-		const inWallpapers = controller.libraryView.get() === "wallpapers";
+	stack.add_named(libraryThemeGrid as Gtk.Widget, "themes");
+	stack.add_named(wallpaperGrid as Gtk.Widget, "wallpapers");
+	stack.add_named(aiResultsBox, "ai-results");
 
-		(searchBar as Gtk.Widget).set_visible(true);
-		(libraryThemeGrid as Gtk.Widget).set_visible(inThemes);
-		(wallpaperGrid as Gtk.Widget).set_visible(inWallpapers);
+	root.append(stack);
+
+	// Let's hook into the global search query to trigger the AI view
+	const updateState = () => {
+		const mode = controller.libraryView.get();
+		const showWallpaperActions = mode === "wallpapers";
+
+		actionBar.set_visible(showWallpaperActions);
+		
+		const currentQuery = controller.searchQueryValue.get();
+		if (currentQuery.startsWith("AI:")) {
+			stack.set_visible_child_name("ai-results");
+			actionBar.set_visible(false);
+		} else if (mode === "themes") {
+			stack.set_visible_child_name("themes");
+		} else {
+			stack.set_visible_child_name("wallpapers");
+			breadcrumbTheme.set_label(controller.browsingTheme.get() || "Wallpapers");
+		}
+
+		const selected = controller.selectedWallpaper.get();
+		applyBtn.set_sensitive(Boolean(selected));
+		favoriteBtn.set_sensitive(Boolean(selected));
+		favoriteBtn.set_label(
+			controller.selectedIsFavorite.get() ? "Unfavorite" : "Favorite",
+		);
 	};
 
-	controller.libraryView.subscribe(updateMainContentVisibility);
-	updateMainContentVisibility();
+	controller.libraryView.subscribe(updateState);
+	controller.selectedWallpaper.subscribe(updateState);
+	controller.selectedIsFavorite.subscribe(updateState);
+	controller.browsingTheme.subscribe(updateState);
+	controller.searchQueryValue.subscribe(updateState);
+	updateState();
 
 	const controllerKey = new Gtk.EventControllerKey();
 	controllerKey.connect("key-pressed", (_, keyval) => {
