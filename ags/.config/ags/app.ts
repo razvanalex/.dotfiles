@@ -1,8 +1,8 @@
 import Notifd from "gi://AstalNotifd";
 import GLib from "gi://GLib";
-import { Gtk } from "ags/gtk4";
+import { Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
-import { PATHS } from "lib/constants";
+import { CONFIG_DIR, PATHS } from "lib/constants";
 import Logger from "lib/logger";
 import { COMPILED_STYLE_DIR, handleStyles } from "lib/styles";
 import brightness from "services/system/Brightness";
@@ -39,6 +39,23 @@ app.start({
     main() {
         handleStyles(true);
 
+        const iconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default()!);
+        const paths = [
+            GLib.get_current_dir(),
+            GLib.getenv("PWD"),
+            CONFIG_DIR,
+            `${GLib.get_user_config_dir()}/ags`,
+        ];
+
+        for (const path of paths) {
+            if (!path) continue;
+            const iconPath = `${path}/assets/icons`;
+            if (GLib.file_test(iconPath, GLib.FileTest.IS_DIR)) {
+                iconTheme.add_search_path(iconPath);
+                iconTheme.add_search_path(`${iconPath}/fluent`);
+            }
+        }
+
         const settings = Gtk.Settings.get_default();
         if (settings) {
             settings.gtk_enable_animations = true;
@@ -50,10 +67,6 @@ app.start({
 
         // Initialize services
         void wallpaper; // Ensure wallpaper service is loaded
-
-        // startAutoDarkModeService()
-        // firstRunWelcome()
-        // startBatteryWarningService()
 
         const monitors = app.get_monitors();
 
@@ -70,14 +83,45 @@ app.start({
             //     Dock(monitor, index)
             // }
         });
-    },
-    requestHandler(argv: string[], res: (response: any) => void) {
+
+        // Global engine state management
         let engineState = normalizeEngineState(loadEngineState());
 
         const syncEngineState = () => {
             engineState = normalizeEngineState(engineState);
             saveEngineState(engineState);
         };
+
+        const updateHistory = (
+            state: WallpaperEngineState,
+            wallpaperPath: string,
+        ) => {
+            const last = state.history[state.history.length - 1];
+            if (last !== wallpaperPath) {
+                state.history.push(wallpaperPath);
+                if (state.history.length > state.maxHistory) {
+                    state.history = state.history.slice(-state.maxHistory);
+                }
+            }
+            state.historyCursor = state.history.length - 1;
+        };
+
+        wallpaper.connect("wallpaper-changed", (_, path) => {
+            if (!path) return;
+            updateHistory(engineState, path);
+            const qIdx = engineState.queue.indexOf(path);
+            if (qIdx >= 0) engineState.currentIndex = qIdx;
+            syncEngineState();
+        });
+
+        Object.assign(globalThis, {
+            getEngineState: () => engineState,
+            syncEngineState,
+        });
+    },
+    requestHandler(argv: string[], res: (response: any) => void) {
+        const engineState = (globalThis as any).getEngineState() as WallpaperEngineState;
+        const syncEngineState = (globalThis as any).syncEngineState as () => void;
 
         const uniquePaths = (paths: string[]) => {
             const seen = new Set<string>();
@@ -128,20 +172,6 @@ app.start({
             }
 
             return uniquePool;
-        };
-
-        const updateHistory = (
-            state: WallpaperEngineState,
-            wallpaperPath: string,
-        ) => {
-            const last = state.history[state.history.length - 1];
-            if (last !== wallpaperPath) {
-                state.history.push(wallpaperPath);
-                if (state.history.length > state.maxHistory) {
-                    state.history = state.history.slice(-state.maxHistory);
-                }
-            }
-            state.historyCursor = state.history.length - 1;
         };
 
         const getDiscoveryOptions = () => {
@@ -237,7 +267,11 @@ app.start({
             }
 
             state.currentIndex = nextIndex;
-            return state.queue[nextIndex];
+            const path = state.queue[nextIndex];
+            if (!path) {
+                return pool[0] || "";
+            }
+            return path;
         };
 
         const selectPreviousWallpaper = (state: WallpaperEngineState) => {
@@ -261,20 +295,9 @@ app.start({
             return path;
         };
 
-        const applyWallpaperAndTrack = async (path: string) => {
-            await wallpaper.setWallpaper(path);
-            const queueIndex = engineState.queue.indexOf(path);
-            if (queueIndex >= 0) engineState.currentIndex = queueIndex;
-            updateHistory(engineState, path);
-            syncEngineState();
-            return path;
-        };
-
         const startEngineAutomatic = async () => {
             const picker = async () => {
                 const nextPath = await selectNextWallpaper(engineState, false);
-                updateHistory(engineState, nextPath);
-                syncEngineState();
                 return nextPath;
             };
 
@@ -521,8 +544,10 @@ app.start({
 
             if (subcommand === "next") {
                 selectNextWallpaper(engineState, true)
-                    .then((path) => applyWallpaperAndTrack(path))
-                    .then((path) => res(path))
+                    .then((path) => {
+                        return wallpaper.setWallpaper(path).then(() => path);
+                    })
+                    .then((path) => res(String(path)))
                     .catch((error: Error) => res(`error: ${error.message}`));
                 return;
             }
@@ -532,10 +557,7 @@ app.start({
                     const path = selectPreviousWallpaper(engineState);
                     wallpaper
                         .setWallpaper(path)
-                        .then(() => {
-                            syncEngineState();
-                            res(path);
-                        })
+                        .then(() => res(path))
                         .catch((error: Error) =>
                             res(`error: ${error.message}`),
                         );

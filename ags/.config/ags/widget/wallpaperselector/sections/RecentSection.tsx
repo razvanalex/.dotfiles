@@ -120,5 +120,13 @@ export default function RecentSection() {
         void reloadRecent();
     }, 0);
 
+    wallpaperService.connect("wallpaper-changed", () => {
+        void reloadRecent();
+    });
+
+    box.connect("map", () => {
+        void reloadRecent();
+    });
+
     return box;
 }

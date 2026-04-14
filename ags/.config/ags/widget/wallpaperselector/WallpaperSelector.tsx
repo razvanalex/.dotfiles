@@ -3,7 +3,7 @@ import { Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { execAsync } from "ags/process";
 import { createPoll } from "ags/time";
-import { PATHS } from "lib/constants";
+import { CONFIG_DIR, PATHS } from "lib/constants";
 import { loadConfig } from "services/wallpaper/utils/wallpaper";
 import SidebarNav from "./SidebarNav";
 import AboutSection from "./sections/AboutSection";
@@ -127,8 +127,10 @@ export default function WallpaperSelector(
     const rightSpacer = new Gtk.Box({ hexpand: true });
     headerRight.append(rightSpacer);
 
-    const aiBtn = new Gtk.Button({ icon_name: "starred-symbolic" });
+    const aiBtn = new Gtk.Button();
     aiBtn.add_css_class("wallpaper-header-icon-btn");
+    const aiIcon = new Gtk.Image({ file: `${CONFIG_DIR}/assets/icons/spark-symbolic.svg` });
+    aiBtn.set_child(aiIcon);
     headerRight.append(aiBtn);
 
     const settingsBtn = new Gtk.Button({ icon_name: "emblem-system-symbolic" });
@@ -225,23 +227,31 @@ export default function WallpaperSelector(
         icon_name: "media-skip-backward-symbolic",
     });
     prevBtn.connect("clicked", () => {
-        void execAsync(["ags", "request", "wallpaper", "prev"]);
+        execAsync(["ags", "request", "wallpaper", "prev"]).catch((err) =>
+            console.error(`[WallpaperSelector] prev failed: ${err}`),
+        );
     });
 
     const playBtn = new Gtk.Button({
         icon_name: "media-playback-pause-symbolic",
     }); // It's visible when running, so it pauses
     playBtn.connect("clicked", () => {
-        void execAsync(["ags", "request", "wallpaper", "pause"]).then(() => {
-            setIsEngineRunning(false);
-        });
+        execAsync(["ags", "request", "wallpaper", "pause"])
+            .then(() => {
+                setIsEngineRunning(false);
+            })
+            .catch((err) =>
+                console.error(`[WallpaperSelector] pause failed: ${err}`),
+            );
     });
 
     const nextBtn = new Gtk.Button({
         icon_name: "media-skip-forward-symbolic",
     });
     nextBtn.connect("clicked", () => {
-        void execAsync(["ags", "request", "wallpaper", "next"]);
+        execAsync(["ags", "request", "wallpaper", "next"]).catch((err) =>
+            console.error(`[WallpaperSelector] next failed: ${err}`),
+        );
     });
 
     [prevBtn, playBtn, nextBtn].forEach((btn) => {
