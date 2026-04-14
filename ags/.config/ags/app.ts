@@ -30,9 +30,33 @@ import Session from "widget/session/Session";
 import SideLeft from "widget/sideleft/SideLeft";
 import SideRight from "widget/sideright/SideRight";
 import WallpaperSelector from "widget/wallpaperselector/WallpaperSelector";
+import WallpaperSelectorPopup from "widget/wallpaperselector/WallpaperSelectorPopup";
+import ThemeSelectorPopup from "widget/wallpaperselector/ThemeSelectorPopup";
 
 // import Dock from "widget/Dock"
 // import userOptions from "services/options/Options"
+
+// Global engine state management
+let engineState = normalizeEngineState(loadEngineState());
+
+const syncEngineState = () => {
+    engineState = normalizeEngineState(engineState);
+    saveEngineState(engineState);
+};
+
+const updateHistory = (
+    state: WallpaperEngineState,
+    wallpaperPath: string,
+) => {
+    const last = state.history[state.history.length - 1];
+    if (last !== wallpaperPath) {
+        state.history.push(wallpaperPath);
+        if (state.history.length > state.maxHistory) {
+            state.history = state.history.slice(-state.maxHistory);
+        }
+    }
+    state.historyCursor = state.history.length - 1;
+};
 
 app.start({
     css: `${COMPILED_STYLE_DIR}/style.css`,
@@ -77,34 +101,14 @@ app.start({
             Indicators(monitor, index);
             Session(monitor, index);
             WallpaperSelector(monitor, index);
+            WallpaperSelectorPopup(monitor, index);
+            ThemeSelectorPopup(monitor, index);
             // Crosshair(monitor, index)
             //
             // if (userOptions.dock.enabled) {
             //     Dock(monitor, index)
             // }
         });
-
-        // Global engine state management
-        let engineState = normalizeEngineState(loadEngineState());
-
-        const syncEngineState = () => {
-            engineState = normalizeEngineState(engineState);
-            saveEngineState(engineState);
-        };
-
-        const updateHistory = (
-            state: WallpaperEngineState,
-            wallpaperPath: string,
-        ) => {
-            const last = state.history[state.history.length - 1];
-            if (last !== wallpaperPath) {
-                state.history.push(wallpaperPath);
-                if (state.history.length > state.maxHistory) {
-                    state.history = state.history.slice(-state.maxHistory);
-                }
-            }
-            state.historyCursor = state.history.length - 1;
-        };
 
         wallpaper.connect("wallpaper-changed", (_, path) => {
             if (!path) return;
@@ -113,16 +117,8 @@ app.start({
             if (qIdx >= 0) engineState.currentIndex = qIdx;
             syncEngineState();
         });
-
-        Object.assign(globalThis, {
-            getEngineState: () => engineState,
-            syncEngineState,
-        });
     },
     requestHandler(argv: string[], res: (response: any) => void) {
-        const engineState = (globalThis as any).getEngineState() as WallpaperEngineState;
-        const syncEngineState = (globalThis as any).syncEngineState as () => void;
-
         const uniquePaths = (paths: string[]) => {
             const seen = new Set<string>();
             const out: string[] = [];
@@ -224,9 +220,9 @@ app.start({
         };
 
         const selectNextWallpaper = async (
-            state: WallpaperEngineState,
             forwardInHistory: boolean,
         ) => {
+            const state = engineState;
             if (
                 forwardInHistory &&
                 state.historyCursor < state.history.length - 1
@@ -274,7 +270,8 @@ app.start({
             return path;
         };
 
-        const selectPreviousWallpaper = (state: WallpaperEngineState) => {
+        const selectPreviousWallpaper = () => {
+            const state = engineState;
             if (state.history.length === 0) {
                 throw new Error("history is empty");
             }
@@ -297,7 +294,7 @@ app.start({
 
         const startEngineAutomatic = async () => {
             const picker = async () => {
-                const nextPath = await selectNextWallpaper(engineState, false);
+                const nextPath = await selectNextWallpaper(false);
                 return nextPath;
             };
 
@@ -358,9 +355,76 @@ app.start({
             return res("ok");
         }
 
+        if (argv[0] === "wallpaper-selector-popup") {
+            const monitors = app.get_monitors();
+            monitors.forEach((_, index) => {
+                const name = `wallpaper-selector-popup${index}`;
+                app.toggle_window(name);
+                const win = app.get_window(name);
+                if (win?.visible) win.present();
+            });
+            return res("ok");
+        }
+
+        if (argv[0] === "theme-selector-popup") {
+            const monitors = app.get_monitors();
+            monitors.forEach((_, index) => {
+                const name = `theme-selector-popup${index}`;
+                app.toggle_window(name);
+                const win = app.get_window(name);
+                if (win?.visible) win.present();
+            });
+            return res("ok");
+        }
+
         if (argv[0] === "wallpaper") {
-            const _configPath = PATHS.wallpaperConfig;
+            const configPath = PATHS.wallpaperConfig;
             const subcommand = argv[1];
+
+            if (subcommand === "toggle-hidden") {
+                const config = loadConfig(configPath);
+                config.includeHidden = !config.includeHidden;
+                const { saveConfig } = require("services/wallpaper/utils/wallpaper");
+                saveConfig(configPath, config);
+                // Also update the live service if possible, or just notify user
+                wallpaper.setConfig({ includeHidden: config.includeHidden });
+                
+                execAsync(["notify-send", 
+                    "--urgency", "low",
+                    "--transient",
+                    "--expire-time", "1000",
+                    "--app-name", "Wallpaper",
+                    "Themes", 
+                    `${config.includeHidden ? "Enabled" : "Disabled"} hidden themes`
+                ]).catch(() => {});
+                
+                return res(`hidden themes ${config.includeHidden ? "enabled" : "disabled"}`);
+            }
+
+            if (subcommand === "set-theme") {
+                const themeName = argv[2];
+                if (!themeName) return res("error: theme name required");
+
+                const { updateCurrentTheme } = require("services/wallpaper/utils/wallpaperUtils");
+                const { wallpaperDir } = getDiscoveryOptions();
+                
+                updateCurrentTheme(wallpaperDir, themeName).catch((err: Error) => {
+                    Logger.error(`Failed to update .crt_theme: ${err}`);
+                });
+
+                engineState.sourceType = "specific-theme";
+                engineState.sourceValue = themeName;
+                engineState.queue = [];
+                engineState.currentIndex = -1;
+                syncEngineState();
+
+                // Trigger immediate wallpaper change
+                selectNextWallpaper(false)
+                    .then((path) => wallpaper.setWallpaper(path))
+                    .then(() => res(`theme set to ${themeName}`))
+                    .catch((err: Error) => res(`error: ${err.message}`));
+                return;
+            }
 
             if (subcommand === "engine") {
                 const engineCmd = argv[2];
@@ -543,7 +607,7 @@ app.start({
             }
 
             if (subcommand === "next") {
-                selectNextWallpaper(engineState, true)
+                selectNextWallpaper(true)
                     .then((path) => {
                         return wallpaper.setWallpaper(path).then(() => path);
                     })
@@ -554,7 +618,7 @@ app.start({
 
             if (subcommand === "prev") {
                 try {
-                    const path = selectPreviousWallpaper(engineState);
+                    const path = selectPreviousWallpaper();
                     wallpaper
                         .setWallpaper(path)
                         .then(() => res(path))

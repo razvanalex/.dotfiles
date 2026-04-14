@@ -39,6 +39,7 @@ interface CreateLibraryDataControllerProps {
 
 export interface LibraryDataController {
     libraryView: Accessor<LibraryView>;
+    setLibraryView: (view: LibraryView) => void;
     filteredThemes: Accessor<string[]>;
     filteredImages: Accessor<string[]>;
     browsingTheme: Accessor<string>;
@@ -650,6 +651,7 @@ export function createLibraryDataController({
 
     return {
         libraryView,
+        setLibraryView,
         filteredThemes,
         filteredImages,
         browsingTheme,

@@ -88,8 +88,8 @@ export default function WallpaperGridView({
     const store = new Gio.ListStore({ item_type: WallpaperItem.$gtype });
     const selectionModel = new Gtk.SingleSelection({
         model: store,
-        autoselect: false,
-        can_unselect: true,
+        autoselect: true,
+        can_unselect: false,
     });
 
     selectionModel.connect("notify::selected", () => {

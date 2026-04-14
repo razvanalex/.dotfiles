@@ -406,6 +406,13 @@
 // Image Card
 .wallpaper-card {
   margin: 0.4rem;
+  @include element_decel;
+
+  &:selected, &:focus {
+    outline: 2px solid $primary;
+    outline-offset: 2px;
+    @include normal-rounding;
+  }
 
   &.selected {
     .wallpaper-thumbnail {
@@ -519,4 +526,42 @@
   min-width: 1.636rem;
   min-height: 1.636rem;
   padding: 0;
+}
+
+// --- Popup TSX Selectors ---
+.wallpaper-selector-popup-window, .theme-selector-popup-window {
+  @include large-rounding;
+  @include elevation-border;
+  background-color: $layer0;
+}
+
+.wallpaper-selector-popup-root, .theme-selector-popup-root {
+  padding: 1.5rem;
+  background-color: $layer0;
+}
+
+.selector-popup-search-entry {
+  @include titlefont;
+  @include normal-rounding;
+  background-color: $surfaceContainerLow;
+  color: $onSurface;
+  border: 1px solid mix($surfaceContainer, $onBackground, 70%);
+  padding: 0.8rem 1.2rem;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  
+  &:focus {
+    background-color: $surfaceContainer;
+    border-color: $primary;
+    box-shadow: 0 0 0 2px transparentize($primary, 0.7);
+  }
+
+  // Hide the search icon if it's too much, or style it
+  image.left {
+    margin-right: 0.5rem;
+  }
+}
+
+.wallpaper-selector-popup-window, .theme-selector-popup-window {
+    // Mimic centered popup look
 }
