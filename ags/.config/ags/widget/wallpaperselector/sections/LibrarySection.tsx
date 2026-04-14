@@ -5,18 +5,18 @@ import { createLibraryUi } from "./library/ui";
 interface LibrarySectionProps {
 	wallpaperDir: string;
 	refreshSignal?: Accessor<number>;
-	searchQuery?: Accessor<string>;
+	isSearchVisible?: Accessor<boolean>;
 }
 
 export default function LibrarySection({
 	wallpaperDir,
 	refreshSignal,
-	searchQuery,
+	isSearchVisible,
 }: LibrarySectionProps) {
 	const controller = createLibraryDataController({
 		wallpaperDir,
 		refreshSignal,
-		searchQuery,
+		isSearchVisible,
 	});
 	return createLibraryUi(controller);
 }

@@ -24,7 +24,6 @@ export default function WallpaperSelector(
 	const [navSection, setNavSection] = createState<NavSection>("library");
 
 	const [discoveryRefreshSignal, setDiscoveryRefreshSignal] = createState(0);
-	const [globalSearchQuery, setGlobalSearchQuery] = createState("");
 
 	// --- Engine State Polling for Playback Pill ---
 	const [isEngineRunning, setIsEngineRunning] = createState(false);
@@ -82,14 +81,13 @@ export default function WallpaperSelector(
 		css_classes: ["wallpaper-global-headerbar"],
 	});
 
-	// Header Left: Search/Omnibar (Aligned with sidebar width)
-	const searchEntry = new Gtk.SearchEntry({
-		placeholder_text: "Search or ask AI...",
-		hexpand: true,
-	});
-	searchEntry.add_css_class("wallpaper-omnibar");
-	searchEntry.connect("search-changed", () => {
-		setGlobalSearchQuery(searchEntry.get_text());
+	// Header Left: Search Icon (Aligned with sidebar width)
+	const [isSearchVisible, setIsSearchVisible] = createState(false);
+	const searchBtn = new Gtk.Button({ icon_name: "system-search-symbolic" });
+	searchBtn.add_css_class("wallpaper-header-icon-btn");
+	searchBtn.connect("clicked", () => {
+		handleNavChange("library");
+		setIsSearchVisible(!isSearchVisible.get());
 	});
 	
 	const headerLeft = new Gtk.Box({
@@ -99,7 +97,7 @@ export default function WallpaperSelector(
 		hexpand: false,
 	});
 	headerLeft.set_size_request(220, -1);
-	headerLeft.append(searchEntry);
+	headerLeft.append(searchBtn);
 	headerBar.append(headerLeft);
 
 	// Header Center: Window Title
@@ -173,7 +171,7 @@ export default function WallpaperSelector(
 	const librarySection = LibrarySection({
 		wallpaperDir,
 		refreshSignal: discoveryRefreshSignal,
-		searchQuery: globalSearchQuery,
+		isSearchVisible: isSearchVisible,
 	});
 
 	const settingsSection = SettingsSection({

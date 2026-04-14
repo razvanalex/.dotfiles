@@ -34,7 +34,7 @@ function logPreviewDebug(message: string) {
 interface CreateLibraryDataControllerProps {
 	wallpaperDir: string;
 	refreshSignal?: Accessor<number>;
-	searchQuery?: Accessor<string>;
+	isSearchVisible?: Accessor<boolean>;
 }
 
 export interface LibraryDataController {
@@ -47,6 +47,7 @@ export interface LibraryDataController {
 	wallpaperPreviewThumbs: Accessor<Record<string, string>>;
 	themeItems: Accessor<GridItem[]>;
 	imageItems: Accessor<GridItem[]>;
+	isSearchVisible: Accessor<boolean>;
 	ensureThemePreviewRange: (start: number, end: number) => void;
 	ensureWallpaperPreviewRange: (start: number, end: number) => void;
 	handleThemeChange: (newTheme: string) => Promise<void>;
@@ -61,7 +62,7 @@ export interface LibraryDataController {
 export function createLibraryDataController({
 	wallpaperDir,
 	refreshSignal,
-	searchQuery,
+	isSearchVisible,
 }: CreateLibraryDataControllerProps): LibraryDataController {
 	const configPath = PATHS.wallpaperConfig;
 
@@ -416,7 +417,7 @@ export function createLibraryDataController({
 			const themeDir = `${wallpaperDir}/${theme}`;
 			const images = await wallpaperService.getWallpapers(themeDir);
 			setAllImages(images);
-			const currentQuery = searchQuery ? searchQuery.get() : _searchQuery.get();
+			const currentQuery = _searchQuery.get();
 			setFilteredImages(fuzzyFilter(images, currentQuery));
 			
 			const current = currentWallpaper.get();
@@ -425,7 +426,7 @@ export function createLibraryDataController({
 			} else {
 				setSelectedWallpaper(images[0] || "");
 			}
-			if (!searchQuery) setSearchQuery("");
+			setSearchQuery("");
 		} catch (error) {
 			Logger.error(`Failed to load images for theme ${theme}:`, error);
 			setAllImages([]);
@@ -564,12 +565,6 @@ export function createLibraryDataController({
 		setFilteredImages(filtered);
 	};
 
-	if (searchQuery) {
-		searchQuery.subscribe((query) => {
-			handleSearchChange(query);
-		});
-	}
-
 	const handleThemeChange = async (newTheme: string) => {
 		invalidateWallpaperPreviewQueue();
 		setBrowsingTheme(newTheme);
@@ -580,8 +575,8 @@ export function createLibraryDataController({
 	const handleBackToThemes = () => {
 		invalidateWallpaperPreviewQueue();
 		setLibraryView("themes");
-		const currentQuery = searchQuery ? searchQuery.get() : _searchQuery.get();
-		if (!searchQuery) setSearchQuery("");
+		const currentQuery = _searchQuery.get();
+		setSearchQuery("");
 		setFilteredThemes(fuzzyThemeFilter(themes.get(), currentQuery));
 	};
 
@@ -647,7 +642,7 @@ export function createLibraryDataController({
 		wallpaperPreviewThumbs,
 		themeItems,
 		imageItems,
-		searchQueryValue: _searchQuery,
+		isSearchVisible: isSearchVisible ?? (() => false),
 		ensureThemePreviewRange,
 		ensureWallpaperPreviewRange,
 		handleThemeChange,

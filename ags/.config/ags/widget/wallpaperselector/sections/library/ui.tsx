@@ -74,6 +74,24 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 	actionBar.append(headerActions);
 	root.append(actionBar);
 
+	// --- Search Bar ---
+	const searchEntry = new Gtk.SearchEntry({
+		placeholder_text: "Search...",
+		hexpand: true,
+	});
+	searchEntry.add_css_class("wallpaper-search-entry");
+	searchEntry.connect("search-changed", () => {
+		controller.handleSearchChange(searchEntry.get_text());
+	});
+	
+	const searchContainer = new Gtk.Box({
+		orientation: Gtk.Orientation.HORIZONTAL,
+		spacing: 0,
+		css_classes: ["wallpaper-search-container"],
+	});
+	searchContainer.append(searchEntry);
+	root.append(searchContainer);
+
 	// --- Stack for Master/Detail ---
 	const stack = new Gtk.Stack({
 		transition_type: Gtk.StackTransitionType.SLIDE_LEFT_RIGHT,
@@ -130,9 +148,10 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 		const showWallpaperActions = mode === "wallpapers";
 
 		actionBar.set_visible(showWallpaperActions);
+		searchContainer.set_visible(controller.isSearchVisible.get());
 		
-		const currentQuery = controller.searchQueryValue.get();
-		if (currentQuery.startsWith("AI:")) {
+		const currentQuery = ""; // Search query state is now internal, and not used for AI view here
+		if (false) { // AI view removed
 			stack.set_visible_child_name("ai-results");
 			actionBar.set_visible(false);
 		} else if (mode === "themes") {
@@ -154,7 +173,7 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 	controller.selectedWallpaper.subscribe(updateState);
 	controller.selectedIsFavorite.subscribe(updateState);
 	controller.browsingTheme.subscribe(updateState);
-	controller.searchQueryValue.subscribe(updateState);
+	controller.isSearchVisible.subscribe(updateState);
 	updateState();
 
 	const controllerKey = new Gtk.EventControllerKey();
