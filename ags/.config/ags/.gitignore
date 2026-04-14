@@ -10,7 +10,4 @@ chat_history.json
 
 # AI/Agent Documentation
 AGENTS.md
-CHAT_SETUP_GUIDE.md
-CHAT_UI_GUIDE.md
-QUICK_START.md
-services/WALLPAPER_SERVICE.md
+docs/
