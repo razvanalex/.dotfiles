@@ -12,9 +12,9 @@ export const CACHE_DIR = `${GLib.get_user_cache_dir()}/ags`
  * Centralized file paths for configuration and state management.
  */
 export const PATHS = {
-    // Configuration (Settings and Secrets)
-    apiKeys: `${CONFIG_DIR}/api_keys.json`,
-    wallpaperConfig: `${CONFIG_DIR}/wallpaper_config.json`,
+    // Persistent Data (Secrets and User-defined Settings)
+    apiKeys: `${DATA_DIR}/api_keys.json`,
+    wallpaperConfig: `${DATA_DIR}/wallpaper_config.json`,
     
     // State (History, Session Data, Application State)
     chatHistory: `${STATE_DIR}/chat_history.json`,

@@ -16,6 +16,7 @@ import {
     loadState,
     saveState
 } from "../lib/wallpaper"
+import { PATHS } from "../lib/constants"
 
 const log = Logger.withScope('Wallpaper')
 
@@ -72,7 +73,7 @@ class Wallpaper extends GObject.Object {
 
     constructor() {
         super()
-        this.#configPath = `${GLib.get_home_dir()}/.config/ags/wallpaper_config.json`
+        this.#configPath = PATHS.wallpaperConfig
         this.#config = loadConfig(this.#configPath)
         this.#init()
     }
