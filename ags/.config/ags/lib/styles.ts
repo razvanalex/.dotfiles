@@ -1,64 +1,71 @@
-import GLib from "gi://GLib"
-import app from "ags/gtk4/app"
-import { exec } from "ags/process"
-import { execBash } from "lib/proc"
-import { writeFile } from "ags/file"
-import SystemService from "services/system/System"
-import userOptions from "services/options/Options"
-import Logger from "./logger"
+import GLib from "gi://GLib";
+import { writeFile } from "ags/file";
+import app from "ags/gtk4/app";
+import { exec } from "ags/process";
+import { execBash } from "lib/proc";
+import userOptions from "services/options/Options";
+import SystemService from "services/system/System";
+import Logger from "./logger";
 
-export const COMPILED_STYLE_DIR = `${GLib.get_user_cache_dir()}/ags/user/generated`
+export const COMPILED_STYLE_DIR = `${GLib.get_user_cache_dir()}/ags/user/generated`;
 
 export function handleStyles(resetMusic: boolean = false) {
-    // Reset
-    exec(`mkdir -p "${GLib.get_user_state_dir()}/ags/scss"`)
-    if (resetMusic) {
-        exec(`bash -c 'echo "" > ${GLib.get_user_state_dir()}/ags/scss/_musicwal.scss'`)
-        exec(`bash -c 'echo "" > ${GLib.get_user_state_dir()}/ags/scss/_musicmaterial.scss'`)
-    }
+	// Reset
+	exec(`mkdir -p "${GLib.get_user_state_dir()}/ags/scss"`);
+	if (resetMusic) {
+		exec(
+			`bash -c 'echo "" > ${GLib.get_user_state_dir()}/ags/scss/_musicwal.scss'`,
+		);
+		exec(
+			`bash -c 'echo "" > ${GLib.get_user_state_dir()}/ags/scss/_musicmaterial.scss'`,
+		);
+	}
 
-    // Generate overrides
-    const lightdark = SystemService.dark_mode ? "dark" : "light"
-    const symbolicIconTheme = userOptions.icons.symbolicIconTheme[lightdark as "dark" | "light"]
+	// Generate overrides
+	const lightdark = SystemService.dark_mode ? "dark" : "light";
+	const symbolicIconTheme =
+		userOptions.icons.symbolicIconTheme[lightdark as "dark" | "light"];
 
-    const mixinOverrides = `@mixin symbolic-icon {
+	const mixinOverrides = `@mixin symbolic-icon {
     --gtk-icon-theme-name: '${symbolicIconTheme}';
 }
-`
+`;
 
-    try {
-        const path = `${GLib.get_user_state_dir()}/ags/scss/_mixin_overrides.scss`
-        writeFile(path, mixinOverrides)
+	try {
+		const path = `${GLib.get_user_state_dir()}/ags/scss/_mixin_overrides.scss`;
+		writeFile(path, mixinOverrides);
 
-        Logger.info("Mixin overrides written to", path)
-    } catch (e) {
-        Logger.error("Failed to write mixin overrides:", e)
-    }
+		Logger.info("Mixin overrides written to", path);
+	} catch (e) {
+		Logger.error("Failed to write mixin overrides:", e);
+	}
 
-    // Compile and apply
-    applyStyle()
+	// Compile and apply
+	applyStyle();
 }
 
 async function applyStyle() {
-    try {
-        const configDir = GLib.get_user_config_dir()
-        const stateDir = GLib.get_user_state_dir()
+	try {
+		const configDir = GLib.get_user_config_dir();
+		const stateDir = GLib.get_user_state_dir();
 
-        exec(`mkdir -p ${COMPILED_STYLE_DIR}`)
-        execBash(
-            `sass -I "${stateDir}/ags/scss" ` +
-            `"${configDir}/ags/scss/main.scss" ` +
-            `"${COMPILED_STYLE_DIR}/style.css"`,
-            [{
-                "name": "PATH",
-                "value": "${PATH}:/home/razvan/.nvm/versions/node/v24.11.1/bin"
-            }]
-        )
+		exec(`mkdir -p ${COMPILED_STYLE_DIR}`);
+		execBash(
+			`sass -I "${stateDir}/ags/scss" ` +
+				`"${configDir}/ags/scss/main.scss" ` +
+				`"${COMPILED_STYLE_DIR}/style.css"`,
+			[
+				{
+					name: "PATH",
+					value: "${PATH}:/home/razvan/.nvm/versions/node/v24.11.1/bin",
+				},
+			],
+		);
 
-        app.reset_css()
-        app.apply_css(`${COMPILED_STYLE_DIR}/style.css`)
-        Logger.info("Styles loaded:", `${COMPILED_STYLE_DIR}/style.css`)
-    } catch (e) {
-        Logger.error("Failed to apply styles:", e)
-    }
+		app.reset_css();
+		app.apply_css(`${COMPILED_STYLE_DIR}/style.css`);
+		Logger.info("Styles loaded:", `${COMPILED_STYLE_DIR}/style.css`);
+	} catch (e) {
+		Logger.error("Failed to apply styles:", e);
+	}
 }

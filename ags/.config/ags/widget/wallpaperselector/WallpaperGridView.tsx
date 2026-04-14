@@ -1,445 +1,476 @@
-import { Gtk } from "ags/gtk4"
-import type { Accessor } from "ags"
-import Gio from "gi://Gio"
-import GObject from "gi://GObject"
+import Gio from "gi://Gio";
+import GObject from "gi://GObject";
+import type { Accessor } from "ags";
+import { Gtk } from "ags/gtk4";
 import {
-    WALLPAPER_CARD_WIDTH,
-    WALLPAPER_CARD_IMAGE_HEIGHT,
-    WALLPAPER_CARD_LABEL_HEIGHT,
-} from "./types"
+	WALLPAPER_CARD_IMAGE_HEIGHT,
+	WALLPAPER_CARD_LABEL_HEIGHT,
+	WALLPAPER_CARD_WIDTH,
+} from "./types";
 
-const GRID_ROW_SPACING = 8
-const GRID_COLUMN_SPACING = 8
-const VISIBLE_ROW_OVERSCAN = 4
+const GRID_ROW_SPACING = 8;
+const GRID_COLUMN_SPACING = 8;
+const VISIBLE_ROW_OVERSCAN = 4;
 
 export interface GridItem {
-    id: string
-    previewPath?: string
-    label: string
-    isActive?: boolean
-    isSelected?: boolean
-    isGif?: boolean
+	id: string;
+	previewPath?: string;
+	label: string;
+	isActive?: boolean;
+	isSelected?: boolean;
+	isGif?: boolean;
 }
 
 interface WallpaperGridViewProps {
-    items: Accessor<GridItem[]>
-    onActivate: (id: string) => void
-    onSelect?: (id: string) => void
-    previewLookup?: Accessor<Record<string, string>>
-    autoHideScrollbar?: boolean
-    onVisibleRangeChange?: (start: number, end: number) => void
+	items: Accessor<GridItem[]>;
+	onActivate: (id: string) => void;
+	onSelect?: (id: string) => void;
+	previewLookup?: Accessor<Record<string, string>>;
+	autoHideScrollbar?: boolean;
+	onVisibleRangeChange?: (start: number, end: number) => void;
 }
 
 export class WallpaperItem extends GObject.Object {
-    static {
-        GObject.registerClass({
-            Properties: {
-                'id': GObject.ParamSpec.string('id', 'ID', 'Item ID', GObject.ParamFlags.READWRITE, ''),
-                'label': GObject.ParamSpec.string('label', 'Label', 'Item Label', GObject.ParamFlags.READWRITE, ''),
-                'is-active': GObject.ParamSpec.boolean('is-active', 'Is Active', 'Is Active', GObject.ParamFlags.READWRITE, false),
-                'preview-path': GObject.ParamSpec.string('preview-path', 'Preview Path', 'Preview Path', GObject.ParamFlags.READWRITE, ''),
-            }
-        }, this)
-    }
+	static {
+		GObject.registerClass(
+			{
+				Properties: {
+					id: GObject.ParamSpec.string(
+						"id",
+						"ID",
+						"Item ID",
+						GObject.ParamFlags.READWRITE,
+						"",
+					),
+					label: GObject.ParamSpec.string(
+						"label",
+						"Label",
+						"Item Label",
+						GObject.ParamFlags.READWRITE,
+						"",
+					),
+					"is-active": GObject.ParamSpec.boolean(
+						"is-active",
+						"Is Active",
+						"Is Active",
+						GObject.ParamFlags.READWRITE,
+						false,
+					),
+					"preview-path": GObject.ParamSpec.string(
+						"preview-path",
+						"Preview Path",
+						"Preview Path",
+						GObject.ParamFlags.READWRITE,
+						"",
+					),
+				},
+			},
+			WallpaperItem,
+		);
+	}
 
-    declare id: string
-    declare label: string
-    declare is_active: boolean
-    declare preview_path: string
-
+	declare id: string;
+	declare label: string;
+	declare is_active: boolean;
+	declare preview_path: string;
 }
 
 export default function WallpaperGridView({
-    items,
-    onActivate,
-    onSelect,
-    previewLookup,
-    autoHideScrollbar,
-    onVisibleRangeChange,
+	items,
+	onActivate,
+	onSelect,
+	previewLookup,
+	autoHideScrollbar,
+	onVisibleRangeChange,
 }: WallpaperGridViewProps) {
-    const useAutoHideScrollbar = autoHideScrollbar ?? true
+	const useAutoHideScrollbar = autoHideScrollbar ?? true;
 
-    const store = new Gio.ListStore({ item_type: WallpaperItem.$gtype })
-    const selectionModel = new Gtk.SingleSelection({ 
-        model: store,
-        autoselect: false,
-        can_unselect: true,
-    })
+	const store = new Gio.ListStore({ item_type: WallpaperItem.$gtype });
+	const selectionModel = new Gtk.SingleSelection({
+		model: store,
+		autoselect: false,
+		can_unselect: true,
+	});
 
-    selectionModel.connect('notify::selected', () => {
-        const selectedIndex = selectionModel.selected
-        const count = store.get_n_items()
-        
-        // Update all items' is-active state based on selection
-        for (let i = 0; i < count; i++) {
-            const item = store.get_item(i) as WallpaperItem | null
-            if (item) {
-                const shouldBeActive = (i === selectedIndex && selectedIndex !== Gtk.INVALID_LIST_POSITION)
-                if ((item as any)["is-active"] !== shouldBeActive) {
-                    ;(item as any)["is-active"] = shouldBeActive
-                }
-            }
-        }
+	selectionModel.connect("notify::selected", () => {
+		const selectedIndex = selectionModel.selected;
+		const count = store.get_n_items();
 
-        if (onSelect && selectedIndex !== Gtk.INVALID_LIST_POSITION) {
-            const item = store.get_item(selectedIndex) as WallpaperItem | null
-            if (item) onSelect(item.id)
-        }
-    })
+		// Update all items' is-active state based on selection
+		for (let i = 0; i < count; i++) {
+			const item = store.get_item(i) as WallpaperItem | null;
+			if (item) {
+				const shouldBeActive =
+					i === selectedIndex && selectedIndex !== Gtk.INVALID_LIST_POSITION;
+				if ((item as any)["is-active"] !== shouldBeActive) {
+					(item as any)["is-active"] = shouldBeActive;
+				}
+			}
+		}
 
-    let scrollerRef: Gtk.ScrolledWindow | undefined
-    let gridViewRef: Gtk.GridView | undefined
+		if (onSelect && selectedIndex !== Gtk.INVALID_LIST_POSITION) {
+			const item = store.get_item(selectedIndex) as WallpaperItem | null;
+			if (item) onSelect(item.id);
+		}
+	});
 
-    const emitVisibleRange = () => {
-        const count = store.get_n_items()
-        if (count <= 0) {
-            if (onVisibleRangeChange) onVisibleRangeChange(0, 0)
-            return
-        }
+	let scrollerRef: Gtk.ScrolledWindow | undefined;
+	let gridViewRef: Gtk.GridView | undefined;
 
-        const adjustment = scrollerRef?.get_vadjustment()
-        const allocatedWidth = Math.max(
-            gridViewRef?.get_allocated_width() ?? 0,
-            scrollerRef?.get_allocated_width() ?? 0,
-            WALLPAPER_CARD_WIDTH,
-        )
+	const emitVisibleRange = () => {
+		const count = store.get_n_items();
+		if (count <= 0) {
+			if (onVisibleRangeChange) onVisibleRangeChange(0, 0);
+			return;
+		}
 
-        const columnWidth = WALLPAPER_CARD_WIDTH + GRID_COLUMN_SPACING
-        const cols = Math.max(
-            1,
-            Math.floor((allocatedWidth + GRID_COLUMN_SPACING) / columnWidth),
-        )
+		const adjustment = scrollerRef?.get_vadjustment();
+		const allocatedWidth = Math.max(
+			gridViewRef?.get_allocated_width() ?? 0,
+			scrollerRef?.get_allocated_width() ?? 0,
+			WALLPAPER_CARD_WIDTH,
+		);
 
-        const rowHeight =
-            WALLPAPER_CARD_IMAGE_HEIGHT +
-            WALLPAPER_CARD_LABEL_HEIGHT +
-            GRID_ROW_SPACING
+		const columnWidth = WALLPAPER_CARD_WIDTH + GRID_COLUMN_SPACING;
+		const cols = Math.max(
+			1,
+			Math.floor((allocatedWidth + GRID_COLUMN_SPACING) / columnWidth),
+		);
 
-        const visibleRows = adjustment
-            ? Math.max(1, Math.ceil(adjustment.get_page_size() / rowHeight))
-            : Math.max(1, Math.ceil(count / cols))
+		const rowHeight =
+			WALLPAPER_CARD_IMAGE_HEIGHT +
+			WALLPAPER_CARD_LABEL_HEIGHT +
+			GRID_ROW_SPACING;
 
-        const visibleCount = Math.min(count, visibleRows * cols)
-        const maxStart = Math.max(0, count - visibleCount)
+		const visibleRows = adjustment
+			? Math.max(1, Math.ceil(adjustment.get_page_size() / rowHeight))
+			: Math.max(1, Math.ceil(count / cols));
 
-        let firstIndex = 0
-        if (adjustment) {
-            const pageSize = Math.max(0, adjustment.get_page_size())
-            const upper = Math.max(pageSize, adjustment.get_upper())
-            const scrollable = Math.max(0, upper - pageSize)
-            const value = Math.max(0, adjustment.get_value())
+		const visibleCount = Math.min(count, visibleRows * cols);
+		const maxStart = Math.max(0, count - visibleCount);
 
-            if (scrollable > 0 && maxStart > 0) {
-                const progress = Math.min(1, Math.max(0, value / scrollable))
-                firstIndex = Math.floor(progress * maxStart)
-            }
-        }
+		let firstIndex = 0;
+		if (adjustment) {
+			const pageSize = Math.max(0, adjustment.get_page_size());
+			const upper = Math.max(pageSize, adjustment.get_upper());
+			const scrollable = Math.max(0, upper - pageSize);
+			const value = Math.max(0, adjustment.get_value());
 
-        const firstRow = Math.floor(firstIndex / cols)
+			if (scrollable > 0 && maxStart > 0) {
+				const progress = Math.min(1, Math.max(0, value / scrollable));
+				firstIndex = Math.floor(progress * maxStart);
+			}
+		}
 
-        const start = Math.max(0, (firstRow - VISIBLE_ROW_OVERSCAN) * cols)
-        const end = Math.min(
-            count,
-            (firstRow + visibleRows + VISIBLE_ROW_OVERSCAN) * cols,
-        )
+		const firstRow = Math.floor(firstIndex / cols);
 
-        if (onVisibleRangeChange) onVisibleRangeChange(start, end)
-    }
+		const start = Math.max(0, (firstRow - VISIBLE_ROW_OVERSCAN) * cols);
+		const end = Math.min(
+			count,
+			(firstRow + visibleRows + VISIBLE_ROW_OVERSCAN) * cols,
+		);
 
-    const unsubscribeItems = items.subscribe(() => {
-        const newItems = items.get() || [];
-        const currentCount = store.get_n_items()
-        if (currentCount === newItems.length) {
-            let allMatch = true
-            for (let i = 0; i < currentCount; i++) {
-                const item = store.get_item(i) as WallpaperItem
-                if (item.id !== newItems[i].id) {
-                    allMatch = false
-                    break
-                }
-            }
-            if (allMatch) {
-                let anyActive = false
-                for (let i = 0; i < currentCount; i++) {
-                    const item = store.get_item(i) as WallpaperItem
-                    const newItem = newItems[i]
-                    const isActive = (item as any)["is-active"] as boolean
-                    if (isActive !== newItem.isActive) {
-                        ;(item as any)["is-active"] = newItem.isActive || false
-                    }
-                    if (newItem.isActive) {
-                        selectionModel.selected = i
-                        anyActive = true
-                    }
-                    
-                    const newPreviewPath = previewLookup ? (previewLookup.get() || {})[newItem.id] || newItem.previewPath || "" : newItem.previewPath || ""
-                    const currentPreviewPath = (item as any)["preview-path"] as string
-                    if (currentPreviewPath !== newPreviewPath) {
-                        ;(item as any)["preview-path"] = newPreviewPath
-                    }
-                }
-                if (!anyActive) selectionModel.selected = Gtk.INVALID_LIST_POSITION
-                return
-            }
-        }
+		if (onVisibleRangeChange) onVisibleRangeChange(start, end);
+	};
 
-        let initialSelected = Gtk.INVALID_LIST_POSITION
-        const newGObjects = newItems.map((item, i) => {
-            const gobj = new WallpaperItem()
-            gobj.id = item.id
-            gobj.label = item.label || ""
-            const isActive = item.isActive || false
-            ;(gobj as any)["is-active"] = isActive
-            if (isActive) initialSelected = i;
-            
-            ;(gobj as any)["preview-path"] = previewLookup ? (previewLookup.get() || {})[item.id] || item.previewPath || "" : item.previewPath || ""
-            return gobj;
-        })
-        store.splice(0, currentCount, newGObjects)
-        selectionModel.selected = initialSelected
-        setTimeout(emitVisibleRange, 0)
-    })
+	const unsubscribeItems = items.subscribe(() => {
+		const newItems = items.get() || [];
+		const currentCount = store.get_n_items();
+		if (currentCount === newItems.length) {
+			let allMatch = true;
+			for (let i = 0; i < currentCount; i++) {
+				const item = store.get_item(i) as WallpaperItem;
+				if (item.id !== newItems[i].id) {
+					allMatch = false;
+					break;
+				}
+			}
+			if (allMatch) {
+				let anyActive = false;
+				for (let i = 0; i < currentCount; i++) {
+					const item = store.get_item(i) as WallpaperItem;
+					const newItem = newItems[i];
+					const isActive = (item as any)["is-active"] as boolean;
+					if (isActive !== newItem.isActive) {
+						(item as any)["is-active"] = newItem.isActive || false;
+					}
+					if (newItem.isActive) {
+						selectionModel.selected = i;
+						anyActive = true;
+					}
 
-    const factory = new Gtk.SignalListItemFactory()
-    
-    factory.connect('setup', (_, listItem: Gtk.ListItem) => {
-        const box = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 8,
-            halign: Gtk.Align.CENTER,
-            width_request: WALLPAPER_CARD_WIDTH,
-            height_request: WALLPAPER_CARD_IMAGE_HEIGHT + WALLPAPER_CARD_LABEL_HEIGHT,
-        })
-        box.add_css_class("wallpaper-card")
+					const newPreviewPath = previewLookup
+						? previewLookup.get()?.[newItem.id] || newItem.previewPath || ""
+						: newItem.previewPath || "";
+					const currentPreviewPath = (item as any)["preview-path"] as string;
+					if (currentPreviewPath !== newPreviewPath) {
+						(item as any)["preview-path"] = newPreviewPath;
+					}
+				}
+				if (!anyActive) selectionModel.selected = Gtk.INVALID_LIST_POSITION;
+				return;
+			}
+		}
 
-        const overlay = new Gtk.Overlay()
+		let initialSelected = Gtk.INVALID_LIST_POSITION;
+		const newGObjects = newItems.map((item, i) => {
+			const gobj = new WallpaperItem();
+			gobj.id = item.id;
+			gobj.label = item.label || "";
+			const isActive = item.isActive || false;
+			(gobj as any)["is-active"] = isActive;
+			if (isActive) initialSelected = i;
 
-        const thumbBox = new Gtk.Box({
-            width_request: WALLPAPER_CARD_WIDTH,
-            height_request: WALLPAPER_CARD_IMAGE_HEIGHT,
-            halign: Gtk.Align.FILL,
-            valign: Gtk.Align.FILL,
-            overflow: Gtk.Overflow.HIDDEN,
-        })
-        thumbBox.add_css_class("wallpaper-thumbnail")
-        thumbBox.add_css_class("is-placeholder")
+			(gobj as any)["preview-path"] = previewLookup
+				? previewLookup.get()?.[item.id] || item.previewPath || ""
+				: item.previewPath || "";
+			return gobj;
+		});
+		store.splice(0, currentCount, newGObjects);
+		selectionModel.selected = initialSelected;
+		setTimeout(emitVisibleRange, 0);
+	});
 
-        const picture = new Gtk.Picture({
-            can_shrink: true,
-            content_fit: Gtk.ContentFit.COVER,
-            hexpand: true,
-            vexpand: true,
-            halign: Gtk.Align.FILL,
-            valign: Gtk.Align.FILL,
-        })
-        picture.add_css_class("wallpaper-image")
-        thumbBox.append(picture)
-        
-        overlay.set_child(thumbBox)
+	const factory = new Gtk.SignalListItemFactory();
 
-        const activeBadge = new Gtk.Label({
-            label: "✓",
-            halign: Gtk.Align.END,
-            valign: Gtk.Align.START,
-            visible: false,
-        })
-        activeBadge.add_css_class("checkmark")
-        overlay.add_overlay(activeBadge)
+	factory.connect("setup", (_, listItem: Gtk.ListItem) => {
+		const box = new Gtk.Box({
+			orientation: Gtk.Orientation.VERTICAL,
+			spacing: 8,
+			halign: Gtk.Align.CENTER,
+			width_request: WALLPAPER_CARD_WIDTH,
+			height_request: WALLPAPER_CARD_IMAGE_HEIGHT + WALLPAPER_CARD_LABEL_HEIGHT,
+		});
+		box.add_css_class("wallpaper-card");
 
-        box.append(overlay)
+		const overlay = new Gtk.Overlay();
 
-        const label = new Gtk.Label({
-            halign: Gtk.Align.CENTER,
-            xalign: 0.5,
-            justify: Gtk.Justification.CENTER,
-            ellipsize: 3, 
-            max_width_chars: 22,
-        })
-        label.add_css_class("wallpaper-filename")
-        box.append(label)
+		const thumbBox = new Gtk.Box({
+			width_request: WALLPAPER_CARD_WIDTH,
+			height_request: WALLPAPER_CARD_IMAGE_HEIGHT,
+			halign: Gtk.Align.FILL,
+			valign: Gtk.Align.FILL,
+			overflow: Gtk.Overflow.HIDDEN,
+		});
+		thumbBox.add_css_class("wallpaper-thumbnail");
+		thumbBox.add_css_class("is-placeholder");
 
-        const gesture = new Gtk.GestureClick()
-        box.add_controller(gesture)
+		const picture = new Gtk.Picture({
+			can_shrink: true,
+			content_fit: Gtk.ContentFit.COVER,
+			hexpand: true,
+			vexpand: true,
+			halign: Gtk.Align.FILL,
+			valign: Gtk.Align.FILL,
+		});
+		picture.add_css_class("wallpaper-image");
+		thumbBox.append(picture);
 
-        ;(box as any)._picture = picture;
-        ;(box as any)._thumbBox = thumbBox;
-        ;(box as any)._label = label;
-        ;(box as any)._activeBadge = activeBadge;
-        ;(box as any)._gesture = gesture;
+		overlay.set_child(thumbBox);
 
-        listItem.set_child(box)
-    })
+		const activeBadge = new Gtk.Label({
+			label: "✓",
+			halign: Gtk.Align.END,
+			valign: Gtk.Align.START,
+			visible: false,
+		});
+		activeBadge.add_css_class("checkmark");
+		overlay.add_overlay(activeBadge);
 
-    factory.connect('bind', (_, listItem: Gtk.ListItem) => {
-        const item = listItem.get_item() as WallpaperItem
-        if (!item) return
+		box.append(overlay);
 
-        const box = listItem.get_child() as Gtk.Box
-        const picture = (box as any)._picture as Gtk.Picture
-        const thumbBox = (box as any)._thumbBox as Gtk.Box
-        const label = (box as any)._label as Gtk.Label
-        const activeBadge = (box as any)._activeBadge as Gtk.Label
-        const gesture = (box as any)._gesture as Gtk.GestureClick
+		const label = new Gtk.Label({
+			halign: Gtk.Align.CENTER,
+			xalign: 0.5,
+			justify: Gtk.Justification.CENTER,
+			ellipsize: 3,
+			max_width_chars: 22,
+		});
+		label.add_css_class("wallpaper-filename");
+		box.append(label);
 
-        label.set_label(item.label || "")
-        const isActive = (item as any)["is-active"] as boolean
-        activeBadge.set_visible(isActive)
-        if (isActive) box.add_css_class("active")
-        else box.remove_css_class("active")
+		const gesture = new Gtk.GestureClick();
+		box.add_controller(gesture);
 
-        const updateImage = () => {
-            const previewPath = (item as any)["preview-path"] as string
-            const targetPath = previewPath
-            
-            if (targetPath) {
-                const localPath = targetPath.startsWith("file://") ? targetPath.replace(/^file:\/\//, "") : targetPath
-                picture.set_file(Gio.File.new_for_path(localPath))
-                thumbBox.remove_css_class("is-placeholder")
-            } else {
-                picture.set_file(null)
-                thumbBox.add_css_class("is-placeholder")
-            }
-        }
+		(box as any)._picture = picture;
+		(box as any)._thumbBox = thumbBox;
+		(box as any)._label = label;
+		(box as any)._activeBadge = activeBadge;
+		(box as any)._gesture = gesture;
 
-        if (previewLookup) {
-            const currentLookup = previewLookup.get() || {}
-            const nextPreviewPath = currentLookup[item.id] || ""
-            if (((item as any)["preview-path"] as string) !== nextPreviewPath) {
-                ;(item as any)["preview-path"] = nextPreviewPath
-            }
-        }
-        
-        updateImage()
+		listItem.set_child(box);
+	});
 
-        const notifyId = item.connect('notify::preview-path', updateImage)
-        let previewSub: (() => void) | undefined
-        if (previewLookup) {
-            previewSub = previewLookup.subscribe(() => {
-                const lookup = previewLookup.get() || {}
-                const nextPath = (lookup || {})[item.id] || ""
-                if (((item as any)["preview-path"] as string) !== nextPath) {
-                    ;(item as any)["preview-path"] = nextPath
-                }
-            })
-        }
-        const notifyActiveId = item.connect('notify::is-active', () => {
-            const currentIsActive = (item as any)["is-active"] as boolean
-            activeBadge.set_visible(currentIsActive)
-            if (currentIsActive) box.add_css_class("active")
-            else box.remove_css_class("active")
-        })
+	factory.connect("bind", (_, listItem: Gtk.ListItem) => {
+		const item = listItem.get_item() as WallpaperItem;
+		if (!item) return;
 
-        const clickedId = gesture.connect('pressed', (gesture, nPress) => {
-            if (onSelect) {
-                if (nPress === 1) onSelect(item.id)
-                else if (nPress === 2) onActivate(item.id)
-            } else {
-                if (nPress === 1) onActivate(item.id)
-            }
-        })
+		const box = listItem.get_child() as Gtk.Box;
+		const picture = (box as any)._picture as Gtk.Picture;
+		const thumbBox = (box as any)._thumbBox as Gtk.Box;
+		const label = (box as any)._label as Gtk.Label;
+		const activeBadge = (box as any)._activeBadge as Gtk.Label;
+		const gesture = (box as any)._gesture as Gtk.GestureClick;
 
-        ;(box as any)._notifyId = notifyId;
-        ;(box as any)._previewSub = previewSub;
-        ;(box as any)._notifyActiveId = notifyActiveId;
-        ;(gesture as any)._clickedId = clickedId;
-    })
+		label.set_label(item.label || "");
+		const isActive = (item as any)["is-active"] as boolean;
+		activeBadge.set_visible(isActive);
+		if (isActive) box.add_css_class("active");
+		else box.remove_css_class("active");
 
-    factory.connect('unbind', (_, listItem: Gtk.ListItem) => {
-        const item = listItem.get_item() as WallpaperItem
-        if (!item) return
+		const updateImage = () => {
+			const previewPath = (item as any)["preview-path"] as string;
+			const targetPath = previewPath;
 
-        const box = listItem.get_child() as Gtk.Box
-        const picture = (box as any)._picture as Gtk.Picture
-        const gesture = (box as any)._gesture as Gtk.GestureClick
+			if (targetPath) {
+				const localPath = targetPath.startsWith("file://")
+					? targetPath.replace(/^file:\/\//, "")
+					: targetPath;
+				picture.set_file(Gio.File.new_for_path(localPath));
+				thumbBox.remove_css_class("is-placeholder");
+			} else {
+				picture.set_file(null);
+				thumbBox.add_css_class("is-placeholder");
+			}
+		};
 
-        if ((box as any)._notifyId) {
-            item.disconnect((box as any)._notifyId)
-            delete (box as any)._notifyId
-        }
-        if ((box as any)._previewSub) {
-            ;(box as any)._previewSub()
-            delete (box as any)._previewSub
-        }
-        if ((box as any)._notifyActiveId) {
-            item.disconnect((box as any)._notifyActiveId)
-            delete (box as any)._notifyActiveId
-        }
-        if ((gesture as any)._clickedId) {
-            gesture.disconnect((gesture as any)._clickedId)
-            delete (gesture as any)._clickedId
-        }
+		if (previewLookup) {
+			const currentLookup = previewLookup.get() || {};
+			const nextPreviewPath = currentLookup[item.id] || "";
+			if (((item as any)["preview-path"] as string) !== nextPreviewPath) {
+				(item as any)["preview-path"] = nextPreviewPath;
+			}
+		}
 
-        picture.set_file(null)
-    })
+		updateImage();
 
-    const gridView = new Gtk.GridView({
-        model: selectionModel,
-        factory: factory,
-        max_columns: 20,
-        min_columns: 1,
-        enable_rubberband: false,
-    })
-    gridView.add_css_class("wallpaper-grid-flow")
-    gridViewRef = gridView
+		const notifyId = item.connect("notify::preview-path", updateImage);
+		let previewSub: (() => void) | undefined;
+		if (previewLookup) {
+			previewSub = previewLookup.subscribe(() => {
+				const lookup = previewLookup.get() || {};
+				const nextPath = lookup?.[item.id] || "";
+				if (((item as any)["preview-path"] as string) !== nextPath) {
+					(item as any)["preview-path"] = nextPath;
+				}
+			});
+		}
+		const notifyActiveId = item.connect("notify::is-active", () => {
+			const currentIsActive = (item as any)["is-active"] as boolean;
+			activeBadge.set_visible(currentIsActive);
+			if (currentIsActive) box.add_css_class("active");
+			else box.remove_css_class("active");
+		});
 
-    gridView.connect('activate', (_, pos) => {
-        const item = store.get_item(pos) as WallpaperItem | null
-        if (item) onActivate(item.id)
-    })
+		const clickedId = gesture.connect("pressed", (_gesture, nPress) => {
+			if (onSelect) {
+				if (nPress === 1) onSelect(item.id);
+				else if (nPress === 2) onActivate(item.id);
+			} else {
+				if (nPress === 1) onActivate(item.id);
+			}
+		});
 
-    return (
-        <scrolledwindow
-            class="wallpaper-grid-scroll"
-            vexpand
-            hexpand
-            hscrollbarPolicy={Gtk.PolicyType.NEVER}
-            vscrollbarPolicy={
-                useAutoHideScrollbar
-                    ? Gtk.PolicyType.AUTOMATIC
-                    : Gtk.PolicyType.ALWAYS
-            }
-            propagateNaturalHeight={false}
-            propagateNaturalWidth={false}
-            overlayScrolling={useAutoHideScrollbar}
-            $={(self) => {
-                scrollerRef = self
-                gridViewRef = gridView
+		(box as any)._notifyId = notifyId;
+		(box as any)._previewSub = previewSub;
+		(box as any)._notifyActiveId = notifyActiveId;
+		(gesture as any)._clickedId = clickedId;
+	});
 
-                const adjustment = self.get_vadjustment()
+	factory.connect("unbind", (_, listItem: Gtk.ListItem) => {
+		const item = listItem.get_item() as WallpaperItem;
+		if (!item) return;
 
-                let valueChangedId = 0
-                let changedId = 0
-                if (adjustment) {
-                    valueChangedId = adjustment.connect(
-                        "value-changed",
-                        emitVisibleRange,
-                    )
-                    changedId = adjustment.connect("changed", emitVisibleRange)
-                }
+		const box = listItem.get_child() as Gtk.Box;
+		const picture = (box as any)._picture as Gtk.Picture;
+		const gesture = (box as any)._gesture as Gtk.GestureClick;
 
-                const allocationId = self.connect(
-                    "notify::allocated-width",
-                    emitVisibleRange,
-                )
+		if ((box as any)._notifyId) {
+			item.disconnect((box as any)._notifyId);
+			delete (box as any)._notifyId;
+		}
+		if ((box as any)._previewSub) {
+			(box as any)._previewSub();
+			delete (box as any)._previewSub;
+		}
+		if ((box as any)._notifyActiveId) {
+			item.disconnect((box as any)._notifyActiveId);
+			delete (box as any)._notifyActiveId;
+		}
+		if ((gesture as any)._clickedId) {
+			gesture.disconnect((gesture as any)._clickedId);
+			delete (gesture as any)._clickedId;
+		}
 
-                setTimeout(emitVisibleRange, 0)
+		picture.set_file(null);
+	});
 
-                self.connect("destroy", () => {
-                    unsubscribeItems()
+	const gridView = new Gtk.GridView({
+		model: selectionModel,
+		factory: factory,
+		max_columns: 20,
+		min_columns: 1,
+		enable_rubberband: false,
+	});
+	gridView.add_css_class("wallpaper-grid-flow");
+	gridViewRef = gridView;
 
-                    if (adjustment && valueChangedId > 0) {
-                        adjustment.disconnect(valueChangedId)
-                    }
-                    if (adjustment && changedId > 0) {
-                        adjustment.disconnect(changedId)
-                    }
-                    if (allocationId > 0) {
-                        self.disconnect(allocationId)
-                    }
-                })
-            }}
-        >
-            {gridView}
-        </scrolledwindow>
-    )
+	gridView.connect("activate", (_, pos) => {
+		const item = store.get_item(pos) as WallpaperItem | null;
+		if (item) onActivate(item.id);
+	});
+
+	return (
+		<scrolledwindow
+			class="wallpaper-grid-scroll"
+			vexpand
+			hexpand
+			hscrollbarPolicy={Gtk.PolicyType.NEVER}
+			vscrollbarPolicy={
+				useAutoHideScrollbar ? Gtk.PolicyType.AUTOMATIC : Gtk.PolicyType.ALWAYS
+			}
+			propagateNaturalHeight={false}
+			propagateNaturalWidth={false}
+			overlayScrolling={useAutoHideScrollbar}
+			$={(self) => {
+				scrollerRef = self;
+				gridViewRef = gridView;
+
+				const adjustment = self.get_vadjustment();
+
+				let valueChangedId = 0;
+				let changedId = 0;
+				if (adjustment) {
+					valueChangedId = adjustment.connect(
+						"value-changed",
+						emitVisibleRange,
+					);
+					changedId = adjustment.connect("changed", emitVisibleRange);
+				}
+
+				const allocationId = self.connect(
+					"notify::allocated-width",
+					emitVisibleRange,
+				);
+
+				setTimeout(emitVisibleRange, 0);
+
+				self.connect("destroy", () => {
+					unsubscribeItems();
+
+					if (adjustment && valueChangedId > 0) {
+						adjustment.disconnect(valueChangedId);
+					}
+					if (adjustment && changedId > 0) {
+						adjustment.disconnect(changedId);
+					}
+					if (allocationId > 0) {
+						self.disconnect(allocationId);
+					}
+				});
+			}}
+		>
+			{gridView}
+		</scrolledwindow>
+	);
 }

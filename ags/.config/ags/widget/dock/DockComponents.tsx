@@ -1,20 +1,18 @@
-import { Gtk } from "ags/gtk4"
-import { createState } from "ags"
-import GLib from "gi://GLib"
-import userOptions from "services/options/Options"
+import GLib from "gi://GLib";
+import { createState } from "ags";
+import { Gtk } from "ags/gtk4";
+import userOptions from "services/options/Options";
 
 export function DockSeparator() {
-  return (
-    <box class="dock-separator" />
-  )
+	return <box class="dock-separator" />;
 }
 
 interface AppButtonProps {
-  icon: string
-  tooltipText: string
-  onClicked: () => void
-  onMiddleClick?: () => void
-  class?: string
+	icon: string;
+	tooltipText: string;
+	onClicked: () => void;
+	onMiddleClick?: () => void;
+	class?: string;
 }
 
 export function AppButton({ icon, tooltipText, onClicked, onMiddleClick, class = "" }: AppButtonProps) {
