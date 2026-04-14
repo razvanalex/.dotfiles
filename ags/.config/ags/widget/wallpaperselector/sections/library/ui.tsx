@@ -75,6 +75,15 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
     })
     headerActions.append(randomBtn)
 
+    const favoriteBtn = new Gtk.Button({
+        label: controller.selectedIsFavorite.get() ? "Unfavorite" : "Favorite",
+    })
+    favoriteBtn.add_css_class("wallpaper-header-button")
+    favoriteBtn.connect("clicked", () => {
+        void controller.toggleSelectedFavorite()
+    })
+    headerActions.append(favoriteBtn)
+
     const applyBtn = new Gtk.Button({ label: "Apply" })
     applyBtn.add_css_class("wallpaper-header-button")
     applyBtn.add_css_class("is-primary")
@@ -89,13 +98,19 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
             controller.libraryView.get() === "wallpapers"
         backBtn.set_visible(showWallpaperActions)
         randomBtn.set_visible(showWallpaperActions)
+        favoriteBtn.set_visible(showWallpaperActions)
         applyBtn.set_visible(showWallpaperActions)
 
         const selected = controller.selectedWallpaper.get()
         applyBtn.set_sensitive(Boolean(selected))
+        favoriteBtn.set_sensitive(Boolean(selected))
+        favoriteBtn.set_label(
+            controller.selectedIsFavorite.get() ? "Unfavorite" : "Favorite",
+        )
     }
     controller.libraryView.subscribe(updateHeaderActions)
     controller.selectedWallpaper.subscribe(updateHeaderActions)
+    controller.selectedIsFavorite.subscribe(updateHeaderActions)
     updateHeaderActions()
 
     header.append(headerActions)
@@ -117,6 +132,9 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 
     const wallpaperGrid = WallpaperGridView({
         items: controller.imageItems,
+        onSelect: (path) => {
+            controller.handleSelectImage(path)
+        },
         onActivate: (path) => {
             void controller.handleActivateImage(path)
         },

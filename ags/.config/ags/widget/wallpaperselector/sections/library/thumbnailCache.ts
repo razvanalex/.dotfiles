@@ -1,5 +1,6 @@
 import { execAsync } from "ags/process"
 import GLib from "gi://GLib"
+import Logger from "../../../../lib/logger"
 import {
     WALLPAPER_CARD_WIDTH,
     WALLPAPER_CARD_IMAGE_HEIGHT,
@@ -20,7 +21,7 @@ let cacheDirReady = false
 
 function logDebug(message: string) {
     if (!DEBUG_THUMB_CACHE) return
-    console.log(`${LOG_PREFIX} ${message}`)
+    Logger.info(`${LOG_PREFIX} ${message}`)
 }
 
 function errorToString(error: unknown): string {

@@ -17,10 +17,107 @@ export function createSettingsUi(controller: SettingsController): Gtk.Widget {
         }),
     )
 
-    const title = new Gtk.Label({ label: "Engine" })
+    const title = new Gtk.Label({ label: "Switcher" })
     title.add_css_class("wallpaper-placeholder-title")
     title.set_halign(Gtk.Align.START)
     container.append(title)
+
+    const transportRow = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 8,
+        css_classes: ["wallpaper-settings-row"],
+    })
+
+    const prevBtn = new Gtk.Button({ label: "Prev" })
+    prevBtn.add_css_class("wallpaper-header-button")
+    prevBtn.connect("clicked", controller.goPrev)
+    transportRow.append(prevBtn)
+
+    const playPauseBtn = new Gtk.Button({
+        label: controller.engineIsRunning.get() ? "Pause" : "Play",
+    })
+    playPauseBtn.add_css_class("wallpaper-header-button")
+    playPauseBtn.add_css_class("is-primary")
+    playPauseBtn.connect("clicked", controller.togglePlayPause)
+    transportRow.append(playPauseBtn)
+
+    const nextBtn = new Gtk.Button({ label: "Next" })
+    nextBtn.add_css_class("wallpaper-header-button")
+    nextBtn.connect("clicked", controller.goNext)
+    transportRow.append(nextBtn)
+
+    const strategyBtn = new Gtk.Button({
+        label: `Strategy: ${controller.strategy.get()}`,
+    })
+    strategyBtn.add_css_class("wallpaper-header-button")
+    strategyBtn.connect("clicked", controller.cycleStrategy)
+    transportRow.append(strategyBtn)
+
+    const updateTransport = () => {
+        playPauseBtn.set_label(controller.engineIsRunning.get() ? "Pause" : "Play")
+        strategyBtn.set_label(`Strategy: ${controller.strategy.get()}`)
+    }
+    controller.engineIsRunning.subscribe(updateTransport)
+    controller.strategy.subscribe(updateTransport)
+    updateTransport()
+    container.append(transportRow)
+
+    const sourceRow = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 8,
+        css_classes: ["wallpaper-settings-row"],
+    })
+
+    const sourceBtn = new Gtk.Button({
+        label: `Source: ${controller.sourceType.get()}`,
+    })
+    sourceBtn.add_css_class("wallpaper-header-button")
+    sourceBtn.connect("clicked", controller.cycleSourceType)
+    sourceRow.append(sourceBtn)
+
+    const sourceEntry = new Gtk.Entry({
+        text: controller.sourceValue.get(),
+        hexpand: true,
+        placeholder_text: "Theme path or filter query",
+    })
+    sourceEntry.add_css_class("wallpaper-settings-entry")
+    let syncingSourceEntry = false
+    sourceEntry.connect("changed", (entry) => {
+        if (syncingSourceEntry) return
+        controller.setSourceValueText(entry.text)
+    })
+    controller.sourceValue.subscribe(() => {
+        const value = controller.sourceValue.get()
+        if (sourceEntry.text === value) return
+        syncingSourceEntry = true
+        sourceEntry.set_text(value)
+        syncingSourceEntry = false
+    })
+    sourceRow.append(sourceEntry)
+
+    const applySourceBtn = new Gtk.Button({ label: "Apply source" })
+    applySourceBtn.add_css_class("wallpaper-header-button")
+    applySourceBtn.connect("clicked", controller.applySource)
+    sourceRow.append(applySourceBtn)
+
+    const sourceMeta = new Gtk.Label({
+        label: `Fav ${controller.favoritesCount.get()} • Recent ${controller.recentCount.get()}`,
+    })
+    sourceMeta.add_css_class("wallpaper-settings-status")
+    sourceMeta.set_halign(Gtk.Align.START)
+    sourceRow.append(sourceMeta)
+
+    const updateSource = () => {
+        sourceBtn.set_label(`Source: ${controller.sourceType.get()}`)
+        sourceMeta.set_label(
+            `Fav ${controller.favoritesCount.get()} • Recent ${controller.recentCount.get()}`,
+        )
+    }
+    controller.sourceType.subscribe(updateSource)
+    controller.favoritesCount.subscribe(updateSource)
+    controller.recentCount.subscribe(updateSource)
+    updateSource()
+    container.append(sourceRow)
 
     const createConfigToggle = (isOn: () => boolean, onToggle: () => void) => {
         const button = new Gtk.Button()
@@ -156,6 +253,25 @@ export function createSettingsUi(controller: SettingsController): Gtk.Widget {
     applyIntervalBtn.connect("clicked", controller.applyInterval)
     intervalRow.append(applyIntervalBtn)
     container.append(intervalRow)
+
+    const presetsRow = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 8,
+        css_classes: ["wallpaper-settings-row"],
+    })
+    const presets: Array<[string, number]> = [
+        ["5m", 300],
+        ["15m", 900],
+        ["30m", 1800],
+        ["1h", 3600],
+    ]
+    for (const [label, seconds] of presets) {
+        const presetBtn = new Gtk.Button({ label })
+        presetBtn.add_css_class("wallpaper-header-button")
+        presetBtn.connect("clicked", () => controller.setIntervalPreset(seconds))
+        presetsRow.append(presetBtn)
+    }
+    container.append(presetsRow)
 
     const controlsRow = new Gtk.Box({
         orientation: Gtk.Orientation.HORIZONTAL,

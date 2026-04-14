@@ -1,3 +1,4 @@
+import Logger from "../../lib/logger"
 import { Gtk } from "ags/gtk4"
 import type { Accessor } from "ags"
 import { createState } from "ags"
@@ -40,15 +41,15 @@ export default function ThemeSelector({
 
     const handleThemeChange = async (newTheme: string) => {
         try {
-            console.log(`Theme change requested: ${newTheme}`)
+            Logger.info(`Theme change requested: ${newTheme}`)
             // Update .crt_theme file
             await updateCurrentTheme(wallpaperDir, newTheme)
 
             // Notify parent
             onThemeChange(newTheme)
-            console.log(`Theme changed to: ${newTheme}`)
+            Logger.info(`Theme changed to: ${newTheme}`)
         } catch (error) {
-            console.error("Failed to change theme:", error)
+            Logger.error("Failed to change theme:", error)
         }
     }
 
@@ -135,7 +136,7 @@ export default function ThemeSelector({
                                 row.set_child(rowContent)
 
                                 row.connect("clicked", () => {
-                                    console.log(`Theme item clicked: ${theme}`)
+                                    Logger.info(`Theme item clicked: ${theme}`)
                                     handleThemeChange(theme)
                                 })
 
@@ -150,6 +151,10 @@ export default function ThemeSelector({
                     }}
                 />
             </scrolledwindow>
+        </box>
+    )
+}
+crolledwindow>
         </box>
     )
 }

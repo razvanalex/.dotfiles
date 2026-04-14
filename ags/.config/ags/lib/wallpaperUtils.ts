@@ -1,5 +1,6 @@
 import { execAsync } from "ags/process"
 import GLib from "gi://GLib"
+import Logger from "./logger"
 
 /**
  * Load list of theme directories from wallpaper base directory
@@ -40,7 +41,7 @@ export async function loadThemes(
             .filter(name => name && name !== "")
             .sort()
     } catch (error) {
-        console.error("Failed to load themes:", error)
+        Logger.error("Failed to load themes:", error)
         return []
     }
 }
@@ -80,14 +81,14 @@ export async function getCurrentTheme(
         // Verify that the theme directory actually exists
         const themeFullPath = `${wallpaperDir}/${themeName}`
         if (!GLib.file_test(themeFullPath, GLib.FileTest.IS_DIR)) {
-            console.log(`Theme directory ${themeFullPath} does not exist, falling back to first available theme`)
+            Logger.info(`Theme directory ${themeFullPath} does not exist, falling back to first available theme`)
             const themes = await loadThemes(wallpaperDir, options)
             return themes[0] || ""
         }
         
         return themeName
     } catch (error) {
-        console.error("Failed to read current theme:", error)
+        Logger.error("Failed to read current theme:", error)
         // Fallback to first available theme
         const themes = await loadThemes(wallpaperDir, options)
         return themes[0] || ""
@@ -103,9 +104,9 @@ export async function updateCurrentTheme(wallpaperDir: string, themeName: string
         const themePath = `${wallpaperDir}/${themeName}`
         
         GLib.file_set_contents(crtThemeFile, themePath)
-        console.log(`Updated current theme to: ${themeName}`)
+        Logger.info(`Updated current theme to: ${themeName}`)
     } catch (error) {
-        console.error("Failed to update current theme:", error)
+        Logger.error("Failed to update current theme:", error)
         throw error
     }
 }
@@ -186,7 +187,7 @@ export async function countImages(
         const images = result.trim().split("\n").filter(line => line.length > 0)
         return images.length
     } catch (error) {
-        console.error("Failed to count images:", error)
+        Logger.error("Failed to count images:", error)
         return 0
     }
 }
