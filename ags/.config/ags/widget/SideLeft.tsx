@@ -4,6 +4,7 @@ import { createState } from "ags"
 import userOptions from "../lib/userOptions"
 import ChatWidget from "./sideleft/ChatWidget"
 import ToolsPanel from "./sideleft/ToolsPanel"
+import Logger from "../lib/logger"
 
 function TabButton({ label, isActive, onClicked }: { label: string; isActive: any; onClicked: () => void }) {
     return (
@@ -65,7 +66,7 @@ function TabView() {
 export default function SideLeft(monitor: Gdk.Monitor, index: number = 0) {
     const { TOP, RIGHT, BOTTOM, LEFT } = Astal.WindowAnchor
 
-    console.log("Creating SideLeft window for monitor " + index)
+    Logger.info("Creating SideLeft window for monitor " + index)
 
     try {
         return (
@@ -78,7 +79,7 @@ export default function SideLeft(monitor: Gdk.Monitor, index: number = 0) {
                 keymode={Astal.Keymode.ON_DEMAND}
                 visible={false}
                 $={(self: Gtk.Window) => {
-                    console.log("SideLeft window setup " + self.name)
+                    Logger.info("SideLeft window setup " + self.name)
                     const controller = new Gtk.EventControllerKey()
                     controller.connect("key-pressed", (_, keyval) => {
                         // Close on Escape
@@ -109,7 +110,7 @@ export default function SideLeft(monitor: Gdk.Monitor, index: number = 0) {
             </window>
         )
     } catch (e) {
-        console.error("Error creating SideLeft:", e)
+        Logger.error("Error creating SideLeft:", e)
         return <box />
     }
 }

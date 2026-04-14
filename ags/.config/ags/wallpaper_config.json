@@ -1,5 +1,7 @@
 {
   "wallpaperDir": "/home/razvan/Pictures/Wallpapers",
+  "recursiveSearch": true,
+  "includeHidden": true,
   "transition": {
     "fps": 60,
     "type": "any",

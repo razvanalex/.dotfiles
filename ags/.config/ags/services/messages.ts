@@ -1,3 +1,4 @@
+import Logger from "../lib/logger"
 import GLib from "gi://GLib"
 import Gio from "gi://Gio"
 import { execAsyncNoExcept } from "../lib/proc"
@@ -31,13 +32,13 @@ async function batteryMessage() {
     // const charging = battery.charging
 
     // Stub for now
-    console.log("Battery service requires AstalBattery library")
+    Logger.info("Battery service requires AstalBattery library")
 }
 
 export function startBatteryWarningService() {
     timeout(1, () => {
         // TODO: Connect to battery.connect("changed", batteryMessage)
-        console.log("Battery warning service requires AstalBattery library")
+        Logger.info("Battery warning service requires AstalBattery library")
     })
 }
 
@@ -53,15 +54,19 @@ export function firstRunWelcome() {
                 "keyword",
                 "bind",
                 "Super,Slash,exec,ags toggle cheatsheet",
-            ]).catch(console.error)
+            ]).catch(e => Logger.error(e))
 
             execAsyncNoExcept([
                 "bash",
                 "-c",
                 `sleep 0.5; notify-send "Millis since epoch" "$(date +%s%N | cut -b1-13)"; sleep 0.5; notify-send '${FIRST_RUN_NOTIF_TITLE}' '${FIRST_RUN_NOTIF_BODY}' -a '${APP_NAME}' &`,
-            ]).catch(console.error)
+            ]).catch(e => Logger.error(e))
         } catch (e) {
-            console.error("First run welcome failed:", e)
+            Logger.error("First run welcome failed:", e)
+        }
+    }
+}
+ e)
         }
     }
 }

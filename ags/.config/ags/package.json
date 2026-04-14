@@ -1,4 +1,8 @@
 {
+    "scripts": {
+        "test": "bash scripts/tests/run-tests.sh",
+        "test:engine": "bash scripts/tests/test-wallpaper-engine.sh"
+    },
     "dependencies": {
         "ags": "*",
         "gnim": "*"

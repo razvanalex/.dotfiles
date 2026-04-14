@@ -1,3 +1,4 @@
+import Logger from "../lib/logger"
 import GObject from "gi://GObject"
 import GLib from "gi://GLib"
 import { execAsync } from "ags/process"
@@ -182,7 +183,7 @@ class UPowerService extends GObject.Object {
             this.notify("daemon")
 
         } catch (e) {
-            console.error("UPowerService error:", e)
+            Logger.error("UPowerService error:", e)
         }
     }
 }

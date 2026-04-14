@@ -1,3 +1,4 @@
+import Logger from "./logger"
 import GLib from "gi://GLib"
 
 export interface UserOptions {
@@ -386,7 +387,7 @@ try {
     // Note: In v2, dynamic imports work differently. For now, using defaults.
     // Users can modify this file directly or create a separate override mechanism
 } catch (e) {
-    console.log("Using default options")
+    Logger.info("Using default options")
 }
 
 export default userOptions

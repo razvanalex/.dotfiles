@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "ags/file"
 import GLib from "gi://GLib"
-import { execAsync } from "ags/process"
+import { PATHS, ensureDirectory } from "./constants"
+import Logger from "./logger"
 
 export interface TodoItem {
     content: string
@@ -13,7 +14,7 @@ class TodoService {
     private listeners: Set<(todos: TodoItem[]) => void> = new Set()
 
     constructor() {
-        this.todoPath = `${GLib.get_user_state_dir()}/ags/user/todo.json`
+        this.todoPath = PATHS.todo
         this.load()
     }
 
@@ -24,17 +25,11 @@ class TodoService {
         } catch {
             // File doesn't exist or is invalid, create new file
             try {
-                // Ensure directory exists
-                const dir = this.todoPath.substring(0, this.todoPath.lastIndexOf('/'))
-                try {
-                    await execAsync(`mkdir -p "${dir}"`)
-                } catch {
-                    // Directory might already exist
-                }
+                ensureDirectory(this.todoPath)
                 await writeFile("[]", this.todoPath)
                 this.todos = []
             } catch (e) {
-                console.error("Failed to create todo file:", e)
+                Logger.error("Failed to create todo file:", e)
                 this.todos = []
             }
         }
@@ -43,9 +38,10 @@ class TodoService {
 
     private async save() {
         try {
+            ensureDirectory(this.todoPath)
             await writeFile(JSON.stringify(this.todos), this.todoPath)
         } catch (e) {
-            console.error("Failed to save todos:", e)
+            Logger.error("Failed to save todos:", e)
         }
     }
 

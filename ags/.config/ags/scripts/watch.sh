@@ -89,9 +89,9 @@ while true; do
     log_info "--- Starting AGS application ---"
     
     # Start AGS and capture output
-    # stdout goes to INFO, stderr goes to ERROR
-    ags run > >(while IFS= read -r line; do log_info "AGS: $line"; done) \
-             2> >(while IFS= read -r line; do log_error "AGS: $line"; done) &
+    # Route all AGS output plainly to stdout/stderr.
+    # The systemd unit or terminal will handle its own prefixing.
+    ags run &
     PID=$!
     
     # Verify AGS started
@@ -112,9 +112,9 @@ while true; do
     
     # We store the output to display which file changed.
     CHANGED_FILE=$(inotifywait -m -r -e modify,create,delete,move \
-        --exclude '(node_modules/|@girs/|\.git/|\.cache/)' \
+        --exclude '(node_modules/|@girs/|\.git/|\.cache/|wallpaper_state\.json|wallpaper_config\.json|chat_history\.json|api_keys\.json)' \
         --format '%f' . 2>/dev/null \
-        | grep -m 1 -E '\.(ts|tsx|scss|css|js|json)$')
+        | grep -m 1 -E '\.(ts|tsx|scss|css|js)$')
 
     log_info "Change detected in: $CHANGED_FILE"
     log_info "Reloading AGS..."
