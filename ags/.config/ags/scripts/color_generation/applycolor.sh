@@ -166,6 +166,25 @@ apply_ags() {
     ags request handleStyles
 }
 
+should_apply_ags() {
+    local cooldown_seconds=10
+    local stamp_file="$STATE_DIR/user/ags_last_style_reload"
+    local now
+    now=$(date +%s)
+
+    if [ -f "$stamp_file" ]; then
+        local last
+        last=$(cat "$stamp_file" 2>/dev/null || echo 0)
+        if [ -n "$last" ] && [ $((now - last)) -lt $cooldown_seconds ]; then
+            return 1
+        fi
+    fi
+
+    mkdir -p "$(dirname "$stamp_file")"
+    printf '%s\n' "$now" > "$stamp_file"
+    return 0
+}
+
 
 colornames=$(cat $STATE_DIR/scss/_material.scss | cut -d: -f1)
 colorstrings=$(cat $STATE_DIR/scss/_material.scss | cut -d: -f2 | cut -d ' ' -f2 | cut -d ";" -f1)
@@ -173,7 +192,9 @@ IFS=$'\n'
 colorlist=( $colornames ) # Array of color names
 colorvalues=( $colorstrings ) # Array of color values
 
-apply_ags &
+if should_apply_ags; then
+    apply_ags &
+fi
 # apply_hyprland &
 # apply_hyprlock &
 apply_lightdark &

@@ -40,6 +40,12 @@ export interface WallpaperConfig {
     stateFile: string;
 }
 
+const COLORGEN_DEBOUNCE_MS = 400;
+const COLORGEN_MIN_INTERVAL_MS = 8000;
+let colorGenTimerId: number | null = null;
+let colorGenPendingImagePath = "";
+let lastColorGenLaunchAt = 0;
+
 export const DEFAULT_CONFIG: WallpaperConfig = {
     wallpaperDir: `${GLib.get_home_dir()}/Pictures/Wallpapers`,
     recursiveSearch: true,
@@ -232,16 +238,50 @@ export async function triggerColorGen(
         return;
     }
 
-    try {
-        // Activate venv and run colorgen script
-        const venvActivate = `${GLib.get_home_dir()}/.config/ags/scripts/.venv/bin/activate`;
-        await execAsync(
-            `bash -c 'source ${venvActivate} && ${expandedScript} "${imagePath}" --apply'`,
-        );
-    } catch (error) {
-        Logger.error("Failed to trigger color generation:", error);
-        // Non-blocking error - don't throw
+    colorGenPendingImagePath = imagePath;
+
+    if (colorGenTimerId !== null) {
+        GLib.source_remove(colorGenTimerId);
+        colorGenTimerId = null;
     }
+
+    const runLatest = () => {
+        if (!colorGenPendingImagePath) return;
+        const latestImagePath = colorGenPendingImagePath;
+        colorGenPendingImagePath = "";
+
+        try {
+            const venvActivate = `${GLib.get_home_dir()}/.config/ags/scripts/.venv/bin/activate`;
+            const escapeForDoubleQuotes = (value: string) =>
+                value.replace(/(["\\$`])/g, "\\$1");
+            const escapedVenv = escapeForDoubleQuotes(venvActivate);
+            const escapedScript = escapeForDoubleQuotes(expandedScript);
+            const escapedPath = escapeForDoubleQuotes(latestImagePath);
+            GLib.spawn_command_line_async(
+                `bash -c "source \"${escapedVenv}\" && \"${escapedScript}\" \"${escapedPath}\" --apply"`,
+            );
+            lastColorGenLaunchAt = Date.now();
+        } catch (error) {
+            Logger.error("Failed to trigger color generation:", error);
+        }
+    };
+
+    const now = Date.now();
+    const msUntilAllowed = Math.max(
+        0,
+        COLORGEN_MIN_INTERVAL_MS - (now - lastColorGenLaunchAt),
+    );
+    const scheduleDelay = Math.max(COLORGEN_DEBOUNCE_MS, msUntilAllowed);
+
+    colorGenTimerId = GLib.timeout_add(
+        GLib.PRIORITY_DEFAULT,
+        scheduleDelay,
+        () => {
+            colorGenTimerId = null;
+            runLatest();
+            return GLib.SOURCE_REMOVE;
+        },
+    );
 }
 
 /**
@@ -281,10 +321,13 @@ export function buildTransitionParams(options: TransitionOptions): string[] {
     return params;
 }
 
+let cachedConfig: WallpaperConfig | null = null;
+
 /**
  * Load config from file, or create default if missing
  */
 export function loadConfig(configPath: string): WallpaperConfig {
+    if (cachedConfig) return cachedConfig;
     const expandedPath = expandPath(configPath);
 
     if (GLib.file_test(expandedPath, GLib.FileTest.EXISTS)) {
@@ -294,7 +337,7 @@ export function loadConfig(configPath: string): WallpaperConfig {
             const config = JSON.parse(text);
 
             // Merge with defaults to ensure all fields exist
-            return {
+            cachedConfig = {
                 ...DEFAULT_CONFIG,
                 ...config,
                 transition: {
@@ -302,6 +345,7 @@ export function loadConfig(configPath: string): WallpaperConfig {
                     ...(config.transition || {}),
                 },
             };
+            return cachedConfig!;
         } catch (error) {
             Logger.error("Failed to load config, using defaults:", error);
             return DEFAULT_CONFIG;
@@ -323,6 +367,7 @@ export function saveConfig(configPath: string, config: WallpaperConfig): void {
     try {
         ensureDirectory(expandedPath);
         GLib.file_set_contents(expandedPath, json);
+        cachedConfig = config;
     } catch (error) {
         Logger.error("Failed to save config:", error);
     }

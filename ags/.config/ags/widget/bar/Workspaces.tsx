@@ -1,7 +1,5 @@
 import Hyprland from "gi://AstalHyprland";
 import { Gtk } from "ags/gtk4";
-import { execAsync } from "ags/process";
-import Logger from "lib/logger";
 import userOptions from "services/options/Options";
 
 const hypr = Hyprland.get_default();
@@ -153,6 +151,7 @@ export function HyprlandWorkspaces() {
     let lastPageStart = -1;
     let currentCursorPos = 0;
     let animationId: ReturnType<typeof setTimeout> | null = null;
+    let cursorRetryId: ReturnType<typeof setTimeout> | null = null;
     let isUpdating = false; // Prevent concurrent updates
     let isInitialized = false; // Track if cursor has been positioned at least once
 
@@ -198,19 +197,11 @@ export function HyprlandWorkspaces() {
         }
     };
 
-    // Get the current workspace ID (with fallback to hyprctl)
-    const getCurrentWorkspaceId = async (): Promise<number> => {
-        let currentId = hypr.focusedWorkspace?.id;
-        if (!currentId) {
-            try {
-                const result = await execAsync("hyprctl activeworkspace -j");
-                const ws = JSON.parse(result);
-                currentId = ws.id || 1;
-            } catch {
-                currentId = 1;
-            }
-        }
-        return currentId;
+    // Get the current workspace ID without shelling out.
+    const getCurrentWorkspaceId = (): number => {
+        const focused =
+            hypr.focusedWorkspace?.id || hypr.get_focused_workspace()?.id;
+        return focused || 1;
     };
 
     // Rebuild workspace widgets for the current page
@@ -281,9 +272,6 @@ export function HyprlandWorkspaces() {
                     // Handle occupied state
                     if (isOccupied || isActive) {
                         if (!child.has_css_class("bar-ws-occupied")) {
-                            Logger.info(
-                                `[WS CSS] Adding occupied to workspace ${id}`,
-                            );
                             child.add_css_class("bar-ws-occupied");
                         }
 
@@ -300,9 +288,6 @@ export function HyprlandWorkspaces() {
                         // Not occupied - remove all occupied classes
                         // Add a small delay to ensure GTK processes the class removal with transition
                         if (child.has_css_class("bar-ws-occupied")) {
-                            Logger.info(
-                                `[WS CSS] Removing occupied from workspace ${id}`,
-                            );
                             // Capture child reference for setTimeout
                             const element = child;
                             // Force a style recalculation by querying a property
@@ -369,11 +354,12 @@ export function HyprlandWorkspaces() {
         // If widgets aren't laid out yet (width = 0), retry after a short delay
         // Keep cursor hidden until we have valid measurements
         if (!allWidthsValid && relativeIndex > 0) {
-            Logger.info(
-                `[WS] Buttons not laid out yet, retrying cursor position in 50ms`,
-            );
             cursor.set_visible(false);
-            setTimeout(() => updateCursorPosition(currentId, start), 50);
+            if (cursorRetryId) clearTimeout(cursorRetryId);
+            cursorRetryId = setTimeout(() => {
+                cursorRetryId = null;
+                updateCursorPosition(currentId, start);
+            }, 50);
             return;
         }
 
@@ -397,14 +383,12 @@ export function HyprlandWorkspaces() {
         });
         controller.connect("scroll", (_, _dx, dy) => {
             const direction = dy > 0 ? "+1" : "-1";
-            execAsync(`hyprctl dispatch workspace ${direction}`).catch((e) =>
-                Logger.error(e),
-            );
+            hypr.dispatch("workspace", direction);
             return true;
         });
         overlay.add_controller(controller);
 
-        const update = async () => {
+        const update = () => {
             // Ensure widgets are bound - retry if not ready
             if (!bgBox || !buttonBox || !cursor) {
                 setTimeout(update, 10);
@@ -419,7 +403,7 @@ export function HyprlandWorkspaces() {
 
             try {
                 // Get current workspace and calculate page bounds
-                const currentId = await getCurrentWorkspaceId();
+                const currentId = getCurrentWorkspaceId();
                 const { start } = calculatePageBounds(currentId);
 
                 // Rebuild widgets if we've switched to a different page
@@ -458,6 +442,10 @@ export function HyprlandWorkspaces() {
         const s4 = hypr.connect("client-moved", update);
 
         overlay.connect("destroy", () => {
+            if (cursorRetryId) {
+                clearTimeout(cursorRetryId);
+                cursorRetryId = null;
+            }
             hypr.disconnect(id);
             hypr.disconnect(s2);
             hypr.disconnect(s3);

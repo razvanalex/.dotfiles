@@ -9,9 +9,9 @@ import {
     fuzzyFilter,
     getCurrentTheme,
     loadThemes,
-    updateCurrentTheme,
 } from "services/wallpaper/utils/wallpaperUtils";
 import wallpaperService from "services/wallpaper/Wallpaper";
+import wallpaperEngine from "services/wallpaper/WallpaperEngine";
 import {
     type LibraryView,
     THEME_PREVIEW_LOAD_BATCH,
@@ -25,6 +25,9 @@ const DEBUG_WALLPAPER_PREVIEW = true;
 const WALLPAPER_PREVIEW_LOOKBACK = 12;
 const WALLPAPER_PREVIEW_LOOKAHEAD = 24;
 const WALLPAPER_PREVIEW_BATCH_SIZE = 24;
+const SEARCH_DEBOUNCE_MS = 120;
+
+let searchDebounceId: ReturnType<typeof setTimeout> | null = null;
 
 function logPreviewDebug(message: string) {
     if (!DEBUG_WALLPAPER_PREVIEW) return;
@@ -52,6 +55,7 @@ export interface LibraryDataController {
     ensureThemePreviewRange: (start: number, end: number) => void;
     ensureWallpaperPreviewRange: (start: number, end: number) => void;
     handleThemeChange: (newTheme: string) => Promise<void>;
+    showCurrentThemeWallpapers: () => Promise<void>;
     handleBackToThemes: () => void;
     handleSearchChange: (query: string) => void;
     handleSelectImage: (path: string) => void;
@@ -79,7 +83,6 @@ export function createLibraryDataController({
     const [_searchQuery, setSearchQuery] = createState("");
     const [currentWallpaper, setCurrentWallpaper] = createState("");
     const [selectedWallpaper, setSelectedWallpaper] = createState("");
-    const [favoritesSet, setFavoritesSet] = createState<Set<string>>(new Set());
     const [selectedIsFavorite, setSelectedIsFavorite] = createState(false);
     const [libraryView, setLibraryView] = createState<LibraryView>("themes");
     const [wallpaperPreviewThumbs, setWallpaperPreviewThumbs] = createState<
@@ -363,14 +366,6 @@ export function createLibraryDataController({
             if (!inferredTheme) return;
 
             setAppliedTheme(inferredTheme);
-            void updateCurrentTheme(wallpaperDir, inferredTheme).catch(
-                (error: unknown) => {
-                    Logger.error(
-                        "Failed to sync .crt_theme after wallpaper change:",
-                        error,
-                    );
-                },
-            );
         },
     );
 
@@ -473,30 +468,6 @@ export function createLibraryDataController({
 
             setAppliedTheme(effectiveTheme);
             setBrowsingTheme(effectiveTheme);
-            const favoritesRaw = await execAsync([
-                "ags",
-                "request",
-                "wallpaper",
-                "favorite",
-                "list",
-            ]);
-
-            try {
-                const favorites = JSON.parse(favoritesRaw) as unknown;
-                if (Array.isArray(favorites)) {
-                    setFavoritesSet(
-                        new Set(
-                            favorites.filter(
-                                (item): item is string =>
-                                    typeof item === "string",
-                            ),
-                        ),
-                    );
-                }
-            } catch (_parseError) {
-                Logger.warn("Failed to parse favorites list:", favoritesRaw);
-                setFavoritesSet(new Set());
-            }
 
             await loadThemeCatalog();
         } catch (error) {
@@ -510,9 +481,10 @@ export function createLibraryDataController({
             setSelectedIsFavorite(false);
             return;
         }
-        setSelectedIsFavorite(favoritesSet.get().has(selected));
+        setSelectedIsFavorite(wallpaperEngine.state.favorites.includes(selected));
     };
     selectedWallpaper.subscribe(refreshSelectedFavorite);
+    wallpaperEngine.connect("changed", refreshSelectedFavorite);
 
     const [themeItems, setThemeItems] = createState<GridItem[]>([]);
     const rebuildThemeItems = () => {
@@ -535,7 +507,7 @@ export function createLibraryDataController({
     const [imageItems, setImageItems] = createState<GridItem[]>([]);
     const rebuildImageItems = () => {
         const imgs = filteredImages.get();
-        const current = selectedWallpaper.get();
+        const current = currentWallpaper.get();
         setImageItems(
             imgs.map((p) => ({
                 id: p,
@@ -547,7 +519,7 @@ export function createLibraryDataController({
         );
     };
     filteredImages.subscribe(rebuildImageItems);
-    selectedWallpaper.subscribe(rebuildImageItems);
+    currentWallpaper.subscribe(rebuildImageItems);
     filteredImages.subscribe(() => {
         invalidateWallpaperPreviewQueue();
         ensureWallpaperPreviewRange(0, 96);
@@ -557,24 +529,32 @@ export function createLibraryDataController({
         void init();
     }, 0);
 
-    favoritesSet.subscribe(refreshSelectedFavorite);
-
     if (refreshSignal) {
         refreshSignal.subscribe(() => {
             void refreshDiscoveryData();
         });
     }
 
+    wallpaperService.connect("config-changed", () => {
+        void refreshDiscoveryData();
+    });
+
     const handleSearchChange = (query: string) => {
         setSearchQuery(query);
 
-        if (libraryView.get() === "themes") {
-            setFilteredThemes(fuzzyThemeFilter(themes.get(), query));
-            return;
+        if (searchDebounceId) {
+            clearTimeout(searchDebounceId);
         }
 
-        const filtered = fuzzyFilter(allImages.get(), query);
-        setFilteredImages(filtered);
+        searchDebounceId = setTimeout(() => {
+            if (libraryView.get() === "themes") {
+                setFilteredThemes(fuzzyThemeFilter(themes.get(), query));
+                return;
+            }
+
+            const filtered = fuzzyFilter(allImages.get(), query);
+            setFilteredImages(filtered);
+        }, SEARCH_DEBOUNCE_MS);
     };
 
     const handleThemeChange = async (newTheme: string) => {
@@ -582,6 +562,28 @@ export function createLibraryDataController({
         setBrowsingTheme(newTheme);
         setLibraryView("wallpapers");
         await loadImagesForTheme(newTheme);
+    };
+
+    const showCurrentThemeWallpapers = async () => {
+        const current =
+            appliedTheme.get() ||
+            browsingTheme.get() ||
+            inferThemeFromWallpaper(currentWallpaper.get());
+
+        if (!current) {
+            setLibraryView("themes");
+            return;
+        }
+
+        if (
+            libraryView.get() === "wallpapers" &&
+            browsingTheme.get() === current &&
+            allImages.get().length > 0
+        ) {
+            return;
+        }
+
+        await handleThemeChange(current);
     };
 
     const handleBackToThemes = () => {
@@ -608,9 +610,8 @@ export function createLibraryDataController({
         const theme = browsingTheme.get();
         if (!theme) return;
         try {
-            await wallpaperService.setRandomWallpaper(
-                `${wallpaperDir}/${theme}`,
-            );
+            await wallpaperEngine.setSource("specific-theme", theme);
+            await wallpaperEngine.next();
         } catch (error) {
             Logger.error("Failed to set random wallpaper in theme:", error);
         }
@@ -619,34 +620,7 @@ export function createLibraryDataController({
     const toggleSelectedFavorite = async () => {
         const selected = selectedWallpaper.get();
         if (!selected) return;
-
-        try {
-            const result = await execAsync([
-                "ags",
-                "request",
-                "wallpaper",
-                "favorite",
-                "toggle",
-                selected,
-            ]);
-
-            try {
-                const parsed = JSON.parse(result) as { favorites?: string[] };
-                const favorites = Array.isArray(parsed.favorites)
-                    ? parsed.favorites.filter(
-                          (item): item is string => typeof item === "string",
-                      )
-                    : [];
-                setFavoritesSet(new Set(favorites));
-            } catch (_parseError) {
-                Logger.warn(
-                    "Failed to parse toggle favorite response:",
-                    result,
-                );
-            }
-        } catch (error) {
-            Logger.error("Failed to toggle favorite wallpaper:", error);
-        }
+        wallpaperEngine.toggleFavorite(selected);
     };
 
     return {
@@ -664,6 +638,7 @@ export function createLibraryDataController({
         ensureThemePreviewRange,
         ensureWallpaperPreviewRange,
         handleThemeChange,
+        showCurrentThemeWallpapers,
         handleBackToThemes,
         handleSearchChange,
         handleSelectImage,

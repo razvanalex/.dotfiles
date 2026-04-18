@@ -11,7 +11,7 @@ const MAX_PARALLEL_THUMB_JOBS = Math.max(
     Math.min(8, GLib.get_num_processors()),
 );
 const CACHE_DIR = `${GLib.get_user_cache_dir()}/ags/wallpaper-thumbnails`;
-const DEBUG_THUMB_CACHE = true;
+const DEBUG_THUMB_CACHE = false;
 const LOG_PREFIX = "[wallpaper-thumb-cache]";
 
 let cacheDirReady = false;

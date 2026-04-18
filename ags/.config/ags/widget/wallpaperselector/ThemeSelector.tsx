@@ -2,11 +2,8 @@ import type { Accessor } from "ags";
 import { createState } from "ags";
 import { Gtk } from "ags/gtk4";
 import Logger from "lib/logger";
-import {
-    countImages,
-    loadThemes,
-    updateCurrentTheme,
-} from "lib/wallpaperUtils";
+import { countImages } from "services/wallpaper/utils/wallpaperUtils";
+import wallpaperEngine from "services/wallpaper/WallpaperEngine";
 
 export default function ThemeSelector({
     wallpaperDir,
@@ -24,6 +21,8 @@ export default function ThemeSelector({
 
     // Load themes on mount
     const initThemes = async () => {
+        // Find theme directories
+        const { loadThemes } = await import("services/wallpaper/utils/wallpaperUtils");
         const themeList = await loadThemes(wallpaperDir);
         setThemes(themeList);
 
@@ -37,13 +36,15 @@ export default function ThemeSelector({
     };
 
     // Initialize
-    initThemes();
+    void initThemes();
 
     const handleThemeChange = async (newTheme: string) => {
         try {
             Logger.info(`Theme change requested: ${newTheme}`);
-            // Update .crt_theme file
-            await updateCurrentTheme(wallpaperDir, newTheme);
+            
+            // Set source in engine and trigger next
+            wallpaperEngine.setSource("specific-theme", newTheme);
+            await wallpaperEngine.next();
 
             // Notify parent
             onThemeChange(newTheme);
@@ -137,7 +138,7 @@ export default function ThemeSelector({
 
                                 row.connect("clicked", () => {
                                     Logger.info(`Theme item clicked: ${theme}`);
-                                    handleThemeChange(theme);
+                                    void handleThemeChange(theme);
                                 });
 
                                 self.append(row);
@@ -154,7 +155,4 @@ export default function ThemeSelector({
         </box>
     );
 }
-crolledwindow>
-</box>
-    )
-}
+

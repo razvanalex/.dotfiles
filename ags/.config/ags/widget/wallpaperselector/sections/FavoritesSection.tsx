@@ -1,7 +1,7 @@
 import { createState } from "ags";
 import { Gtk } from "ags/gtk4";
-import { execAsync } from "ags/process";
 import wallpaperService from "services/wallpaper/Wallpaper";
+import wallpaperEngine from "services/wallpaper/WallpaperEngine";
 import type { GridItem } from "../WallpaperGridView.js";
 import WallpaperGridView from "../WallpaperGridView.js";
 import SectionHeader from "./SectionHeader";
@@ -22,7 +22,6 @@ export default function FavoritesSection() {
         }),
     );
 
-    const [favorites, setFavorites] = createState<string[]>([]);
     const [selected, setSelected] = createState("");
     const [items, setItems] = createState<GridItem[]>([]);
 
@@ -52,56 +51,27 @@ export default function FavoritesSection() {
     status.set_halign(Gtk.Align.START);
     box.append(status);
 
-    const reloadFavorites = async () => {
-        try {
-            const raw = await execAsync([
-                "ags",
-                "request",
-                "wallpaper",
-                "favorite",
-                "list",
-            ]);
-            const parsed = JSON.parse(raw) as unknown;
-            const next = Array.isArray(parsed)
-                ? parsed.filter(
-                      (item): item is string => typeof item === "string",
-                  )
-                : [];
-            setFavorites(next);
-            const current = selected.get();
-            setSelected(
-                current && next.includes(current) ? current : next[0] || "",
-            );
-            status.set_label(`${next.length} favorites`);
-        } catch (error) {
-            status.set_label(`Failed to load favorites: ${error}`);
+    const rebuildItems = () => {
+        const list = wallpaperEngine.state.favorites;
+        const current = wallpaperService.getCurrentWallpaper();
+        setItems(
+            list.map((path) => ({
+                id: path,
+                previewPath: path,
+                label: path.split("/").pop() || path,
+                isActive: path === current,
+            })),
+        );
+        status.set_label(`${list.length} favorites`);
+
+        const currentSelected = selected.get();
+        if (!currentSelected || !list.includes(currentSelected)) {
+            setSelected(list[0] || "");
         }
     };
 
-    favorites.subscribe(() => {
-        const list = favorites.get();
-        const current = wallpaperService.getCurrentWallpaper();
-        setItems(
-            list.map((path) => ({
-                id: path,
-                previewPath: path,
-                label: path.split("/").pop() || path,
-                isActive: path === selected.get() || path === current,
-            })),
-        );
-    });
-    selected.subscribe(() => {
-        const list = favorites.get();
-        const current = wallpaperService.getCurrentWallpaper();
-        setItems(
-            list.map((path) => ({
-                id: path,
-                previewPath: path,
-                label: path.split("/").pop() || path,
-                isActive: path === selected.get() || path === current,
-            })),
-        );
-    });
+    wallpaperEngine.connect("changed", rebuildItems);
+    wallpaperService.connect("wallpaper-changed", rebuildItems);
 
     const grid = WallpaperGridView({
         items,
@@ -127,26 +97,17 @@ export default function FavoritesSection() {
     removeBtn.connect("clicked", () => {
         const path = selected.get();
         if (!path) return;
-        void execAsync([
-            "ags",
-            "request",
-            "wallpaper",
-            "favorite",
-            "remove",
-            path,
-        ]).then(() => reloadFavorites());
+        wallpaperEngine.removeFavorite(path);
     });
 
     refreshBtn.connect("clicked", () => {
-        void reloadFavorites();
+        rebuildItems();
     });
 
     selected.subscribe(updateActionState);
     updateActionState();
 
-    setTimeout(() => {
-        void reloadFavorites();
-    }, 0);
+    rebuildItems();
 
     return box;
 }

@@ -122,7 +122,10 @@ export function getEngineStatePath(): string {
     return PATHS.wallpaperEngineState;
 }
 
+let cachedState: WallpaperEngineState | null = null;
+
 export function loadEngineState(path?: string): WallpaperEngineState {
+    if (cachedState) return cachedState;
     const statePath = path || getEngineStatePath();
 
     if (!GLib.file_test(statePath, GLib.FileTest.EXISTS)) {
@@ -135,7 +138,8 @@ export function loadEngineState(path?: string): WallpaperEngineState {
         const text = new TextDecoder().decode(contents[1]);
         const parsed = JSON.parse(text) as Partial<WallpaperEngineState>;
 
-        return normalizeEngineState(parsed);
+        cachedState = normalizeEngineState(parsed);
+        return cachedState!;
     } catch (error) {
         Logger.error(
             "WallpaperEngine: Failed to load state, using defaults:",
@@ -156,6 +160,7 @@ export function saveEngineState(
     try {
         ensureDirectory(statePath);
         GLib.file_set_contents(statePath, JSON.stringify(normalized, null, 2));
+        cachedState = normalized;
     } catch (error) {
         Logger.error("WallpaperEngine: Failed to save state:", error);
     }

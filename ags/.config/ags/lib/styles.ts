@@ -2,7 +2,7 @@ import GLib from "gi://GLib";
 import { writeFile } from "ags/file";
 import app from "ags/gtk4/app";
 import { exec } from "ags/process";
-import { execBash } from "lib/proc";
+import { execBashAsync } from "lib/proc";
 import userOptions from "services/options/Options";
 import SystemService from "services/system/System";
 import Logger from "./logger";
@@ -50,7 +50,7 @@ async function applyStyle() {
         const stateDir = GLib.get_user_state_dir();
 
         exec(`mkdir -p ${COMPILED_STYLE_DIR}`);
-        execBash(
+        await execBashAsync(
             `sass -I "${stateDir}/ags/scss" ` +
                 `"${configDir}/ags/scss/main.scss" ` +
                 `"${COMPILED_STYLE_DIR}/style.css"`,

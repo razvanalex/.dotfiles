@@ -19,6 +19,7 @@ import {
 } from "./utils/wallpaper";
 
 const log = Logger.withScope("Wallpaper");
+const DEBUG_WALLPAPER_TIMING = false;
 
 class Wallpaper extends GObject.Object {
     static {
@@ -47,6 +48,7 @@ class Wallpaper extends GObject.Object {
                     "wallpaper-error": {
                         param_types: [GObject.TYPE_STRING],
                     },
+                    "config-changed": {},
                 },
             },
             Wallpaper,
@@ -61,6 +63,7 @@ class Wallpaper extends GObject.Object {
     #autoChangePicker: (() => Promise<string>) | null = null;
     #config: WallpaperConfig;
     #configPath: string;
+    #daemonReady = false;
 
     get current_wallpaper() {
         return this.#currentWallpaper;
@@ -107,6 +110,7 @@ class Wallpaper extends GObject.Object {
         try {
             // Check if daemon is running
             await execAsync("awww query");
+            this.#daemonReady = true;
             log.info("awww daemon is already running");
         } catch {
             // Start daemon
@@ -120,6 +124,7 @@ class Wallpaper extends GObject.Object {
                         return GLib.SOURCE_REMOVE;
                     }),
                 );
+                this.#daemonReady = true;
                 log.info("awww daemon started");
             } catch (error) {
                 throw new Error(`Failed to start awww daemon: ${error}`);
@@ -133,8 +138,16 @@ class Wallpaper extends GObject.Object {
     async #applyWallpaper(
         path: string,
         options?: TransitionOptions,
+        behavior?: {
+            applyColor?: boolean;
+        },
     ): Promise<void> {
+        const startedAt = Date.now();
         const expandedPath = expandPath(path);
+
+        if (expandedPath === this.#currentWallpaper) {
+            return;
+        }
 
         // Check if file exists
         if (!GLib.file_test(expandedPath, GLib.FileTest.EXISTS)) {
@@ -151,28 +164,49 @@ class Wallpaper extends GObject.Object {
         const params = buildTransitionParams(transitionOptions);
         const cmd = ["awww", "img", expandedPath, ...params];
 
-        // Ensure daemon is running
-        await this.#ensureAwwwDaemon();
+        if (!this.#daemonReady) {
+            await this.#ensureAwwwDaemon();
+        }
 
         // Set animating flag
         this.is_animating = true;
 
         try {
             // Apply wallpaper
-            await execAsync(cmd);
+            const beforeApply = Date.now();
+            try {
+                await execAsync(cmd);
+                this.#daemonReady = true;
+            } catch (firstError) {
+                this.#daemonReady = false;
+                await this.#ensureAwwwDaemon();
+                await execAsync(cmd);
+                this.#daemonReady = true;
+                log.warn(`Recovered after awww retry: ${firstError}`);
+            }
+            const afterApply = Date.now();
 
             // Update state
             this.current_wallpaper = expandedPath;
             this.#saveState();
 
             // Trigger color generation
-            await triggerColorGen(
-                this.#config.colorGenerationScript,
-                expandedPath,
-            );
+            if (behavior?.applyColor !== false) {
+                await triggerColorGen(
+                    this.#config.colorGenerationScript,
+                    expandedPath,
+                );
+            }
+            const afterColor = Date.now();
 
             // Emit signal
             this.emit("wallpaper-changed", expandedPath);
+
+            if (DEBUG_WALLPAPER_TIMING) {
+                log.info(
+                    `timing total=${Date.now() - startedAt}ms apply=${afterApply - beforeApply}ms post=${afterColor - afterApply}ms`,
+                );
+            }
 
             log.info(`Applied ${expandedPath}`);
         } catch (error) {
@@ -204,8 +238,11 @@ class Wallpaper extends GObject.Object {
     async setWallpaper(
         path: string,
         options?: TransitionOptions,
+        behavior?: {
+            applyColor?: boolean;
+        },
     ): Promise<void> {
-        await this.#applyWallpaper(path, options);
+        await this.#applyWallpaper(path, options, behavior);
     }
 
     /**
@@ -214,6 +251,9 @@ class Wallpaper extends GObject.Object {
     async setRandomWallpaper(
         directory?: string,
         options?: TransitionOptions,
+        behavior?: {
+            applyColor?: boolean;
+        },
     ): Promise<void> {
         const dir = directory || this.#config.wallpaperDir;
 
@@ -223,7 +263,7 @@ class Wallpaper extends GObject.Object {
                 includeHidden: this.#config.includeHidden,
             });
             const randomImage = selectRandom(images);
-            await this.#applyWallpaper(randomImage, options);
+            await this.#applyWallpaper(randomImage, options, behavior);
         } catch (error) {
             const errorMsg = `Failed to set random wallpaper: ${error}`;
             this.emit("wallpaper-error", errorMsg);
@@ -284,6 +324,7 @@ class Wallpaper extends GObject.Object {
         interval?: number,
         options?: TransitionOptions,
         picker?: () => Promise<string>,
+        skipInitialChange = false,
     ): Promise<void> {
         // Stop any existing auto-change
         this.stopAutoChange();
@@ -295,28 +336,34 @@ class Wallpaper extends GObject.Object {
         this.#autoChangePicker = picker || null;
 
         try {
-            if (this.#autoChangePicker) {
-                const selected = await this.#autoChangePicker();
-                if (!selected) {
-                    const errorMsg = "Auto-change picker returned no wallpaper";
-                    this.emit("wallpaper-error", errorMsg);
-                    throw new Error(errorMsg);
-                }
-                await this.#applyWallpaper(selected, options);
-            } else {
-                const images = await findImages(dir, {
-                    recursiveSearch: this.#config.recursiveSearch,
-                    includeHidden: this.#config.includeHidden,
-                });
+            if (!skipInitialChange) {
+                if (this.#autoChangePicker) {
+                    const selected = await this.#autoChangePicker();
+                    if (!selected) {
+                        const errorMsg = "Auto-change picker returned no wallpaper";
+                        this.emit("wallpaper-error", errorMsg);
+                        throw new Error(errorMsg);
+                    }
+                    await this.#applyWallpaper(selected, options, {
+                        applyColor: false,
+                    });
+                } else {
+                    const images = await findImages(dir, {
+                        recursiveSearch: this.#config.recursiveSearch,
+                        includeHidden: this.#config.includeHidden,
+                    });
 
-                if (images.length === 0) {
-                    const errorMsg = `No images found in directory: ${dir}`;
-                    this.emit("wallpaper-error", errorMsg);
-                    throw new Error(errorMsg);
-                }
+                    if (images.length === 0) {
+                        const errorMsg = `No images found in directory: ${dir}`;
+                        this.emit("wallpaper-error", errorMsg);
+                        throw new Error(errorMsg);
+                    }
 
-                const randomImage = selectRandom(images);
-                await this.#applyWallpaper(randomImage, options);
+                    const randomImage = selectRandom(images);
+                    await this.#applyWallpaper(randomImage, options, {
+                        applyColor: false,
+                    });
+                }
             }
 
             // Set up timer for subsequent changes
@@ -331,13 +378,17 @@ class Wallpaper extends GObject.Object {
                                     throw new Error(
                                         "Auto-change picker returned no wallpaper",
                                     );
-                                return this.setWallpaper(path, options);
+                                return this.setWallpaper(path, options, {
+                                    applyColor: false,
+                                });
                             })
                             .catch((err) => {
                                 log.error(`Auto-change error: ${err}`);
                             });
                     } else {
-                        this.setRandomWallpaper(dir, options).catch((err) => {
+                        this.setRandomWallpaper(dir, options, {
+                            applyColor: false,
+                        }).catch((err) => {
                             log.error(`Auto-change error: ${err}`);
                         });
                     }
@@ -387,13 +438,17 @@ class Wallpaper extends GObject.Object {
                                 throw new Error(
                                     "Auto-change picker returned no wallpaper",
                                 );
-                            return this.setWallpaper(path, options);
+                            return this.setWallpaper(path, options, {
+                                applyColor: false,
+                            });
                         })
                         .catch((err) => {
                             log.error(`Auto-change error: ${err}`);
                         });
                 } else {
-                    this.setRandomWallpaper(dir, options).catch((err) => {
+                    this.setRandomWallpaper(dir, options, {
+                        applyColor: false,
+                    }).catch((err) => {
                         log.error(`Auto-change error: ${err}`);
                     });
                 }
@@ -436,6 +491,7 @@ class Wallpaper extends GObject.Object {
             },
         };
         saveConfig(this.#configPath, this.#config);
+        this.emit("config-changed");
         log.info("Configuration updated");
     }
 

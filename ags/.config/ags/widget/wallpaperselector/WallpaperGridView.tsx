@@ -1,15 +1,18 @@
 import Gio from "gi://Gio";
 import GObject from "gi://GObject";
+import GLib from "gi://GLib";
+import GdkPixbuf from "gi://GdkPixbuf";
 import type { Accessor } from "ags";
-import { Gtk } from "ags/gtk4";
+import { Gdk, Gtk } from "ags/gtk4";
+
 import {
     WALLPAPER_CARD_IMAGE_HEIGHT,
     WALLPAPER_CARD_LABEL_HEIGHT,
     WALLPAPER_CARD_WIDTH,
+    GRID_ROW_SPACING,
+    GRID_COLUMN_SPACING,
 } from "./types";
 
-const GRID_ROW_SPACING = 8;
-const GRID_COLUMN_SPACING = 8;
 const VISIBLE_ROW_OVERSCAN = 4;
 
 export interface GridItem {
@@ -63,6 +66,13 @@ export class WallpaperItem extends GObject.Object {
                         GObject.ParamFlags.READWRITE,
                         "",
                     ),
+                    texture: GObject.ParamSpec.object(
+                        "texture",
+                        "Texture",
+                        "Cached thumbnail texture",
+                        GObject.ParamFlags.READWRITE,
+                        Gdk.Texture.$gtype,
+                    ),
                 },
             },
             WallpaperItem,
@@ -73,6 +83,7 @@ export class WallpaperItem extends GObject.Object {
     declare label: string;
     declare is_active: boolean;
     declare preview_path: string;
+    declare texture: Gdk.Texture | null;
 }
 
 export default function WallpaperGridView({
@@ -325,19 +336,77 @@ export default function WallpaperGridView({
         if (isActive) box.add_css_class("active");
         else box.remove_css_class("active");
 
-        const updateImage = () => {
-            const previewPath = (item as any)["preview-path"] as string;
-            const targetPath = previewPath;
+        if ((box as any)._cancellable) {
+            (box as any)._cancellable.cancel();
+        }
+        const cancellable = new Gio.Cancellable();
+        (box as any)._cancellable = cancellable;
 
-            if (targetPath) {
-                const localPath = targetPath.startsWith("file://")
-                    ? targetPath.replace(/^file:\/\//, "")
-                    : targetPath;
-                picture.set_file(Gio.File.new_for_path(localPath));
+        const updateImage = async () => {
+            if (item.texture) {
+                picture.set_paintable(item.texture);
                 thumbBox.remove_css_class("is-placeholder");
-            } else {
-                picture.set_file(null);
+                return;
+            }
+
+            const previewPath = (item as any)["preview-path"] as string;
+            if (!previewPath) {
+                picture.set_paintable(null);
                 thumbBox.add_css_class("is-placeholder");
+                return;
+            }
+
+            const localPath = previewPath.startsWith("file://")
+                ? previewPath.replace(/^file:\/\//, "")
+                : previewPath;
+
+            if (!GLib.file_test(localPath, GLib.FileTest.EXISTS)) {
+                picture.set_paintable(null);
+                thumbBox.add_css_class("is-placeholder");
+                return;
+            }
+
+            try {
+                const file = Gio.File.new_for_path(localPath);
+                const stream = await new Promise<Gio.InputStream>((resolve, reject) => {
+                    file.read_async(GLib.PRIORITY_DEFAULT, cancellable, (obj, res) => {
+                        try {
+                            resolve(obj!.read_finish(res));
+                        } catch (e) {
+                            reject(e);
+                        }
+                    });
+                });
+
+                const pixbuf = await new Promise<GdkPixbuf.Pixbuf>((resolve, reject) => {
+                    GdkPixbuf.Pixbuf.new_from_stream_at_scale_async(
+                        stream,
+                        WALLPAPER_CARD_WIDTH,
+                        WALLPAPER_CARD_IMAGE_HEIGHT,
+                        true,
+                        cancellable,
+                        (obj, res) => {
+                            try {
+                                resolve(GdkPixbuf.Pixbuf.new_from_stream_finish(res));
+                            } catch (e) {
+                                reject(e);
+                            }
+                        }
+                    );
+                });
+
+                if (!cancellable.is_cancelled()) {
+                    const texture = Gdk.Texture.new_for_pixbuf(pixbuf);
+                    item.texture = texture;
+                    picture.set_paintable(texture);
+                    thumbBox.remove_css_class("is-placeholder");
+                }
+            } catch (error) {
+                if (!cancellable.is_cancelled()) {
+                    console.error(`Failed to load thumbnail for ${localPath}: ${error}`);
+                    picture.set_paintable(null);
+                    thumbBox.add_css_class("is-placeholder");
+                }
             }
         };
 
@@ -349,9 +418,11 @@ export default function WallpaperGridView({
             }
         }
 
-        updateImage();
+        void updateImage();
 
-        const notifyId = item.connect("notify::preview-path", updateImage);
+        const notifyId = item.connect("notify::preview-path", () => {
+            void updateImage();
+        });
         let previewSub: (() => void) | undefined;
         if (previewLookup) {
             previewSub = previewLookup.subscribe(() => {
@@ -392,6 +463,11 @@ export default function WallpaperGridView({
         const picture = (box as any)._picture as Gtk.Picture;
         const gesture = (box as any)._gesture as Gtk.GestureClick;
 
+        if ((box as any)._cancellable) {
+            (box as any)._cancellable.cancel();
+            delete (box as any)._cancellable;
+        }
+
         if ((box as any)._notifyId) {
             item.disconnect((box as any)._notifyId);
             delete (box as any)._notifyId;
@@ -409,7 +485,7 @@ export default function WallpaperGridView({
             delete (gesture as any)._clickedId;
         }
 
-        picture.set_file(null);
+        picture.set_paintable(null);
     });
 
     const gridView = new Gtk.GridView({

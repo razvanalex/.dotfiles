@@ -530,12 +530,13 @@
 
 // --- Popup TSX Selectors ---
 .wallpaper-selector-popup-window, .theme-selector-popup-window {
-  @include large-rounding;
-  @include elevation-border;
-  background-color: $layer0;
+  background-color: transparent;
 }
 
 .wallpaper-selector-popup-root, .theme-selector-popup-root {
+  @include large-rounding;
+  @include elevation-border;
+  margin: 1rem;
   padding: 1.5rem;
   background-color: $layer0;
 }

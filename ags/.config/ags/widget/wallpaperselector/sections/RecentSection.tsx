@@ -1,7 +1,7 @@
 import { createState } from "ags";
 import { Gtk } from "ags/gtk4";
-import { execAsync } from "ags/process";
 import wallpaperService from "services/wallpaper/Wallpaper";
+import wallpaperEngine from "services/wallpaper/WallpaperEngine";
 import type { GridItem } from "../WallpaperGridView.js";
 import WallpaperGridView from "../WallpaperGridView.js";
 import SectionHeader from "./SectionHeader";
@@ -22,7 +22,6 @@ export default function RecentSection() {
         }),
     );
 
-    const [recent, setRecent] = createState<string[]>([]);
     const [selected, setSelected] = createState("");
     const [items, setItems] = createState<GridItem[]>([]);
 
@@ -48,48 +47,27 @@ export default function RecentSection() {
     status.set_halign(Gtk.Align.START);
     box.append(status);
 
-    const reloadRecent = async () => {
-        try {
-            const raw = await execAsync([
-                "ags",
-                "request",
-                "wallpaper",
-                "engine",
-                "recent",
-                "list",
-            ]);
-            const parsed = JSON.parse(raw) as unknown;
-            const next = Array.isArray(parsed)
-                ? parsed.filter(
-                      (item): item is string => typeof item === "string",
-                  )
-                : [];
-            setRecent(next);
-            const current = selected.get();
-            setSelected(
-                current && next.includes(current) ? current : next[0] || "",
-            );
-            status.set_label(`${next.length} recent`);
-        } catch (error) {
-            status.set_label(`Failed to load recent: ${error}`);
-        }
-    };
-
     const rebuildItems = () => {
-        const list = recent.get();
+        const history = [...wallpaperEngine.state.history].reverse();
         const current = wallpaperService.getCurrentWallpaper();
         setItems(
-            list.map((path) => ({
+            history.map((path) => ({
                 id: path,
                 previewPath: path,
                 label: path.split("/").pop() || path,
-                isActive: path === selected.get() || path === current,
+                isActive: path === current,
             })),
         );
+        status.set_label(`${history.length} recent`);
+
+        const currentSelected = selected.get();
+        if (!currentSelected || !history.includes(currentSelected)) {
+            setSelected(history[0] || "");
+        }
     };
 
-    recent.subscribe(rebuildItems);
-    selected.subscribe(rebuildItems);
+    wallpaperEngine.connect("changed", rebuildItems);
+    wallpaperService.connect("wallpaper-changed", rebuildItems);
 
     const grid = WallpaperGridView({
         items,
@@ -107,7 +85,7 @@ export default function RecentSection() {
     });
 
     refreshBtn.connect("clicked", () => {
-        void reloadRecent();
+        rebuildItems();
     });
 
     const updateActions = () => {
@@ -116,16 +94,10 @@ export default function RecentSection() {
     selected.subscribe(updateActions);
     updateActions();
 
-    setTimeout(() => {
-        void reloadRecent();
-    }, 0);
-
-    wallpaperService.connect("wallpaper-changed", () => {
-        void reloadRecent();
-    });
+    rebuildItems();
 
     box.connect("map", () => {
-        void reloadRecent();
+        rebuildItems();
     });
 
     return box;
