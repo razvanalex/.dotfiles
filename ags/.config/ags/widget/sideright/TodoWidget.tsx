@@ -1,4 +1,4 @@
-import { createState, For } from "ags";
+import { createState, For, onCleanup } from "ags";
 import { Gtk } from "ags/gtk4";
 import userOptions from "services/options/Options";
 import todoService, { type TodoItem } from "services/todo/Todo";
@@ -96,10 +96,11 @@ function TodoItemComponent({
 function TodoList({ isDone }: { isDone: boolean }) {
     const [todos, setTodos] = createState<TodoItem[]>(todoService.todos);
 
-    // Subscribe to todo updates
-    todoService.connect("changed", () => {
+    const id = todoService.connect("changed", () => {
         setTodos(todoService.todos);
     });
+    
+    onCleanup(() => todoService.disconnect(id));
 
     return (
         <stack

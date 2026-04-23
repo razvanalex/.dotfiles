@@ -47,17 +47,18 @@ export default function Osd({
     };
 
     const updateIcon = () => {
-        if (mode.get() === "brightness") {
+        const currentMode = mode.get();
+        if (currentMode === "brightness") {
             setIconName("light_mode");
-        } else if (mode.get() === "microphone") {
+        } else if (currentMode === "microphone") {
             setIconName(isMuted.get() ? "mic_off" : "mic");
         } else {
             setIconName(isMuted.get() ? "volume_off" : "volume_up");
         }
     };
 
-    mode.subscribe(updateIcon);
-    isMuted.subscribe(updateIcon);
+    onCleanup(mode.subscribe(updateIcon));
+    onCleanup(isMuted.subscribe(updateIcon));
 
     // Brightness subscription (Manual)
     const brightId = BrightnessService.connect("notify::screen-value", () => {
@@ -81,7 +82,7 @@ export default function Osd({
         let audioReady = false;
 
         // Suppress startup signals
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+        const suppressTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
             audioReady = true;
             return GLib.SOURCE_REMOVE;
         });
@@ -169,6 +170,7 @@ export default function Osd({
         });
 
         onCleanup(() => {
+            GLib.source_remove(suppressTimer);
             wp.disconnect(defaultSpeakerSig);
             wp.disconnect(defaultMicSig);
             if (currentSpeaker) {
@@ -252,8 +254,8 @@ export default function Osd({
         </box>
     ) as Gtk.Box;
 
-    const controller = new Gtk.EventControllerMotion();
-    controller.connect("enter", () => {
+    const motionController = new Gtk.EventControllerMotion();
+    motionController.connect("enter", () => {
         setIsHovered(true);
         if (timer) {
             GLib.source_remove(timer);
@@ -261,11 +263,11 @@ export default function Osd({
         }
         setVisible(true);
     });
-    controller.connect("leave", () => {
+    motionController.connect("leave", () => {
         setIsHovered(false);
         resetTimer();
     });
-    boxContent.add_controller(controller);
+    boxContent.add_controller(motionController);
 
     return (
         <revealer

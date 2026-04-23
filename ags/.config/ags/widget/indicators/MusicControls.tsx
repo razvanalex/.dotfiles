@@ -43,10 +43,9 @@ const updateState = (newState: PlayerState) => {
     setPlayerState(newState);
 };
 
-const execNoExcept = (cmd: string): string => {
+const execAsyncNoExcept = async (cmd: string | string[]): Promise<string> => {
     try {
-        const result = GLib.spawn_command_line_sync(cmd);
-        return result[1] ? new TextDecoder().decode(result[1]).trim() : "";
+        return await execAsync(cmd);
     } catch (_e) {
         return "";
     }
@@ -54,7 +53,7 @@ const execNoExcept = (cmd: string): string => {
 
 async function updatePlayerState() {
     try {
-        const status = execNoExcept("playerctl status");
+        const status = (await execAsyncNoExcept("playerctl status")).trim();
 
         if (!status || status.includes("No players found")) {
             updateState({
@@ -70,21 +69,24 @@ async function updatePlayerState() {
             return;
         }
 
-        const title = execNoExcept("playerctl metadata title");
-        const artist = execNoExcept("playerctl metadata artist");
-        const album = execNoExcept("playerctl metadata album");
-        const coverUrl = execNoExcept("playerctl metadata mpris:artUrl");
-        const positionStr = execNoExcept("playerctl position");
-        const lengthStr = execNoExcept("playerctl metadata mpris:length");
+        const [title, artist, album, coverUrl, positionStr, lengthStr] =
+            await Promise.all([
+                execAsyncNoExcept(["playerctl", "metadata", "title"]),
+                execAsyncNoExcept(["playerctl", "metadata", "artist"]),
+                execAsyncNoExcept(["playerctl", "metadata", "album"]),
+                execAsyncNoExcept(["playerctl", "metadata", "mpris:artUrl"]),
+                execAsyncNoExcept(["playerctl", "position"]),
+                execAsyncNoExcept(["playerctl", "metadata", "mpris:length"]),
+            ]);
 
         updateState({
             status: status.toLowerCase() as "playing" | "paused" | "stopped",
-            title: title || "Unknown",
-            artist: artist || "Unknown Artist",
-            album: album || "",
-            coverUrl: coverUrl || "",
-            position: parseFloat(positionStr) || 0,
-            length: parseInt(lengthStr, 10) / 1000000 || 0,
+            title: title.trim() || "Unknown",
+            artist: artist.trim() || "Unknown Artist",
+            album: album.trim() || "",
+            coverUrl: coverUrl.trim() || "",
+            position: parseFloat(positionStr.trim()) || 0,
+            length: parseInt(lengthStr.trim(), 10) / 1000000 || 0,
             available: true,
         });
     } catch (_e) {
@@ -95,12 +97,16 @@ async function updatePlayerState() {
     }
 }
 
-GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+// Start updating with a delay to not block initial startup
+GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
     updatePlayerState().catch((e) => log.error(e));
-    return true;
+    // Continue timeout every 1s after initial delay
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+        updatePlayerState().catch((e) => log.error(e));
+        return true;
+    });
+    return false; // Stop the 2s initial delay timer
 });
-
-updatePlayerState().catch((e) => log.error(e));
 
 function _formatTime(seconds: number): string {
     const min = Math.floor(seconds / 60);

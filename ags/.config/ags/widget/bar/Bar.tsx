@@ -4,6 +4,7 @@ import { Astal, type Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { execAsync } from "ags/process";
 import { createPoll } from "ags/time";
+import { onCleanup } from "ags";
 import Logger from "lib/logger";
 import userOptions from "services/options/Options";
 import StatusIcons from "./StatusIcons";
@@ -54,6 +55,7 @@ function _BarBattery() {
         5000,
         getBatteryInfo,
     );
+    onCleanup(() => battery.drop());
 
     if (!battery.get().available) return null;
 
@@ -152,6 +154,11 @@ function BarClock() {
     const date = createPoll("", userOptions.time.dateInterval, () =>
         GLib.DateTime.new_now_local().format(userOptions.time.dateFormatLong),
     );
+
+    onCleanup(() => {
+        time.drop();
+        date.drop();
+    });
 
     return (
         <box class="spacing-h-4 bar-clock-box" valign={Gtk.Align.CENTER}>

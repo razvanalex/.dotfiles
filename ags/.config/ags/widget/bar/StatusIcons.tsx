@@ -2,7 +2,7 @@ import Bluetooth from "gi://AstalBluetooth";
 import Network from "gi://AstalNetwork";
 import Notifd from "gi://AstalNotifd";
 import Wp from "gi://AstalWp";
-import { createBinding } from "ags";
+import { createBinding, onCleanup } from "ags";
 import { Gtk } from "ags/gtk4";
 import userOptions from "services/options/Options";
 
@@ -80,8 +80,13 @@ function NotificationIndicator() {
         notifd.notify("notifications");
     };
 
-    notifd.connect("notified", updateNotifications);
-    notifd.connect("resolved", updateNotifications);
+    const s1 = notifd.connect("notified", updateNotifications);
+    const s2 = notifd.connect("resolved", updateNotifications);
+
+    onCleanup(() => {
+        notifd.disconnect(s1);
+        notifd.disconnect(s2);
+    });
 
     const notificationsBinding = createBinding(notifd, "notifications");
 

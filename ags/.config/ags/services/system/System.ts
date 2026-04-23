@@ -2,7 +2,7 @@ import GLib from "gi://GLib";
 import GObject from "gi://GObject";
 import { readFile } from "ags/file";
 import Logger from "lib/logger";
-import { execAsyncNoExcept, execNoExcept } from "lib/proc";
+import { execAsyncNoExcept } from "lib/proc";
 
 const LIGHTDARK_FILE_LOCATION = `${GLib.get_user_state_dir()}/ags/user/colormode.txt`;
 
@@ -27,14 +27,38 @@ class SystemService extends GObject.Object {
         );
     }
 
-    private _distroID = execNoExcept(
-        `bash -c 'cat /etc/os-release | grep "^ID=" | cut -d "=" -f 2 | sed "s/\\"//g"'`,
-    ).trim();
+    private _distroID = "linux";
     private _darkMode = true;
+    private _hasFlatpak = false;
+    private _hasPlasmaIntegration = false;
 
     constructor() {
         super();
         this._darkMode = this.readDarkMode();
+        this._initDistro();
+    }
+
+    private async _initDistro() {
+        try {
+            const distroId = await execAsyncNoExcept(
+                `bash -c 'cat /etc/os-release | grep "^ID=" | cut -d "=" -f 2 | sed "s/\\"//g"'`,
+            );
+            this._distroID = distroId.trim() || "linux";
+
+            const [flatpak, plasma] = await Promise.all([
+                execAsyncNoExcept(`bash -c 'command -v flatpak'`),
+                execAsyncNoExcept(
+                    'bash -c "command -v plasma-browser-integration-host"',
+                ),
+            ]);
+
+            this._hasFlatpak = !!flatpak;
+            this._hasPlasmaIntegration = !!plasma;
+
+            this.emit("changed");
+        } catch (e) {
+            Logger.error("Failed to init distro info:", e);
+        }
     }
 
     private readDarkMode(): boolean {
@@ -58,18 +82,18 @@ class SystemService extends GObject.Object {
         const lightdark = value ? "dark" : "light";
         const stateDir = GLib.get_user_state_dir();
         const configDir = GLib.get_user_config_dir();
-
+execAsyncNoExcept(
+    `bash -c "mkdir -p ${stateDir}/ags/user && sed -i '1s/.*/${lightdark}/' ${stateDir}/ags/user/colormode.txt"`,
+)
+    .then(() => {
         execAsyncNoExcept(
-            `bash -c "mkdir -p ${stateDir}/ags/user && sed -i '1s/.*/${lightdark}/' ${stateDir}/ags/user/colormode.txt"`,
-        )
-            .then(() =>
-                execAsyncNoExcept(
-                    `bash -c "${configDir}/ags/scripts/color_generation/switchcolor.sh"`,
-                ),
-            )
-            .catch((e) => Logger.error(e));
-
-        this.notify("dark-mode");
+            `bash -c "${configDir}/ags/scripts/color_generation/switchcolor.sh"`,
+        );
+        // Also call handleStyles to ensure AGS UI colors are updated immediately if possible
+        import("lib/styles").then(({ handleStyles }) => {
+            handleStyles();
+        }).catch(err => Logger.error(`Failed to dynamic import handleStyles: ${err}`));
+    })    .catch((e) => Logger.error(e));        this.notify("dark-mode");
         this.emit("changed");
     }
 
@@ -95,12 +119,10 @@ class SystemService extends GObject.Object {
         return ["arch", "endeavouros", "cachyos"].includes(this._distroID);
     }
     get hasFlatpak() {
-        return !!execNoExcept(`bash -c 'command -v flatpak'`);
+        return this._hasFlatpak;
     }
     get hasPlasmaIntegration() {
-        return !!execNoExcept(
-            'bash -c "command -v plasma-browser-integration-host"',
-        );
+        return this._hasPlasmaIntegration;
     }
 
     getDistroIcon(): string {

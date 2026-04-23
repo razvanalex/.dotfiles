@@ -1,4 +1,5 @@
-import { createState, For } from "ags";
+import { createState, For, onCleanup } from "ags";
+import GLib from "gi://GLib";
 import { Gdk, Gtk } from "ags/gtk4";
 import apiKeyManager from "services/ai/ApiKeyManager";
 import chatHistoryManager from "services/ai/ChatHistoryManager";
@@ -60,18 +61,20 @@ function ChatHistory({
                     class="chat-history spacing-v-5"
                     $={() => {
                         // Scroll to bottom when messages change
-                        if (scrolledWindow && messages.get().length > 0) {
-                            setTimeout(() => {
-                                const vadjustment =
-                                    scrolledWindow.get_vadjustment();
-                                if (vadjustment) {
-                                    vadjustment.set_value(
-                                        vadjustment.get_upper() -
-                                            vadjustment.get_page_size(),
-                                    );
-                                }
-                            }, 100);
-                        }
+                        const unsub = messages.subscribe(() => {
+                            if (scrolledWindow && messages.get().length > 0) {
+                                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                                    const vadjustment = scrolledWindow.get_vadjustment();
+                                    if (vadjustment) {
+                                        vadjustment.set_value(
+                                            vadjustment.get_upper() - vadjustment.get_page_size(),
+                                        );
+                                    }
+                                    return GLib.SOURCE_REMOVE;
+                                });
+                            }
+                        });
+                        onCleanup(unsub);
                     }}
                 >
                     {(() => {
@@ -149,26 +152,24 @@ function ChatEntry({
                     hexpand
                     sensitive={isLoading.as((loading: boolean) => !loading)}
                     $={(self: any) => {
-                        // Add keyboard event handler for Ctrl+Enter
                         const keyController = new Gtk.EventControllerKey();
-                        keyController.connect(
+                        const id = keyController.connect(
                             "key-pressed",
                             (_, keyval, _keycode, state: number) => {
-                                // Check if Ctrl is pressed (bit 2 of state)
                                 const isCtrlPressed = (state & 4) === 4;
-
                                 if (
                                     isCtrlPressed &&
                                     (keyval === Gdk.KEY_Return ||
                                         keyval === Gdk.KEY_KP_Enter)
                                 ) {
                                     handleSend();
-                                    return true; // Consume the event
+                                    return true;
                                 }
                                 return false;
                             },
                         );
                         self.add_controller(keyController);
+                        onCleanup(() => keyController.disconnect(id));
                     }}
                 />
                 <button
@@ -194,13 +195,11 @@ export default function ChatWidget() {
     const [isLoading, setIsLoading] = createState(false);
     const [initialized, setInitialized] = createState(false);
 
-    // Initialize messages from current provider's history
     const loadMessagesForProvider = (provider: "gpt" | "gemini") => {
         const history = chatHistoryManager.getMessages(provider);
         setMessages([...history]);
     };
 
-    // Load initial messages from history for default provider
     const initializeChatHistory = () => {
         if (!initialized.get()) {
             loadMessagesForProvider("gpt");
@@ -208,22 +207,16 @@ export default function ChatWidget() {
         }
     };
 
-    // Handle message deletion
     const handleDeleteMessage = (
         role: "user" | "assistant",
         content: string,
     ) => {
         const currentProvider = apiProvider.get();
         const currentMessages = messages.get();
-
-        // Remove message from state
         const updatedMessages = currentMessages.filter(
             (msg: Message) => !(msg.role === role && msg.content === content),
         );
         setMessages(updatedMessages);
-
-        // Clear and re-add all messages to update chat history
-        // (ChatHistoryManager doesn't have delete yet, so we rebuild)
         chatHistoryManager.clearMessages(currentProvider);
         updatedMessages.forEach((msg: Message) => {
             chatHistoryManager.addMessage(currentProvider, {
@@ -233,19 +226,13 @@ export default function ChatWidget() {
         });
     };
 
-    // Handle message editing
     const handleEditMessage = (oldContent: string, newContent: string) => {
         const currentProvider = apiProvider.get();
         const currentMessages = messages.get();
-
-        // Update message in state
         const updatedMessages = currentMessages.map((msg: Message) =>
             msg.content === oldContent ? { ...msg, content: newContent } : msg,
         );
         setMessages(updatedMessages);
-
-        // Clear and re-add all messages to update chat history
-        // (ChatHistoryManager doesn't have update yet, so we rebuild)
         chatHistoryManager.clearMessages(currentProvider);
         updatedMessages.forEach((msg: Message) => {
             chatHistoryManager.addMessage(currentProvider, {
@@ -257,8 +244,6 @@ export default function ChatWidget() {
 
     const handleSendMessage = async (text: string) => {
         const currentProvider = apiProvider.get();
-
-        // Add user message to display and save
         const userMessage: Message = {
             role: "user",
             content: text,
@@ -277,7 +262,6 @@ export default function ChatWidget() {
                 response = await geminiService.sendMessage(text);
             }
 
-            // Add assistant message to display and save
             const assistantMessage: Message = {
                 role: "assistant",
                 content: response,
@@ -288,31 +272,17 @@ export default function ChatWidget() {
             setMessages([...messages.get(), assistantMessage]);
             chatHistoryManager.addMessage(currentProvider, assistantMessage);
         } catch (err) {
-            // Show error as assistant message
             let errorMsg = "Unknown error occurred";
-            if (err instanceof Error) {
-                errorMsg = err.message;
-            } else if (typeof err === "string") {
-                errorMsg = err;
-            }
+            if (err instanceof Error) errorMsg = err.message;
+            else if (typeof err === "string") errorMsg = err;
 
-            // Check for common error patterns
             if (errorMsg.includes("401") || errorMsg.includes("Unauthorized")) {
                 errorMsg = `❌ Authentication failed. Please check your API key for ${currentProvider.toUpperCase()}.`;
-            } else if (
-                errorMsg.includes("429") ||
-                errorMsg.includes("Too Many")
-            ) {
+            } else if (errorMsg.includes("429") || errorMsg.includes("Too Many")) {
                 errorMsg = `⏳ Rate limit exceeded. Please wait a moment and try again.`;
-            } else if (
-                errorMsg.includes("500") ||
-                errorMsg.includes("Internal")
-            ) {
+            } else if (errorMsg.includes("500") || errorMsg.includes("Internal")) {
                 errorMsg = `🔧 Server error. The API service is experiencing issues.`;
-            } else if (
-                errorMsg.includes("ENOTFOUND") ||
-                errorMsg.includes("ECONNREFUSED")
-            ) {
+            } else if (errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNREFUSED")) {
                 errorMsg = `🌐 Network error. Please check your connection.`;
             } else {
                 errorMsg = `❌ Error: ${errorMsg}`;
@@ -337,7 +307,6 @@ export default function ChatWidget() {
             class="chat-widget spacing-v-10"
             vexpand
             $={() => {
-                // Initialize on first render
                 initializeChatHistory();
             }}
         >

@@ -1,5 +1,5 @@
 import GLib from "gi://GLib";
-import { createState } from "ags";
+import { createState, onCleanup } from "ags";
 import { getAllFiles, searchIcons, substitute } from "lib/icons";
 import Logger from "lib/logger";
 import { execNoExcept } from "lib/proc";
@@ -89,9 +89,13 @@ export function Taskbar() {
 
     updateTaskbar();
 
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+    const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
         updateTaskbar();
         return true;
+    });
+
+    onCleanup(() => {
+        GLib.source_remove(timerId);
     });
 
     return (
@@ -110,10 +114,4 @@ export function Taskbar() {
                 )}
         </box>
     );
-}
->
-        ))
-      )}
-    </box>
-  )
 }

@@ -1,5 +1,6 @@
 import { Gtk } from "ags/gtk4";
 import { createPoll } from "ags/time";
+import { onCleanup } from "ags";
 import { CircularProgress } from "./CircularProgress";
 
 const widgets = [
@@ -56,6 +57,7 @@ function ResourceIndicator({
     iconClass?: string;
 }) {
     const data = createPoll("0", interval, ["bash", "-c", command]);
+    onCleanup(() => data.drop());
 
     const parseValue = (d: string) => {
         const val = parseFloat(d.replace(",", "."));
@@ -101,6 +103,7 @@ export default function SystemMonitor() {
         <box class="spacing-h-10">
             {widgets.map((widget) => (
                 <ResourceIndicator
+                    key={widget.name}
                     icon={widget.icon}
                     command={widget.command}
                     interval={widget.interval}

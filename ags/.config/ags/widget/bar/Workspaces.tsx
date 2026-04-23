@@ -1,11 +1,11 @@
 import Hyprland from "gi://AstalHyprland";
 import { Gtk } from "ags/gtk4";
+import { onCleanup } from "ags";
 import userOptions from "services/options/Options";
 
 const hypr = Hyprland.get_default();
 const count = userOptions.workspaces.shown;
 const WS_WIDTH_REM = 1.774; // Must match SCSS $bar_ws_width
-const _REM_TO_PX = 14.6666666667;
 
 // ============================================================================
 // Helper Functions
@@ -49,7 +49,6 @@ function isWorkspaceActive(id: number): boolean {
 // Determine if adjacent workspaces should be grouped (for rounded corners)
 function shouldGroupWithAdjacent(id: number, isNext: boolean) {
     const fw = hypr.get_focused_workspace();
-    // Use the page bounds for the workspace being evaluated, not the focused workspace
     const { start, end } = calculatePageBounds(id);
 
     const adjacentId = isNext ? id + 1 : id - 1;
@@ -85,8 +84,6 @@ function getWorkspaceClasses(id: number) {
         classes.push("bar-ws-active-transparent");
     }
 
-    // Only show occupied background if workspace actually has clients
-    // Active workspace without clients should not show occupied background
     if (isOccupied) {
         classes.push("bar-ws-occupied");
         classes.push(getOccupiedGroupClass(id));
@@ -102,8 +99,8 @@ function createWorkspaceButton(id: number) {
         vexpand: false,
         halign: Gtk.Align.CENTER,
         valign: Gtk.Align.CENTER,
-        width_chars: 2, // Reserve space for 2 characters
-        max_width_chars: 2, // Limit to 2 characters width
+        width_chars: 2,
+        max_width_chars: 2,
     });
 
     const innerBox = new Gtk.Box({
@@ -132,7 +129,6 @@ function createWorkspaceButton(id: number) {
 
     button.connect("clicked", () => switchToWorkspace(id));
     button.set_child(innerBox);
-
     button.set_name("ws-button");
     // @ts-expect-error
     button._ws_id = id;
@@ -152,14 +148,12 @@ export function HyprlandWorkspaces() {
     let currentCursorPos = 0;
     let animationId: ReturnType<typeof setTimeout> | null = null;
     let cursorRetryId: ReturnType<typeof setTimeout> | null = null;
-    let isUpdating = false; // Prevent concurrent updates
-    let isInitialized = false; // Track if cursor has been positioned at least once
+    let isUpdating = false;
+    let isInitialized = false;
 
     // Smooth cursor animation with ease-out cubic
     const animateCursor = (targetPos: number, duration: number = 200) => {
-        if (animationId) {
-            clearTimeout(animationId);
-        }
+        if (animationId) clearTimeout(animationId);
 
         const startPos = currentCursorPos;
         const distance = targetPos - startPos;
@@ -168,13 +162,11 @@ export function HyprlandWorkspaces() {
         const animate = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
-
-            // Ease-out cubic for smooth deceleration
             const eased = 1 - (1 - progress) ** 3;
             const newPos = startPos + distance * eased;
 
             currentCursorPos = newPos;
-            cursor.set_margin_start(Math.round(newPos));
+            if (cursor) cursor.set_margin_start(Math.round(newPos));
 
             if (progress < 1) {
                 animationId = setTimeout(animate, 5);
@@ -187,7 +179,6 @@ export function HyprlandWorkspaces() {
         animate();
     };
 
-    // Clear all children from a box
     const clearBox = (box: Gtk.Box) => {
         let child = box.get_first_child();
         while (child) {
@@ -197,21 +188,17 @@ export function HyprlandWorkspaces() {
         }
     };
 
-    // Get the current workspace ID without shelling out.
     const getCurrentWorkspaceId = (): number => {
-        const focused =
-            hypr.focusedWorkspace?.id || hypr.get_focused_workspace()?.id;
+        const focused = hypr.focusedWorkspace?.id || hypr.get_focused_workspace()?.id;
         return focused || 1;
     };
 
-    // Rebuild workspace widgets for the current page
     const rebuildWorkspacesForPage = (start: number) => {
         clearBox(bgBox);
         clearBox(buttonBox);
 
         const ids = Array.from({ length: count }, (_, i) => start + i);
         ids.forEach((id) => {
-            // Create background widget
             const bg = new Gtk.Box({
                 name: `ws-bg-${id}`,
                 hexpand: true,
@@ -223,7 +210,6 @@ export function HyprlandWorkspaces() {
             bg._ws_id = id;
             bgBox.append(bg);
 
-            // Create button widget (transparent, text only)
             const btn = createWorkspaceButton(id);
             btn.add_css_class("bar-ws-active-transparent");
             buttonBox.append(btn);
@@ -232,7 +218,6 @@ export function HyprlandWorkspaces() {
         lastPageStart = start;
     };
 
-    // Update CSS classes for all workspace widgets
     const updateWorkspaceClasses = (box: Gtk.Box, isButton: boolean) => {
         let child = box.get_first_child();
 
@@ -242,82 +227,35 @@ export function HyprlandWorkspaces() {
 
             if (id) {
                 if (isButton) {
-                    // Buttons are transparent and only show text
-                    // These classes are static, set once
-                    const buttonClasses = [
-                        "bar-ws",
-                        "bar-ws-active-transparent",
-                    ];
+                    const buttonClasses = ["bar-ws", "bar-ws-active-transparent"];
                     child.set_css_classes(buttonClasses);
 
-                    // Update inner box text styling
                     // @ts-expect-error
                     const inner = child.get_child();
                     if (inner) {
-                        const innerClasses = getInnerClasses(id)
-                            .split(" ")
-                            .filter((c) => c);
+                        const innerClasses = getInnerClasses(id).split(" ").filter((c) => c);
                         inner.set_css_classes(innerClasses);
                     }
                 } else {
-                    // Background: use add/remove for proper transitions
                     const isOccupied = isWorkspaceOccupied(id);
                     const isActive = isWorkspaceActive(id);
 
-                    // Ensure base class is always present
-                    if (!child.has_css_class("bar-ws")) {
-                        child.add_css_class("bar-ws");
-                    }
+                    if (!child.has_css_class("bar-ws")) child.add_css_class("bar-ws");
 
-                    // Handle occupied state
                     if (isOccupied || isActive) {
-                        if (!child.has_css_class("bar-ws-occupied")) {
-                            child.add_css_class("bar-ws-occupied");
-                        }
-
-                        // Remove old grouping classes
+                        if (!child.has_css_class("bar-ws-occupied")) child.add_css_class("bar-ws-occupied");
                         child.remove_css_class("bar-ws-occupied-single");
                         child.remove_css_class("bar-ws-occupied-first");
                         child.remove_css_class("bar-ws-occupied-middle");
                         child.remove_css_class("bar-ws-occupied-last");
-
-                        // Add new grouping class
-                        const groupClass = getOccupiedGroupClass(id);
-                        child.add_css_class(groupClass);
+                        child.add_css_class(getOccupiedGroupClass(id));
                     } else {
-                        // Not occupied - remove all occupied classes
-                        // Add a small delay to ensure GTK processes the class removal with transition
-                        if (child.has_css_class("bar-ws-occupied")) {
-                            // Capture child reference for setTimeout
-                            const element = child;
-                            // Force a style recalculation by querying a property
-                            element.get_allocated_width();
-                            // Remove classes on next tick to allow transition
-                            setTimeout(() => {
-                                element.remove_css_class("bar-ws-occupied");
-                                element.remove_css_class(
-                                    "bar-ws-occupied-single",
-                                );
-                                element.remove_css_class(
-                                    "bar-ws-occupied-first",
-                                );
-                                element.remove_css_class(
-                                    "bar-ws-occupied-middle",
-                                );
-                                element.remove_css_class(
-                                    "bar-ws-occupied-last",
-                                );
-                            }, 0);
-                        } else {
-                            child.remove_css_class("bar-ws-occupied");
-                            child.remove_css_class("bar-ws-occupied-single");
-                            child.remove_css_class("bar-ws-occupied-first");
-                            child.remove_css_class("bar-ws-occupied-middle");
-                            child.remove_css_class("bar-ws-occupied-last");
-                        }
+                        child.remove_css_class("bar-ws-occupied");
+                        child.remove_css_class("bar-ws-occupied-single");
+                        child.remove_css_class("bar-ws-occupied-first");
+                        child.remove_css_class("bar-ws-occupied-middle");
+                        child.remove_css_class("bar-ws-occupied-last");
                     }
-
-                    // Remove active class (backgrounds should never be active)
                     child.remove_css_class("bar-ws-active-transparent");
                 }
             }
@@ -325,18 +263,14 @@ export function HyprlandWorkspaces() {
         }
     };
 
-    // Update cursor position with animation
     const updateCursorPosition = (currentId: number, start: number) => {
+        if (!cursor) return;
         if (currentId < start || currentId >= start + count) {
             cursor.set_visible(false);
             return;
         }
 
-        // Calculate position relative to the start of the current page
         const relativeIndex = currentId - start;
-
-        // Calculate cumulative offset based on ACTUAL button widths
-        // This handles cases where buttons may have slightly different widths
         let cumulativeOffset = 0;
         let child = buttonBox.get_first_child();
         let allWidthsValid = true;
@@ -351,8 +285,6 @@ export function HyprlandWorkspaces() {
             child = child.get_next_sibling();
         }
 
-        // If widgets aren't laid out yet (width = 0), retry after a short delay
-        // Keep cursor hidden until we have valid measurements
         if (!allWidthsValid && relativeIndex > 0) {
             cursor.set_visible(false);
             if (cursorRetryId) clearTimeout(cursorRetryId);
@@ -363,25 +295,21 @@ export function HyprlandWorkspaces() {
             return;
         }
 
-        // If this is the first time positioning (on startup), set position directly without animation
         if (!isInitialized) {
             currentCursorPos = cumulativeOffset;
             cursor.set_margin_start(Math.round(cumulativeOffset));
             isInitialized = true;
         } else {
-            // Normal case: animate the cursor movement
             animateCursor(cumulativeOffset);
         }
-
         cursor.set_visible(true);
     };
 
     const setup = (overlay: Gtk.Overlay) => {
-        // Add scroll controller for workspace switching
         const controller = new Gtk.EventControllerScroll({
             flags: Gtk.EventControllerScrollFlags.VERTICAL,
         });
-        controller.connect("scroll", (_, _dx, dy) => {
+        const scrollId = controller.connect("scroll", (_, _dx, dy) => {
             const direction = dy > 0 ? "+1" : "-1";
             hypr.dispatch("workspace", direction);
             return true;
@@ -389,44 +317,22 @@ export function HyprlandWorkspaces() {
         overlay.add_controller(controller);
 
         const update = () => {
-            // Ensure widgets are bound - retry if not ready
             if (!bgBox || !buttonBox || !cursor) {
-                setTimeout(update, 10);
+                const retryId = setTimeout(update, 10);
+                onCleanup(() => clearTimeout(retryId));
                 return;
             }
-
-            // Prevent concurrent updates
-            if (isUpdating) {
-                return;
-            }
+            if (isUpdating) return;
             isUpdating = true;
-
             try {
-                // Get current workspace and calculate page bounds
                 const currentId = getCurrentWorkspaceId();
                 const { start } = calculatePageBounds(currentId);
-
-                // Rebuild widgets if we've switched to a different page
                 const pageChanged = start !== lastPageStart;
-                if (pageChanged) {
-                    rebuildWorkspacesForPage(start);
-                }
-
-                // Update CSS classes for all widgets
+                if (pageChanged) rebuildWorkspacesForPage(start);
                 updateWorkspaceClasses(bgBox, false);
                 updateWorkspaceClasses(buttonBox, true);
-
-                // Update cursor position
-                // If page changed, defer cursor update to allow GTK to layout new widgets
-                // Use requestAnimationFrame-equivalent via GLib idle callback for next frame
                 if (pageChanged) {
-                    // Multiple deferrals to ensure GTK has time to measure widgets
-                    setTimeout(() => {
-                        setTimeout(
-                            () => updateCursorPosition(currentId, start),
-                            0,
-                        );
-                    }, 10);
+                    setTimeout(() => setTimeout(() => updateCursorPosition(currentId, start), 0), 10);
                 } else {
                     updateCursorPosition(currentId, start);
                 }
@@ -435,71 +341,37 @@ export function HyprlandWorkspaces() {
             }
         };
 
-        // Connect to Hyprland events
-        const id = hypr.connect("notify::focused-workspace", update);
-        const s2 = hypr.connect("client-added", update);
-        const s3 = hypr.connect("client-removed", update);
-        const s4 = hypr.connect("client-moved", update);
+        const ids = [
+            hypr.connect("notify::focused-workspace", update),
+            hypr.connect("client-added", update),
+            hypr.connect("client-removed", update),
+            hypr.connect("client-moved", update)
+        ];
 
-        overlay.connect("destroy", () => {
-            if (cursorRetryId) {
-                clearTimeout(cursorRetryId);
-                cursorRetryId = null;
-            }
-            hypr.disconnect(id);
-            hypr.disconnect(s2);
-            hypr.disconnect(s3);
-            hypr.disconnect(s4);
+        onCleanup(() => {
+            if (cursorRetryId) clearTimeout(cursorRetryId);
+            if (animationId) clearTimeout(animationId);
+            for (const id of ids) hypr.disconnect(id);
+            controller.disconnect(scrollId);
         });
 
-        // Initial update with retry for focusedWorkspace
-        const initialUpdate = () => {
+        const initialUpdateId = setTimeout(() => {
             update();
-            // Retry if focusedWorkspace isn't available yet
-            if (!hypr.focusedWorkspace) {
-                setTimeout(update, 200);
-            }
-        };
-        setTimeout(initialUpdate, 100);
+            if (!hypr.focusedWorkspace) setTimeout(update, 200);
+        }, 100);
+        onCleanup(() => clearTimeout(initialUpdateId));
     };
 
     return (
         <overlay class="bar-ws-wrapper" onRealize={setup}>
-            {/* Main child - empty placeholder for sizing (extra space for right padding) */}
-            <box
-                css={`min-width: ${count * WS_WIDTH_REM + 0.5}rem; min-height: 1.774rem;`}
-            />
-
-            {/* Layer 1: Backgrounds (gray occupied bars) */}
-            <box
-                $type="overlay"
-                halign={Gtk.Align.START}
-                valign={Gtk.Align.CENTER}
-                spacing={0}
-                $={(w) => (bgBox = w)}
-            />
-
-            {/* Layer 2: Cursor */}
-            <box
-                $type="overlay"
-                name="bar-ws-cursor"
-                class="bar-ws-cursor"
-                halign={Gtk.Align.START}
-                valign={Gtk.Align.CENTER}
-                $={(w) => {
+            <box css={`min-width: ${count * WS_WIDTH_REM + 0.5}rem; min-height: 1.774rem;`} />
+            <box $type="overlay" halign={Gtk.Align.START} valign={Gtk.Align.CENTER} spacing={0} $={(w) => (bgBox = w)} />
+            <box $type="overlay" name="bar-ws-cursor" class="bar-ws-cursor" halign={Gtk.Align.START} valign={Gtk.Align.CENTER} $={(w) => {
                     cursor = w;
                     cursor.set_visible(false);
                 }}
             />
-
-            {/* Layer 3: Buttons (transparent, text only) */}
-            <box
-                $type="overlay"
-                halign={Gtk.Align.START}
-                valign={Gtk.Align.CENTER}
-                spacing={0}
-                $={(w) => (buttonBox = w)}
-            />
+            <box $type="overlay" halign={Gtk.Align.START} valign={Gtk.Align.CENTER} spacing={0} $={(w) => (buttonBox = w)} />
         </overlay>
     );
 }

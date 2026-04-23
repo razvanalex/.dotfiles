@@ -1,6 +1,6 @@
 import Notifd from "gi://AstalNotifd";
 import GLib from "gi://GLib";
-import { createState } from "ags";
+import { createState, onCleanup } from "ags";
 import { Astal, type Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import Logger from "lib/logger";
@@ -30,8 +30,10 @@ export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
         setWindowVisible(notifications.get().length > 0 || osdVisible.get());
     };
 
-    notifications.subscribe(updateVisibility);
-    osdVisible.subscribe(updateVisibility);
+    const subs = [
+        notifications.subscribe(updateVisibility),
+        osdVisible.subscribe(updateVisibility),
+    ];
 
     const dismiss = (id: number, _force = false) => {
         if (closingIds.get().has(id)) return;
@@ -55,7 +57,7 @@ export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
         );
     };
 
-    notifd.connect("notified", (_, id, replaced) => {
+    const s1 = notifd.connect("notified", (_, id, replaced) => {
         if (notifd.dont_disturb) return;
         const n = notifd.get_notification(id);
         if (!n) return;
@@ -77,8 +79,14 @@ export default function Indicators(gdkmonitor: Gdk.Monitor, index: number = 0) {
         }
     });
 
-    notifd.connect("resolved", (_, id) => {
+    const s2 = notifd.connect("resolved", (_, id) => {
         dismiss(id, true);
+    });
+
+    onCleanup(() => {
+        for (const unsub of subs) unsub();
+        notifd.disconnect(s1);
+        notifd.disconnect(s2);
     });
 
     return (

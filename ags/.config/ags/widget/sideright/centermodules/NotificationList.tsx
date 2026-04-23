@@ -1,7 +1,7 @@
 import Notifd from "gi://AstalNotifd";
 import GLib from "gi://GLib";
 import Pango from "gi://Pango";
-import { createBinding, createState, For } from "ags";
+import { createBinding, createState, For, onCleanup } from "ags";
 import { Gdk, Gtk } from "ags/gtk4";
 import { substitute } from "lib/icons";
 import userOptions from "services/options/Options";
@@ -289,8 +289,13 @@ export default function NotificationList() {
         notifd.notify("notifications");
     };
 
-    notifd.connect("notified", updateNotifications);
-    notifd.connect("resolved", updateNotifications);
+    const s1 = notifd.connect("notified", updateNotifications);
+    const s2 = notifd.connect("resolved", updateNotifications);
+
+    onCleanup(() => {
+        notifd.disconnect(s1);
+        notifd.disconnect(s2);
+    });
 
     // Prevent notifications from disappearing automatically
     notifd.set_ignore_timeout(true);

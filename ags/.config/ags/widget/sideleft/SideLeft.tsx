@@ -1,4 +1,4 @@
-import { createState } from "ags";
+import { createState, onCleanup } from "ags";
 import { Astal, Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import Logger from "lib/logger";
@@ -95,7 +95,7 @@ export default function SideLeft(monitor: Gdk.Monitor, index: number = 0) {
                 $={(self: Gtk.Window) => {
                     Logger.info(`SideLeft window setup ${self.name}`);
                     const controller = new Gtk.EventControllerKey();
-                    controller.connect("key-pressed", (_, keyval) => {
+                    const connId = controller.connect("key-pressed", (_, keyval) => {
                         // Close on Escape
                         if (keyval === Gdk.KEY_Escape) {
                             self.visible = false;
@@ -104,6 +104,10 @@ export default function SideLeft(monitor: Gdk.Monitor, index: number = 0) {
                         return false;
                     });
                     self.add_controller(controller);
+                    
+                    onCleanup(() => {
+                        controller.disconnect(connId);
+                    });
                 }}
             >
                 <box vexpand>

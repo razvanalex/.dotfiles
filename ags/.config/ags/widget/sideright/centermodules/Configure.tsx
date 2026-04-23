@@ -1,7 +1,7 @@
 import GLib from "gi://GLib";
 import { type Binding, createBinding, createState } from "ags";
 import { Gtk } from "ags/gtk4";
-import { exec, execAsync } from "ags/process";
+import { execAsync } from "ags/process";
 import Logger from "lib/logger";
 import userOptions from "services/options/Options";
 import SystemService from "services/system/System";
@@ -31,7 +31,6 @@ function ConfigToggle({
     enabled?: Binding<boolean> | boolean;
     onChange: (newValue: boolean) => void;
 }) {
-    // Accessors (functions) and Bindings (objects) both have .as in Astal
     const isReactive =
         value &&
         (typeof value === "object" || typeof value === "function") &&
@@ -95,12 +94,18 @@ function ConfigSpinButton({
     icon: string;
     name: string;
     desc?: string;
-    initValue: number;
+    initValue: any;
     minValue: number;
     maxValue: number;
     step?: number;
     onChange: (newValue: number) => void;
 }) {
+    const isReactive =
+        initValue &&
+        (typeof initValue === "object" || typeof initValue === "function") &&
+        "as" in initValue;
+    const value = isReactive ? initValue : createState(initValue)[0];
+
     return (
         <box
             class="txt spacing-h-5 configtoggle-box"
@@ -119,7 +124,7 @@ function ConfigSpinButton({
                         upper: maxValue,
                         step_increment: step,
                         page_increment: step * 10,
-                        value: initValue,
+                        value: value.get ? value.get() : value,
                     })
                 }
                 onValueChanged={(self) => onChange(self.get_value())}
@@ -145,20 +150,20 @@ function HyprlandToggle({
     disableValue?: number;
     extraOnChange?: (newValue: boolean) => void;
 }) {
-    let initValue = false;
-    try {
-        const result = exec(`hyprctl getoption -j ${option}`);
-        initValue = JSON.parse(result).int !== 0;
-    } catch (e) {
-        Logger.error(e);
-    }
+    const [val, setVal] = createState(false);
+
+    execAsync(`hyprctl getoption -j ${option}`)
+        .then((result) => {
+            setVal(JSON.parse(result).int !== 0);
+        })
+        .catch((e) => Logger.error(e));
 
     return (
         <ConfigToggle
             icon={icon}
             name={name}
             desc={desc}
-            value={initValue}
+            value={val}
             onChange={(newValue) => {
                 execAsync([
                     "hyprctl",
@@ -166,6 +171,7 @@ function HyprlandToggle({
                     option,
                     `${newValue ? enableValue : disableValue}`,
                 ]).catch((e) => Logger.error(e));
+                setVal(newValue);
                 if (extraOnChange) extraOnChange(newValue);
             }}
         />
@@ -189,20 +195,20 @@ function HyprlandSpinButton({
     maxValue: number;
     step?: number;
 }) {
-    let initValue = 0;
-    try {
-        const result = exec(`hyprctl getoption -j ${option}`);
-        initValue = JSON.parse(result).int;
-    } catch (e) {
-        Logger.error(e);
-    }
+    const [val, setVal] = createState(0);
+
+    execAsync(`hyprctl getoption -j ${option}`)
+        .then((result) => {
+            setVal(JSON.parse(result).int);
+        })
+        .catch((e) => Logger.error(e));
 
     return (
         <ConfigSpinButton
             icon={icon}
             name={name}
             desc={desc}
-            initValue={initValue}
+            initValue={val}
             minValue={minValue}
             maxValue={maxValue}
             step={step}
@@ -210,6 +216,7 @@ function HyprlandSpinButton({
                 execAsync(["hyprctl", "keyword", option, `${newValue}`]).catch(
                     (e) => Logger.error(e),
                 );
+                setVal(newValue);
             }}
         />
     );
@@ -252,10 +259,14 @@ function ConfigMulipleSelection({
     onChange,
 }: {
     optionsArr: { name: string; value: any }[][];
-    initIndex: [number, number];
+    initIndex: Binding<[number, number]> | [number, number];
     onChange: (value: any, name: string) => void;
 }) {
-    const [lastSelected, setLastSelected] = createState(initIndex);
+    const isReactive =
+        initIndex &&
+        (typeof initIndex === "object" || typeof initIndex === "function") &&
+        "as" in initIndex;
+    const lastSelected = isReactive ? initIndex : createState(initIndex)[0];
 
     return (
         <box
@@ -271,7 +282,8 @@ function ConfigMulipleSelection({
                                     `multipleselection-btn ${i === id && g === grp ? "multipleselection-btn-enabled" : ""}`,
                             )}
                             onClicked={() => {
-                                setLastSelected([grp, id]);
+                                if ((lastSelected as any).set)
+                                    (lastSelected as any).set([grp, id]);
                                 onChange(option.value, option.name);
                             }}
                             label={option.name}
@@ -287,25 +299,31 @@ function ColorSchemeSettings() {
     const stateDir = GLib.get_user_state_dir();
     const configDir = GLib.get_user_config_dir();
 
-    let initScheme = "vibrant";
-    let transparencyInit = false;
-    let gradienceInit = 0;
+    const [initScheme, setInitScheme] = createState("vibrant");
+    const [transparencyInit, setTransparencyInit] = createState(false);
+    const [gradienceInit, setGradienceInit] = createState(0);
 
-    try {
-        initScheme = exec(
-            `bash -c "sed -n '3p' ${stateDir}/ags/user/colormode.txt"`,
-        ).trim();
-        transparencyInit =
-            exec(
-                `bash -c "sed -n '2p' ${stateDir}/ags/user/colormode.txt"`,
-            ).trim() === "transparent";
-        gradienceInit =
-            exec(
-                `bash -c "sed -n '4p' ${stateDir}/ags/user/colormode.txt"`,
-            ).trim() === "yesgradience"
-                ? 1
-                : 0;
-    } catch (_e) {}
+    const [schemeIndex, setSchemeIndex] = createState<[number, number]>([0, 0]);
+
+    execAsync(`bash -c "sed -n '3p' ${stateDir}/ags/user/colormode.txt"`)
+        .then((out) => {
+            const s = out.trim();
+            setInitScheme(s);
+            setSchemeIndex(calculateSchemeInitIndex(schemeOptionsArr, s));
+        })
+        .catch(() => {});
+
+    execAsync(`bash -c "sed -n '2p' ${stateDir}/ags/user/colormode.txt"`)
+        .then((out) => {
+            setTransparencyInit(out.trim() === "transparent");
+        })
+        .catch(() => {});
+
+    execAsync(`bash -c "sed -n '4p' ${stateDir}/ags/user/colormode.txt"`)
+        .then((out) => {
+            setGradienceInit(out.trim() === "yesgradience" ? 1 : 0);
+        })
+        .catch(() => {});
 
     return (
         <box
@@ -348,6 +366,7 @@ function ColorSchemeSettings() {
                                 ]),
                             )
                             .catch((e) => Logger.error(e));
+                        setTransparencyInit(newValue);
                     }}
                 />
 
@@ -368,7 +387,7 @@ function ColorSchemeSettings() {
                                 { name: "On", value: 1 },
                             ],
                         ]}
-                        initIndex={[0, gradienceInit]}
+                        initIndex={gradienceInit.as((v) => [0, v])}
                         onChange={(value) => {
                             const ADWAITA_BLUE = "#3584E4";
                             if (value)
@@ -383,6 +402,7 @@ function ColorSchemeSettings() {
                                     "-c",
                                     `${configDir}/ags/scripts/color_generation/switchcolor.sh "${ADWAITA_BLUE}" --no-gradience`,
                                 ]).catch((e) => Logger.error(e));
+                            setGradienceInit(value);
                         }}
                     />
                 </box>
@@ -395,10 +415,7 @@ function ColorSchemeSettings() {
                 />
                 <ConfigMulipleSelection
                     optionsArr={schemeOptionsArr}
-                    initIndex={calculateSchemeInitIndex(
-                        schemeOptionsArr,
-                        initScheme,
-                    )}
+                    initIndex={schemeIndex}
                     onChange={(value) => {
                         execAsync([
                             "bash",
@@ -413,6 +430,7 @@ function ColorSchemeSettings() {
                                 ]),
                             )
                             .catch((e) => Logger.error(e));
+                        setInitScheme(value);
                     }}
                 />
             </box>
@@ -492,15 +510,13 @@ export default function Configure() {
     const stateDir = GLib.get_user_state_dir();
     const configDir = GLib.get_user_config_dir();
 
-    let transparencyInit = false;
-    try {
-        const colorMode = exec(
-            `bash -c "sed -n '2p' ${stateDir}/ags/user/colormode.txt"`,
-        );
-        transparencyInit = colorMode.trim() === "transparent";
-    } catch (_e) {
-        // File may not exist
-    }
+    const [transparencyInit, setTransparencyInit] = createState(false);
+
+    execAsync(`bash -c "sed -n '2p' ${stateDir}/ags/user/colormode.txt"`)
+        .then((out) => {
+            setTransparencyInit(out.trim() === "transparent");
+        })
+        .catch(() => {});
 
     return (
         <box
@@ -597,6 +613,7 @@ export default function Configure() {
                                         ]),
                                     )
                                     .catch((e) => Logger.error(e));
+                                setTransparencyInit(newValue);
                             }}
                         />
                         <HyprlandToggle

@@ -1,4 +1,4 @@
-import { createState } from "ags";
+import { createState, onCleanup } from "ags";
 import { Astal, Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { execAsync } from "ags/process";
@@ -21,7 +21,6 @@ function SessionButton({
     setup?: (self: Gtk.Button) => void;
 }) {
     const [isRevealed, setIsRevealed] = createState(false);
-
     const [isFocused, setIsFocused] = createState(false);
 
     return (
@@ -33,47 +32,39 @@ function SessionButton({
             )}
             $={(self) => {
                 const motionController = new Gtk.EventControllerMotion();
-
-                motionController.connect("enter", () => setIsRevealed(true));
-
-                motionController.connect("leave", () => setIsRevealed(false));
-
+                const id1 = motionController.connect("enter", () => setIsRevealed(true));
+                const id2 = motionController.connect("leave", () => setIsRevealed(false));
                 self.add_controller(motionController);
 
                 const focusController = new Gtk.EventControllerFocus();
-
-                focusController.connect("enter", () => {
+                const id3 = focusController.connect("enter", () => {
                     setIsRevealed(true);
-
                     setIsFocused(true);
                 });
-
-                focusController.connect("leave", () => {
+                const id4 = focusController.connect("leave", () => {
                     setIsRevealed(false);
-
                     setIsFocused(false);
                 });
-
                 self.add_controller(focusController);
+
+                onCleanup(() => {
+                    motionController.disconnect(id1);
+                    motionController.disconnect(id2);
+                    focusController.disconnect(id3);
+                    focusController.disconnect(id4);
+                });
 
                 if (setup) setup(self);
             }}
         >
-            <box
-                orientation={Gtk.Orientation.VERTICAL}
-                class="session-button-box"
-            >
+            <box orientation={Gtk.Orientation.VERTICAL} class="session-button-box">
                 <label vexpand class="icon-material" label={icon} />
-
                 <revealer
                     transitionType={Gtk.RevealerTransitionType.SLIDE_DOWN}
                     transitionDuration={userOptions.animations.durationSmall}
                     revealChild={isRevealed}
                 >
-                    <label
-                        class="txt-smaller session-button-desc"
-                        label={name}
-                    />
+                    <label class="txt-smaller session-button-desc" label={name} />
                 </revealer>
             </box>
         </button>
@@ -88,48 +79,12 @@ export default function Session(monitor: Gdk.Monitor, index: number) {
             if (w.name.startsWith("session")) w.visible = false;
         });
 
-    const lock = () => {
-        close();
-        execAsync(["loginctl", "lock-session"]).catch((e) => Logger.error(e));
-    };
-    const logout = () => {
-        close();
-        execAsync([
-            "bash",
-            "-c",
-            "pkill Hyprland || pkill sway || pkill niri || loginctl terminate-user $USER",
-        ]).catch((e) => Logger.error(e));
-    };
-    const sleep = () => {
-        close();
-        execAsync([
-            "bash",
-            "-c",
-            "systemctl suspend || loginctl suspend",
-        ]).catch((e) => Logger.error(e));
-    };
-    const hibernate = () => {
-        close();
-        execAsync([
-            "bash",
-            "-c",
-            "systemctl hibernate || loginctl hibernate",
-        ]).catch((e) => Logger.error(e));
-    };
-    const shutdown = () => {
-        close();
-        execAsync([
-            "bash",
-            "-c",
-            "systemctl poweroff || loginctl poweroff",
-        ]).catch((e) => Logger.error(e));
-    };
-    const reboot = () => {
-        close();
-        execAsync(["bash", "-c", "systemctl reboot || loginctl reboot"]).catch(
-            (e) => Logger.error(e),
-        );
-    };
+    const lock = () => { close(); execAsync(["loginctl", "lock-session"]).catch((e) => Logger.error(e)); };
+    const logout = () => { close(); execAsync(["bash", "-c", "pkill Hyprland || pkill sway || pkill niri || loginctl terminate-user $USER"]).catch((e) => Logger.error(e)); };
+    const sleep = () => { close(); execAsync(["bash", "-c", "systemctl suspend || loginctl suspend"]).catch((e) => Logger.error(e)); };
+    const hibernate = () => { close(); execAsync(["bash", "-c", "systemctl hibernate || loginctl hibernate"]).catch((e) => Logger.error(e)); };
+    const shutdown = () => { close(); execAsync(["bash", "-c", "systemctl poweroff || loginctl poweroff"]).catch((e) => Logger.error(e)); };
+    const reboot = () => { close(); execAsync(["bash", "-c", "systemctl reboot || loginctl reboot"]).catch((e) => Logger.error(e)); };
 
     let lockButton: Gtk.Button | null = null;
 
@@ -145,118 +100,53 @@ export default function Session(monitor: Gdk.Monitor, index: number) {
             visible={false}
             $={(self) => {
                 const controller = new Gtk.EventControllerKey();
-
-                controller.connect("key-pressed", (_, keyval) => {
+                const id1 = controller.connect("key-pressed", (_, keyval) => {
                     if (keyval === Gdk.KEY_Escape) {
                         close();
-
                         return true;
                     }
-
                     return false;
                 });
-
                 self.add_controller(controller);
 
-                self.connect("notify::visible", () => {
+                const id2 = self.connect("notify::visible", () => {
                     if (self.visible && lockButton) {
                         lockButton.grab_focus();
                     }
                 });
+                
+                onCleanup(() => {
+                    controller.disconnect(id1);
+                    self.disconnect(id2);
+                });
             }}
         >
             <box class="session-bg" orientation={Gtk.Orientation.VERTICAL}>
-                <button
-                    vexpand
-                    onClicked={close}
-                    css="background: transparent; border: none; box-shadow: none;"
-                />
-
-                <box
-                    halign={Gtk.Align.CENTER}
-                    vexpand
-                    orientation={Gtk.Orientation.VERTICAL}
-                >
-                    <box
-                        valign={Gtk.Align.CENTER}
-                        orientation={Gtk.Orientation.VERTICAL}
-                        class="spacing-v-15"
-                    >
-                        <box
-                            orientation={Gtk.Orientation.VERTICAL}
-                            css="margin-bottom: 0.682rem;"
-                        >
+                <button vexpand onClicked={close} css="background: transparent; border: none; box-shadow: none;" />
+                <box halign={Gtk.Align.CENTER} vexpand orientation={Gtk.Orientation.VERTICAL}>
+                    <box valign={Gtk.Align.CENTER} orientation={Gtk.Orientation.VERTICAL} class="spacing-v-15">
+                        <box orientation={Gtk.Orientation.VERTICAL} css="margin-bottom: 0.682rem;">
                             <label class="txt-title txt" label="Session" />
-
-                            <label
-                                justify={Gtk.Justification.CENTER}
-                                class="txt-small txt"
-                                label={
-                                    "Use arrow keys to navigate.\nEnter to select, Esc to cancel."
-                                }
+                            <label justify={Gtk.Justification.CENTER} class="txt-small txt"
+                                label={"Use arrow keys to navigate.\nEnter to select, Esc to cancel."}
                             />
                         </box>
                         <box class="spacing-h-15" halign={Gtk.Align.CENTER}>
-                            <SessionButton
-                                name="Lock"
-                                icon="lock"
-                                command={lock}
-                                colorid={1}
-                                setup={(self) => {
-                                    lockButton = self;
-                                }}
-                            />
-
-                            <SessionButton
-                                name="Logout"
-                                icon="logout"
-                                command={logout}
-                                colorid={2}
-                            />
-
-                            <SessionButton
-                                name="Sleep"
-                                icon="sleep"
-                                command={sleep}
-                                colorid={3}
-                            />
-                        </box>{" "}
-                        <box class="spacing-h-15" halign={Gtk.Align.CENTER}>
-                            <SessionButton
-                                name="Hibernate"
-                                icon="downloading"
-                                command={hibernate}
-                                colorid={4}
-                            />
-                            <SessionButton
-                                name="Shutdown"
-                                icon="power_settings_new"
-                                command={shutdown}
-                                colorid={5}
-                            />
-                            <SessionButton
-                                name="Reboot"
-                                icon="restart_alt"
-                                command={reboot}
-                                colorid={6}
-                            />
+                            <SessionButton name="Lock" icon="lock" command={lock} colorid={1} setup={(self) => { lockButton = self; }} />
+                            <SessionButton name="Logout" icon="logout" command={logout} colorid={2} />
+                            <SessionButton name="Sleep" icon="sleep" command={sleep} colorid={3} />
                         </box>
                         <box class="spacing-h-15" halign={Gtk.Align.CENTER}>
-                            <SessionButton
-                                name="Cancel"
-                                icon="close"
-                                command={close}
-                                colorid={7}
-                                className="session-button-cancel"
-                            />
+                            <SessionButton name="Hibernate" icon="downloading" command={hibernate} colorid={4} />
+                            <SessionButton name="Shutdown" icon="power_settings_new" command={shutdown} colorid={5} />
+                            <SessionButton name="Reboot" icon="restart_alt" command={reboot} colorid={6} />
+                        </box>
+                        <box class="spacing-h-15" halign={Gtk.Align.CENTER}>
+                            <SessionButton name="Cancel" icon="close" command={close} colorid={7} className="session-button-cancel" />
                         </box>
                     </box>
                 </box>
-                <button
-                    vexpand
-                    onClicked={close}
-                    css="background: transparent; border: none; box-shadow: none;"
-                />
+                <button vexpand onClicked={close} css="background: transparent; border: none; box-shadow: none;" />
             </box>
         </window>
     );

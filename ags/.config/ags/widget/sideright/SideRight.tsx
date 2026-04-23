@@ -1,3 +1,4 @@
+import { onCleanup } from "ags";
 import { Astal, Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { execAsync } from "ags/process";
@@ -48,6 +49,8 @@ function TimeRow() {
             return "Uptime: unknown";
         }
     });
+    
+    onCleanup(() => uptime.drop());
 
     return (
         <box class="spacing-h-10 sidebar-group-invisible-morehorizpad">
@@ -107,7 +110,7 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
                 $={(self: Gtk.Window) => {
                     Logger.info(`SideRight window setup ${self.name}`);
                     const controller = new Gtk.EventControllerKey();
-                    controller.connect(
+                    const connId = controller.connect(
                         "key-pressed",
                         (_, keyval, _keycode, state) => {
                             // Close on Escape
@@ -144,6 +147,10 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
                         },
                     );
                     self.add_controller(controller);
+                    
+                    onCleanup(() => {
+                        controller.disconnect(connId);
+                    });
                 }}
             >
                 <box>

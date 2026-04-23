@@ -1,5 +1,5 @@
 import Tray from "gi://AstalTray";
-import { createBinding, createState, For } from "ags";
+import { createBinding, createState, For, onCleanup } from "ags";
 import { Gdk, Gtk } from "ags/gtk4";
 import userOptions from "services/options/Options";
 
@@ -11,7 +11,7 @@ function TrayItem({ item }: { item: Tray.TrayItem }) {
     const init = (self: Gtk.MenuButton) => {
         self.menu_model = item.menu_model;
         self.insert_action_group("dbusmenu", item.action_group);
-        item.connect("notify::action-group", () => {
+        const notifyId = item.connect("notify::action-group", () => {
             self.insert_action_group("dbusmenu", item.action_group);
         });
 
@@ -19,7 +19,7 @@ function TrayItem({ item }: { item: Tray.TrayItem }) {
         const controller = new Gtk.GestureClick();
         controller.set_button(0); // Listen to all buttons
         controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE); // Catch event before button
-        controller.connect("released", (gesture, _n, x, y) => {
+        const releasedId = controller.connect("released", (gesture, _n, x, y) => {
             const btn = gesture.get_current_button();
             if (btn === Gdk.BUTTON_PRIMARY) {
                 // Left Click: Activate the app
@@ -32,6 +32,11 @@ function TrayItem({ item }: { item: Tray.TrayItem }) {
             }
         });
         self.add_controller(controller);
+
+        onCleanup(() => {
+            item.disconnect(notifyId);
+            controller.disconnect(releasedId);
+        });
     };
 
     return (
@@ -56,8 +61,13 @@ export function SystemTray() {
     const [items, setItems] = createState(tray.get_items());
 
     const update = () => setItems([...tray.get_items()]);
-    tray.connect("item-added", update);
-    tray.connect("item-removed", update);
+    const s1 = tray.connect("item-added", update);
+    const s2 = tray.connect("item-removed", update);
+
+    onCleanup(() => {
+        tray.disconnect(s1);
+        tray.disconnect(s2);
+    });
 
     return (
         <revealer

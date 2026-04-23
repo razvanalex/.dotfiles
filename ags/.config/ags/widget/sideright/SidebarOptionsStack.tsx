@@ -1,4 +1,4 @@
-import { createState } from "ags";
+import { createState, onCleanup } from "ags";
 import { Gtk } from "ags/gtk4";
 import { execAsync } from "ags/process";
 import Logger from "lib/logger";
@@ -66,9 +66,10 @@ export default function SidebarOptionsStack() {
     };
 
     // Subscribe to changes
-    activeTab.subscribe(() => {
+    const unsub = activeTab.subscribe(() => {
         currentTab = activeTab.get();
     });
+    onCleanup(unsub);
 
     return (
         <box orientation={Gtk.Orientation.VERTICAL} class="sidebar-group">
