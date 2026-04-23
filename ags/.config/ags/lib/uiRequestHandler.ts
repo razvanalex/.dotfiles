@@ -25,7 +25,7 @@ export async function handleUIRequest(argv: string[], res: (response: any) => vo
                 return GLib.SOURCE_REMOVE;
             });
         }
-        return res("ok");
+        return res("");
     }
 
     if (argv[0] === "session") {
@@ -33,7 +33,7 @@ export async function handleUIRequest(argv: string[], res: (response: any) => vo
         monitors.forEach((_, index) => {
             app.toggle_window(`session${index}`);
         });
-        return res("ok");
+        return res("");
     }
 
     return false; // Not handled
