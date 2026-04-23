@@ -1,4 +1,4 @@
-import { createState } from "ags";
+import { createState, onCleanup } from "ags";
 import { Gtk } from "ags/gtk4";
 import wallpaperService from "services/wallpaper/Wallpaper";
 import wallpaperEngine from "services/wallpaper/WallpaperEngine";
@@ -70,8 +70,13 @@ export default function FavoritesSection() {
         }
     };
 
-    wallpaperEngine.connect("changed", rebuildItems);
-    wallpaperService.connect("wallpaper-changed", rebuildItems);
+    const s1 = wallpaperEngine.connect("changed", rebuildItems);
+    const s2 = wallpaperService.connect("wallpaper-changed", rebuildItems);
+
+    onCleanup(() => {
+        wallpaperEngine.disconnect(s1);
+        wallpaperService.disconnect(s2);
+    });
 
     const grid = WallpaperGridView({
         items,
@@ -104,9 +109,10 @@ export default function FavoritesSection() {
         rebuildItems();
     });
 
-    selected.subscribe(updateActionState);
-    updateActionState();
+    const unsubSelected = selected.subscribe(updateActionState);
+    onCleanup(unsubSelected);
 
+    updateActionState();
     rebuildItems();
 
     return box;

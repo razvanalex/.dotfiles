@@ -6,6 +6,9 @@ import Logger from "lib/logger";
 import {
     findImages,
     loadConfig,
+    fuzzyFilter,
+    getCurrentTheme,
+    updateCurrentTheme,
     type WallpaperConfig,
 } from "./utils/wallpaper";
 import {
@@ -17,31 +20,25 @@ import {
     type WallpaperSourceType,
     type WallpaperStrategy,
 } from "./utils/wallpaperEngine";
-import {
-    fuzzyFilter,
-    getCurrentTheme,
-    updateCurrentTheme,
-} from "./utils/wallpaperUtils";
 import wallpaper from "./Wallpaper";
 
 const log = Logger.withScope("WallpaperEngine");
-const SOURCE_POOL_CACHE_TTL_MS = 2000;
+const SOURCE_POOL_CACHE_TTL_MS = 60000; // Increased to 60s
 
 class WallpaperEngine extends GObject.Object {
     static {
         GObject.registerClass(
             {
                 Properties: {
-                    "engine-state": GObject.ParamSpec.string(
+                    "engine-state": GObject.ParamSpec.jsobject(
                         "engine-state",
                         "Engine State",
-                        "JSON representation of the engine state",
+                        "Current state of the wallpaper engine",
                         GObject.ParamFlags.READABLE,
-                        "",
                     ),
                 },
                 Signals: {
-                    "changed": {},
+                    changed: {},
                 },
             },
             WallpaperEngine,
@@ -49,7 +46,7 @@ class WallpaperEngine extends GObject.Object {
     }
 
     #state: WallpaperEngineState;
-    #sourcePoolCache = new Map<string, { expiresAt: number; value: Promise<string[]> }>();
+    #sourcePoolCache: Map<string, { data: string[]; timestamp: number }> = new Map();
 
     constructor() {
         super();
@@ -58,15 +55,19 @@ class WallpaperEngine extends GObject.Object {
     }
 
     #init() {
+        // Persistent singleton listener
         wallpaper.connect("wallpaper-changed", (_, path) => {
             if (!path) return;
-            this.#updateHistory(path);
-            const qIdx = this.#state.queue.indexOf(path);
+            this.#updateHistory(String(path));
+            
+            // Only update currentIndex if path is in queue
+            const qIdx = this.#state.queue.indexOf(String(path));
             if (qIdx >= 0) this.#state.currentIndex = qIdx;
 
             const config = loadConfig(PATHS.wallpaperConfig);
-            const inferredTheme = this.inferThemeFromWallpaperPath(config.wallpaperDir, path);
+            const inferredTheme = this.inferThemeFromWallpaperPath(config.wallpaperDir, String(path));
             if (inferredTheme) {
+                // Await theme update to prevent race conditions during theme selection
                 void updateCurrentTheme(config.wallpaperDir, inferredTheme).catch((err) => {
                     log.error(`Failed to update .crt_theme: ${err}`);
                 });
@@ -115,7 +116,8 @@ class WallpaperEngine extends GObject.Object {
         const parts = relativePath.split("/");
         if (parts.length <= 1) return "";
 
-        parts.pop();
+        // Return the full directory path relative to wallpaperDir
+        parts.pop(); // remove filename
         return parts.join("/");
     }
 
@@ -131,6 +133,7 @@ class WallpaperEngine extends GObject.Object {
     }
 
     #normalizePoolForState(pool: string[]) {
+        const start = Date.now();
         const seen = new Set<string>();
         const uniquePool: string[] = [];
         for (const p of pool) {
@@ -142,51 +145,42 @@ class WallpaperEngine extends GObject.Object {
 
         const queueSet = new Set(this.#state.queue);
         const poolSet = new Set(uniquePool);
-        const sameSize = queueSet.size === poolSet.size;
-        let sameValues = sameSize;
-        if (sameValues) {
+        
+        let poolChanged = queueSet.size !== poolSet.size;
+        if (!poolChanged) {
             for (const item of queueSet) {
                 if (!poolSet.has(item)) {
-                    sameValues = false;
+                    poolChanged = true;
                     break;
                 }
             }
         }
 
-        if (!sameValues || this.#state.queue.length === 0) {
-            this.#state.queue = this.#state.strategy === "shuffle"
-                ? this.#shufflePaths(uniquePool)
-                : [...uniquePool];
+        if (poolChanged) {
+            if (this.#state.strategy === "shuffle") {
+                this.#state.queue = this.#shufflePaths(uniquePool);
+            } else {
+                this.#state.queue = uniquePool;
+            }
             this.#state.currentIndex = -1;
         }
-
-        return uniquePool;
+        
+        const duration = Date.now() - start;
+        if (duration > 50) log.info(`Pool normalization took ${duration}ms for ${pool.length} items`);
     }
 
-    async #withSourcePoolCache(key: string, loader: () => Promise<string[]>) {
+    async #withSourcePoolCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
         const now = Date.now();
         const cached = this.#sourcePoolCache.get(key);
-        if (cached && cached.expiresAt > now) {
-            return cached.value;
+        if (cached && (now - cached.timestamp < SOURCE_POOL_CACHE_TTL_MS)) {
+            return cached.data as unknown as T;
         }
-
-        const nextPromise = loader();
-        this.#sourcePoolCache.set(key, {
-            expiresAt: now + SOURCE_POOL_CACHE_TTL_MS,
-            value: nextPromise,
-        });
-
-        void nextPromise.catch(() => {
-            const live = this.#sourcePoolCache.get(key);
-            if (live?.value === nextPromise) {
-                this.#sourcePoolCache.delete(key);
-            }
-        });
-
-        return nextPromise;
+        const data = await fetcher();
+        this.#sourcePoolCache.set(key, { data: data as unknown as string[], timestamp: now });
+        return data;
     }
 
-    async resolveSourcePool() {
+    async resolveSourcePool(): Promise<string[]> {
         const config = loadConfig(PATHS.wallpaperConfig);
         const findOptions = {
             recursiveSearch: config.recursiveSearch ?? true,
@@ -203,12 +197,7 @@ class WallpaperEngine extends GObject.Object {
         }
 
         if (this.#state.sourceType === "favorites") {
-            const valid = this.#state.favorites.filter((path) => GLib.file_test(path, GLib.FileTest.EXISTS));
-            if (valid.length !== this.#state.favorites.length) {
-                this.#state.favorites = valid;
-                this.#syncState();
-            }
-            return valid;
+            return this.#state.favorites;
         }
 
         if (this.#state.sourceType === "filtered-library") {
@@ -258,11 +247,6 @@ class WallpaperEngine extends GObject.Object {
             if (this.#state.currentIndex >= this.#state.queue.length - 1) {
                 if (this.#state.strategy === "shuffle" && this.#state.queue.length > 1) {
                     this.#state.queue = this.#shufflePaths(this.#state.queue);
-                    if (this.#state.queue[0] === currentWallpaper && this.#state.queue.length > 1) {
-                        const first = this.#state.queue[0];
-                        this.#state.queue[0] = this.#state.queue[1];
-                        this.#state.queue[1] = first;
-                    }
                     this.#state.currentIndex = 0;
                     return this.#state.queue[0];
                 }
@@ -284,7 +268,7 @@ class WallpaperEngine extends GObject.Object {
             return pickerPool[Math.floor(Math.random() * pickerPool.length)];
         }
 
-        const normalizedPool = this.#normalizePoolForState(pool);
+        this.#normalizePoolForState(pool);
         if (this.#state.currentIndex < 0 && currentWallpaper) {
             this.#state.currentIndex = this.#state.queue.indexOf(currentWallpaper);
         }
@@ -292,7 +276,7 @@ class WallpaperEngine extends GObject.Object {
         let nextIndex = this.#state.currentIndex + 1;
         if (nextIndex >= this.#state.queue.length) {
             if (this.#state.strategy === "shuffle") {
-                this.#state.queue = this.#shufflePaths(normalizedPool);
+                this.#state.queue = this.#shufflePaths(this.#state.queue);
             }
             nextIndex = 0;
         }
@@ -302,57 +286,46 @@ class WallpaperEngine extends GObject.Object {
     }
 
     async getPreviousPath(): Promise<string> {
-        const currentWallpaper = wallpaper.getCurrentWallpaper();
-
-        if (this.#state.queue.length > 0) {
-            if (this.#state.currentIndex < 0 && currentWallpaper) {
-                this.#state.currentIndex = this.#state.queue.indexOf(currentWallpaper);
-            }
-
-            if (this.#state.currentIndex > 0) {
-                this.#state.currentIndex -= 1;
-                return this.#state.queue[this.#state.currentIndex];
-            }
+        if (this.#state.historyCursor > 0) {
+            this.#state.historyCursor -= 1;
+            return this.#state.history[this.#state.historyCursor];
         }
 
         const pool = await this.resolveSourcePool();
-        if (pool.length > 0) {
-            this.#normalizePoolForState(pool);
-            if (this.#state.currentIndex < 0 && currentWallpaper) {
-                this.#state.currentIndex = this.#state.queue.indexOf(currentWallpaper);
-            }
-            if (this.#state.currentIndex > 0) {
-                this.#state.currentIndex -= 1;
-                return this.#state.queue[this.#state.currentIndex];
-            }
+        if (pool.length === 0) throw new Error("source has no wallpapers");
+
+        if (this.#state.strategy === "random") {
+            return pool[Math.floor(Math.random() * pool.length)];
         }
 
-        if (this.#state.history.length === 0) throw new Error("history is empty");
-
-        let cursor = this.#state.historyCursor;
-        if (cursor < 0 || cursor >= this.#state.history.length) {
-            cursor = this.#state.history.length - 1;
+        this.#normalizePoolForState(pool);
+        const currentWallpaper = wallpaper.getCurrentWallpaper();
+        if (this.#state.currentIndex < 0 && currentWallpaper) {
+            this.#state.currentIndex = this.#state.queue.indexOf(currentWallpaper);
         }
 
-        if (currentWallpaper && this.#state.history[cursor] === currentWallpaper) {
-            cursor -= 1;
+        let prevIndex = this.#state.currentIndex - 1;
+        if (prevIndex < 0) {
+            prevIndex = this.#state.queue.length - 1;
         }
 
-        if (cursor < 0) throw new Error("already at oldest wallpaper in history");
-
-        this.#state.historyCursor = cursor;
-        return this.#state.history[cursor];
+        this.#state.currentIndex = prevIndex;
+        return this.#state.queue[prevIndex] || pool[0];
     }
 
     async next() {
         const path = await this.getNextPath(true);
-        await wallpaper.setWallpaper(path);
+        void wallpaper.setWallpaper(path).catch(err => {
+            log.error(`Failed to apply next wallpaper: ${err}`);
+        });
         return path;
     }
 
     async prev() {
         const path = await this.getPreviousPath();
-        await wallpaper.setWallpaper(path);
+        void wallpaper.setWallpaper(path).catch(err => {
+            log.error(`Failed to apply previous wallpaper: ${err}`);
+        });
         return path;
     }
 
@@ -374,26 +347,34 @@ class WallpaperEngine extends GObject.Object {
 
     stopAuto() {
         wallpaper.stopAutoChange();
-        this.#state.isRunning = false;
         this.#state.mode = "manual";
-        this.#syncState();
-    }
-
-    setMode(mode: WallpaperMode) {
-        this.#state.mode = mode;
+        this.#state.isRunning = false;
         this.#syncState();
     }
 
     setInterval(seconds: number) {
-        if (seconds < 30) throw new Error("Interval must be at least 30 seconds");
         this.#state.intervalSeconds = seconds;
-        if (this.#state.isRunning) {
-            void wallpaper.updateAutoChangeInterval(seconds);
+        if (this.#state.mode === "automatic") {
+            void this.startAuto(seconds);
+        } else {
+            this.#syncState();
         }
+    }
+
+    setMode(mode: WallpaperMode) {
+        if (mode === "automatic") {
+            void this.startAuto();
+        } else {
+            this.stopAuto();
+        }
+    }
+
+    setStrategy(strategy: WallpaperStrategy) {
+        this.#state.strategy = strategy;
         this.#syncState();
     }
 
-    setSource(type: WallpaperSourceType, value: string) {
+    setSource(type: WallpaperSourceType, value: string = "") {
         this.#state.sourceType = type;
         this.#state.sourceValue = value;
         this.#state.queue = [];
@@ -401,17 +382,9 @@ class WallpaperEngine extends GObject.Object {
         this.#syncState();
     }
 
-    setStrategy(strategy: WallpaperStrategy) {
-        this.#state.strategy = strategy;
-        this.#state.queue = [];
-        this.#state.currentIndex = -1;
-        this.#syncState();
-    }
-
     addFavorite(path: string) {
-        if (!GLib.file_test(path, GLib.FileTest.EXISTS)) throw new Error("File does not exist");
         if (!this.#state.favorites.includes(path)) {
-            this.#state.favorites = [...this.#state.favorites, path];
+            this.#state.favorites.push(path);
             this.#syncState();
         }
     }

@@ -1,7 +1,6 @@
 import type GObject from "gi://GObject";
-import type { Accessor } from "ags";
-import { createState } from "ags";
-import { execAsync } from "ags/process";
+import type { Accessor, Setter } from "ags";
+import { createState, onCleanup } from "ags";
 import { PATHS } from "lib/constants";
 import Logger from "lib/logger";
 import { loadConfig } from "services/wallpaper/utils/wallpaper";
@@ -9,7 +8,7 @@ import {
     fuzzyFilter,
     getCurrentTheme,
     loadThemes,
-} from "services/wallpaper/utils/wallpaperUtils";
+} from "services/wallpaper/utils/wallpaper";
 import wallpaperService from "services/wallpaper/Wallpaper";
 import wallpaperEngine from "services/wallpaper/WallpaperEngine";
 import {
@@ -21,7 +20,7 @@ import type { GridItem } from "../../WallpaperGridView.js";
 import { fuzzyThemeFilter } from "./filters";
 import { primeWallpaperThumbnails } from "./thumbnailCache";
 
-const DEBUG_WALLPAPER_PREVIEW = true;
+const DEBUG_WALLPAPER_PREVIEW = false;
 const WALLPAPER_PREVIEW_LOOKBACK = 12;
 const WALLPAPER_PREVIEW_LOOKAHEAD = 24;
 const WALLPAPER_PREVIEW_BATCH_SIZE = 24;
@@ -29,16 +28,62 @@ const SEARCH_DEBOUNCE_MS = 120;
 
 let searchDebounceId: ReturnType<typeof setTimeout> | null = null;
 
-function logPreviewDebug(message: string) {
-    if (!DEBUG_WALLPAPER_PREVIEW) return;
-    Logger.info(`[wallpaper-preview] ${message}`);
+// --- Shared Data Layer (The Singleton) ---
+class LibraryDataManager {
+    themes: Accessor<string[]>;
+    setThemes: Setter<string[]>;
+    themePreviews: Accessor<Record<string, string>>;
+    setThemePreviews: Setter<Record<string, string>>;
+    
+    private static instance: LibraryDataManager;
+    private initialized = false;
+
+    private constructor() {
+        const [t, st] = createState<string[]>([]);
+        this.themes = t;
+        this.setThemes = st;
+
+        const [p, sp] = createState<Record<string, string>>({});
+        this.themePreviews = p;
+        this.setThemePreviews = sp;
+
+        wallpaperService.connect("config-changed", () => void this.loadThemeCatalog());
+    }
+
+    static getInstance() {
+        if (!LibraryDataManager.instance) LibraryDataManager.instance = new LibraryDataManager();
+        return LibraryDataManager.instance;
+    }
+
+    async init(wallpaperDir: string) {
+        if (this.initialized) return;
+        await this.loadThemeCatalog(wallpaperDir);
+        this.initialized = true;
+    }
+
+    async loadThemeCatalog(wallpaperDir?: string) {
+        const dir = wallpaperDir || loadConfig(PATHS.wallpaperConfig).wallpaperDir;
+        const config = loadConfig(PATHS.wallpaperConfig);
+        try {
+            const list = await loadThemes(dir, {
+                recursiveSearch: config.recursiveSearch,
+                includeHidden: config.includeHidden,
+            });
+            this.setThemes(list);
+
+            const previews: Record<string, string> = {};
+            await Promise.all(list.slice(0, THEME_PREVIEW_PRELOAD_LIMIT).map(async (t) => {
+                try { previews[t] = await wallpaperService.getFirstWallpaper(`${dir}/${t}`); }
+                catch { previews[t] = ""; }
+            }));
+            this.setThemePreviews(previews);
+        } catch (e) {
+            Logger.error(`LibraryDataManager error: ${e}`);
+        }
+    }
 }
 
-interface CreateLibraryDataControllerProps {
-    wallpaperDir: string;
-    refreshSignal?: Accessor<number>;
-    isSearchVisible?: Accessor<boolean>;
-}
+const dataManager = LibraryDataManager.getInstance();
 
 export interface LibraryDataController {
     libraryView: Accessor<LibraryView>;
@@ -64,136 +109,60 @@ export interface LibraryDataController {
     toggleSelectedFavorite: () => Promise<void>;
 }
 
-export function createLibraryDataController({
-    wallpaperDir,
-    refreshSignal,
-    isSearchVisible,
-}: CreateLibraryDataControllerProps): LibraryDataController {
-    const configPath = PATHS.wallpaperConfig;
+interface CreateLibraryDataControllerProps {
+    wallpaperDir: string;
+    refreshSignal?: Accessor<number>;
+    isSearchVisible?: Accessor<boolean>;
+}
 
+export function createLibraryDataController(props: CreateLibraryDataControllerProps): LibraryDataController {
+    const { wallpaperDir, isSearchVisible: isSearchVisibleProp } = props;
+    
+    // UI State (Per-Window)
     const [browsingTheme, setBrowsingTheme] = createState("");
     const [appliedTheme, setAppliedTheme] = createState("");
-    const [allImages, setAllImages] = createState<string[]>([]);
     const [filteredImages, setFilteredImages] = createState<string[]>([]);
-    const [themes, setThemes] = createState<string[]>([]);
     const [filteredThemes, setFilteredThemes] = createState<string[]>([]);
-    const [themePreviews, setThemePreviews] = createState<
-        Record<string, string>
-    >({});
     const [_searchQuery, setSearchQuery] = createState("");
-    const [currentWallpaper, setCurrentWallpaper] = createState("");
-    const [selectedWallpaper, setSelectedWallpaper] = createState("");
+    const [currentWallpaper, setCurrentWallpaper] = createState(wallpaperService.getCurrentWallpaper());
+    const [selectedWallpaper, setSelectedWallpaper] = createState(wallpaperService.getCurrentWallpaper());
     const [selectedIsFavorite, setSelectedIsFavorite] = createState(false);
     const [libraryView, setLibraryView] = createState<LibraryView>("themes");
-    const [wallpaperPreviewThumbs, setWallpaperPreviewThumbs] = createState<
-        Record<string, string>
-    >({});
-    const [wallpaperVisibleRange, setWallpaperVisibleRange] = createState({
-        start: 0,
-        end: 96,
-    });
+    const [wallpaperPreviewThumbs, setWallpaperPreviewThumbs] = createState<Record<string, string>>({});
+    const [wallpaperVisibleRange, setWallpaperVisibleRange] = createState({ start: 0, end: 96 });
+    const isSearchVisible = isSearchVisibleProp ?? createState(false)[0];
 
-    const inferThemeFromWallpaper = (wallpaperPath: string): string => {
-        if (!wallpaperPath) return "";
+    const themes = dataManager.themes;
+    const themePreviews = dataManager.themePreviews;
+
+    const inferThemeFromWallpaper = (path: string): string => {
+        if (!path) return "";
         const prefix = `${wallpaperDir}/`;
-        if (!wallpaperPath.startsWith(prefix)) return "";
-        const relative = wallpaperPath.slice(prefix.length);
-
+        if (!path.startsWith(prefix)) return "";
+        const relative = path.slice(prefix.length);
         const knownThemes = themes.get();
         let bestMatch = "";
-        for (const theme of knownThemes) {
-            if (relative === theme || relative.startsWith(`${theme}/`)) {
-                if (theme.length > bestMatch.length) bestMatch = theme;
+        for (const t of knownThemes) {
+            if (relative === t || relative.startsWith(`${t}/`)) {
+                if (t.length > bestMatch.length) bestMatch = t;
             }
         }
         if (bestMatch) return bestMatch;
-
+        
         const parts = relative.split("/");
-        return parts[0] || "";
+        if (parts.length > 1) {
+            parts.pop();
+            return parts.join("/");
+        }
+        return "";
     };
 
+    // Thumbnail Management
     const pendingThemePreviewLoads = new Set<string>();
     const pendingWallpaperPreviewLoads = new Set<string>();
     let wallpaperPreviewEpoch = 0;
     let queuedWallpaperRange: { start: number; end: number } | null = null;
     let wallpaperPreviewBatchActive = false;
-
-    const invalidateWallpaperPreviewQueue = () => {
-        wallpaperPreviewEpoch += 1;
-        pendingWallpaperPreviewLoads.clear();
-        queuedWallpaperRange = null;
-    };
-
-    const enqueueWallpaperPreviewRange = (start: number, end: number) => {
-        queuedWallpaperRange = { start, end };
-    };
-
-    const getLiveWindowSet = (images: string[], start: number, end: number) => {
-        const windowStart = Math.max(0, start - WALLPAPER_PREVIEW_LOOKBACK);
-        const windowEnd = Math.min(
-            images.length,
-            end + WALLPAPER_PREVIEW_LOOKAHEAD,
-        );
-        const liveWindow = new Set<string>();
-        for (let i = windowStart; i < windowEnd; i++) {
-            const path = images[i];
-            if (path) liveWindow.add(path);
-        }
-        return {
-            liveWindow,
-            windowStart,
-            windowEnd,
-        };
-    };
-
-    const buildWallpaperPreviewBatch = (
-        images: string[],
-        previews: Record<string, string>,
-        start: number,
-        end: number,
-    ): string[] => {
-        const ordered = new Set<string>();
-        const visibleStart = Math.max(0, start);
-        const visibleEnd = Math.min(images.length, end);
-        const prefetchStart = Math.max(
-            0,
-            visibleStart - WALLPAPER_PREVIEW_LOOKBACK,
-        );
-        const prefetchEnd = Math.min(
-            images.length,
-            visibleEnd + WALLPAPER_PREVIEW_LOOKAHEAD,
-        );
-
-        const pushIfNeeded = (sourcePath: string | undefined) => {
-            if (!sourcePath) return;
-            if (previews[sourcePath]) return;
-            if (pendingWallpaperPreviewLoads.has(sourcePath)) return;
-            ordered.add(sourcePath);
-        };
-
-        for (let index = visibleStart; index < visibleEnd; index++) {
-            pushIfNeeded(images[index]);
-            if (ordered.size >= WALLPAPER_PREVIEW_BATCH_SIZE) {
-                return Array.from(ordered);
-            }
-        }
-
-        for (let index = visibleEnd; index < prefetchEnd; index++) {
-            pushIfNeeded(images[index]);
-            if (ordered.size >= WALLPAPER_PREVIEW_BATCH_SIZE) {
-                return Array.from(ordered);
-            }
-        }
-
-        for (let index = visibleStart - 1; index >= prefetchStart; index--) {
-            pushIfNeeded(images[index]);
-            if (ordered.size >= WALLPAPER_PREVIEW_BATCH_SIZE) {
-                return Array.from(ordered);
-            }
-        }
-
-        return Array.from(ordered);
-    };
 
     const processWallpaperPreviewQueue = () => {
         if (wallpaperPreviewBatchActive) return;
@@ -201,449 +170,190 @@ export function createLibraryDataController({
         if (!nextRange) return;
 
         queuedWallpaperRange = null;
-
-        const start = nextRange.start;
-        const end = nextRange.end;
+        const { start, end } = nextRange;
         const requestEpoch = wallpaperPreviewEpoch;
         const images = filteredImages.get();
         const previews = wallpaperPreviewThumbs.get();
-        const toLoad = buildWallpaperPreviewBatch(images, previews, start, end);
-
-        if (toLoad.length === 0) {
-            return;
+        
+        const toLoad: string[] = [];
+        for (let i = Math.max(0, start); i < Math.min(end, images.length) && toLoad.length < WALLPAPER_PREVIEW_BATCH_SIZE; i++) {
+            const path = images[i];
+            if (path && !previews[path] && !pendingWallpaperPreviewLoads.has(path)) toLoad.push(path);
         }
+
+        if (toLoad.length === 0) return;
 
         wallpaperPreviewBatchActive = true;
+        for (const p of toLoad) pendingWallpaperPreviewLoads.add(p);
 
-        logPreviewDebug(
-            `range=${start}-${end} queued=${toLoad.length} batch=${WALLPAPER_PREVIEW_BATCH_SIZE}`,
-        );
-
-        for (const sourcePath of toLoad) {
-            pendingWallpaperPreviewLoads.add(sourcePath);
-        }
-
-        void primeWallpaperThumbnails(toLoad)
-            .then((batchMap) => {
-                if (requestEpoch !== wallpaperPreviewEpoch) {
-                    logPreviewDebug(
-                        "discarding stale thumbnail batch (epoch changed)",
-                    );
-                    return;
-                }
-
-                const liveImages = filteredImages.get();
-                const liveRange = wallpaperVisibleRange.get();
-                const { liveWindow } = getLiveWindowSet(
-                    liveImages,
-                    liveRange.start,
-                    liveRange.end,
-                );
-
-                const current = wallpaperPreviewThumbs.get();
-                const next = { ...current };
-                let changed = false;
-
-                for (const [sourcePath, thumbPath] of Object.entries(
-                    batchMap,
-                )) {
-                    if (!thumbPath) continue;
-                    if (!liveWindow.has(sourcePath)) continue;
-                    if (next[sourcePath] === thumbPath) continue;
-                    next[sourcePath] = thumbPath;
-                    changed = true;
-                }
-
-                if (changed) {
-                    setWallpaperPreviewThumbs(next);
-                    logPreviewDebug(
-                        `applied map updates=${Object.keys(batchMap).length}`,
-                    );
-                }
-            })
-            .catch((err) => {
-                Logger.error("Failed to prime thumbnails:", err);
-            })
-            .finally(() => {
-                for (const sourcePath of toLoad) {
-                    pendingWallpaperPreviewLoads.delete(sourcePath);
-                }
-
-                wallpaperPreviewBatchActive = false;
-
-                if (!queuedWallpaperRange) {
-                    const liveRange = wallpaperVisibleRange.get();
-                    enqueueWallpaperPreviewRange(
-                        liveRange.start,
-                        liveRange.end,
-                    );
-                }
-
-                logPreviewDebug(
-                    `queue drain complete remainingInFlight=${pendingWallpaperPreviewLoads.size}`,
-                );
-                processWallpaperPreviewQueue();
-            });
+        void primeWallpaperThumbnails(toLoad).then((batchMap) => {
+            if (requestEpoch !== wallpaperPreviewEpoch) return;
+            setWallpaperPreviewThumbs({ ...wallpaperPreviewThumbs.get(), ...batchMap });
+        }).finally(() => {
+            for (const p of toLoad) pendingWallpaperPreviewLoads.delete(p);
+            wallpaperPreviewBatchActive = false;
+            processWallpaperPreviewQueue();
+        });
     };
 
     const ensureThemePreviewRange = (start: number, end: number) => {
         const list = filteredThemes.get();
         const previews = themePreviews.get();
-
         const toLoad: string[] = [];
-        const rangeEnd = Math.min(end, list.length);
-        for (let index = Math.max(0, start); index < rangeEnd; index++) {
-            const theme = list[index];
-            if (!theme) continue;
-            if (previews[theme] !== undefined) continue;
-            if (pendingThemePreviewLoads.has(theme)) continue;
-            toLoad.push(theme);
-            if (toLoad.length >= THEME_PREVIEW_LOAD_BATCH) break;
+        for (let i = Math.max(0, start); i < Math.min(end, list.length) && toLoad.length < THEME_PREVIEW_LOAD_BATCH; i++) {
+            const t = list[i];
+            if (t && previews[t] === undefined && !pendingThemePreviewLoads.has(t)) toLoad.push(t);
         }
 
         if (toLoad.length === 0) return;
+        for (const t of toLoad) pendingThemePreviewLoads.add(t);
 
-        for (const theme of toLoad) pendingThemePreviewLoads.add(theme);
-
-        void Promise.all(
-            toLoad.map(async (theme) => {
-                try {
-                    const first = await wallpaperService.getFirstWallpaper(
-                        `${wallpaperDir}/${theme}`,
-                    );
-                    return [theme, first] as const;
-                } catch {
-                    return [theme, ""] as const;
-                }
-            }),
-        ).then(async (entries) => {
+        void Promise.all(toLoad.map(async (t) => {
+            const first = await wallpaperService.getFirstWallpaper(`${wallpaperDir}/${t}`);
+            return [t, first] as const;
+        })).then(async (entries) => {
             const validPaths = entries.map(([, p]) => p).filter(Boolean);
-            const thumbMap =
-                validPaths.length > 0
-                    ? await primeWallpaperThumbnails(validPaths)
-                    : {};
-
-            const current = themePreviews.get();
-            const next = { ...current };
-            let changed = false;
-
-            for (const [theme, path] of entries) {
-                const thumbPath = path ? thumbMap[path] || path : "";
-                if (next[theme] !== thumbPath) {
-                    next[theme] = thumbPath;
-                    changed = true;
-                }
-                pendingThemePreviewLoads.delete(theme);
+            const thumbMap = validPaths.length > 0 ? await primeWallpaperThumbnails(validPaths) : {};
+            const next = { ...themePreviews.get() };
+            for (const [t, p] of entries) {
+                next[t] = p ? thumbMap[p] || p : "";
+                pendingThemePreviewLoads.delete(t);
             }
-
-            if (changed) setThemePreviews(next);
+            dataManager.setThemePreviews(next);
         });
     };
 
     const ensureWallpaperPreviewRange = (start: number, end: number) => {
-        const currentRange = wallpaperVisibleRange.get();
-        if (currentRange.start !== start || currentRange.end !== end) {
-            wallpaperPreviewEpoch += 1;
-            pendingWallpaperPreviewLoads.clear();
+        if (wallpaperVisibleRange.get().start !== start || wallpaperVisibleRange.get().end !== end) {
             setWallpaperVisibleRange({ start, end });
         }
-
-        enqueueWallpaperPreviewRange(start, end);
+        queuedWallpaperRange = { start, end };
         processWallpaperPreviewQueue();
     };
 
-    wallpaperService.connect(
-        "wallpaper-changed",
-        (_source: GObject.Object, wallpaperPathObj: unknown) => {
-            const newWallpaper =
-                typeof wallpaperPathObj === "string"
-                    ? wallpaperPathObj
-                    : String(wallpaperPathObj ?? "");
-            setCurrentWallpaper(newWallpaper);
-            setSelectedWallpaper(newWallpaper);
+    // Connections
+    const conn1 = wallpaperService.connect("wallpaper-changed", (_, path) => {
+        const p = String(path ?? "");
+        setCurrentWallpaper(p);
+        setSelectedWallpaper(p);
+        const inferred = inferThemeFromWallpaper(p);
+        if (inferred) setAppliedTheme(inferred);
+    });
 
-            const inferredTheme = inferThemeFromWallpaper(newWallpaper);
-            if (!inferredTheme) return;
-
-            setAppliedTheme(inferredTheme);
-        },
-    );
-
-    const initialWallpaper = wallpaperService.getCurrentWallpaper();
-    setCurrentWallpaper(initialWallpaper);
-    setSelectedWallpaper(initialWallpaper);
-    const initialInferredTheme = inferThemeFromWallpaper(initialWallpaper);
-    if (initialInferredTheme) {
-        setAppliedTheme(initialInferredTheme);
-        setBrowsingTheme(initialInferredTheme);
-    }
-
-    const loadThemeCatalog = async () => {
-        const config = loadConfig(configPath);
-        const recursiveSearch = config.recursiveSearch ?? true;
-        const includeHidden = config.includeHidden ?? false;
-
-        try {
-            const themeList = await loadThemes(wallpaperDir, {
-                recursiveSearch,
-                includeHidden,
-            });
-            setThemes(themeList);
-            setFilteredThemes(themeList);
-
-            const previews: Record<string, string> = {};
-            await Promise.all(
-                themeList
-                    .slice(0, THEME_PREVIEW_PRELOAD_LIMIT)
-                    .map(async (theme: string) => {
-                        try {
-                            previews[theme] =
-                                await wallpaperService.getFirstWallpaper(
-                                    `${wallpaperDir}/${theme}`,
-                                );
-                        } catch {
-                            previews[theme] = "";
-                        }
-                    }),
-            );
-            setThemePreviews(previews);
-            ensureThemePreviewRange(0, THEME_PREVIEW_PRELOAD_LIMIT * 2);
-        } catch (error) {
-            Logger.error("Failed to load themes:", error);
-            setThemes([]);
-            setFilteredThemes([]);
-            setThemePreviews({});
-        }
+    const refreshSelectedFavorite = () => {
+        const s = selectedWallpaper.get();
+        setSelectedIsFavorite(s ? wallpaperEngine.state.favorites.includes(s) : false);
     };
+    const unsub1 = selectedWallpaper.subscribe(refreshSelectedFavorite);
+    const conn2 = wallpaperEngine.connect("changed", refreshSelectedFavorite);
 
     const loadImagesForTheme = async (theme: string) => {
         if (!theme) return;
-
         try {
-            const themeDir = `${wallpaperDir}/${theme}`;
-            const images = await wallpaperService.getWallpapers(themeDir);
-            setAllImages(images);
-            const currentQuery = _searchQuery.get();
-            setFilteredImages(fuzzyFilter(images, currentQuery));
-
+            const images = await wallpaperService.getWallpapers(`${wallpaperDir}/${theme}`);
+            setFilteredImages(fuzzyFilter(images, _searchQuery.get()));
             const current = currentWallpaper.get();
-            if (current && images.includes(current)) {
-                setSelectedWallpaper(current);
-            } else {
-                setSelectedWallpaper(images[0] || "");
-            }
-            setSearchQuery("");
-        } catch (error) {
-            Logger.error(`Failed to load images for theme ${theme}:`, error);
-            setAllImages([]);
-            setFilteredImages([]);
-            setSelectedWallpaper("");
-        }
+            setSelectedWallpaper(images.includes(current) ? current : (images[0] || ""));
+        } catch (e) { Logger.error(`Error loading theme images: ${e}`); }
     };
 
-    const refreshDiscoveryData = async () => {
-        await loadThemeCatalog();
-        const theme = browsingTheme.get();
-        if (theme) {
-            await loadImagesForTheme(theme);
-        } else {
-            setAllImages([]);
-            setFilteredImages([]);
-        }
-    };
-
-    const init = async () => {
-        try {
-            const config = loadConfig(configPath);
-            const recursiveSearch = config.recursiveSearch ?? true;
-            const includeHidden = config.includeHidden ?? false;
-            const themeFromFile = await getCurrentTheme(wallpaperDir, {
-                recursiveSearch,
-                includeHidden,
-            });
-            const inferredFromWallpaper = inferThemeFromWallpaper(
-                currentWallpaper.get(),
-            );
-            const effectiveTheme = inferredFromWallpaper || themeFromFile;
-
-            setAppliedTheme(effectiveTheme);
-            setBrowsingTheme(effectiveTheme);
-
-            await loadThemeCatalog();
-        } catch (error) {
-            Logger.error("Failed to initialize library section:", error);
-        }
-    };
-
-    const refreshSelectedFavorite = () => {
-        const selected = selectedWallpaper.get();
-        if (!selected) {
-            setSelectedIsFavorite(false);
-            return;
-        }
-        setSelectedIsFavorite(wallpaperEngine.state.favorites.includes(selected));
-    };
-    selectedWallpaper.subscribe(refreshSelectedFavorite);
-    wallpaperEngine.connect("changed", refreshSelectedFavorite);
+    const syncThemes = () => setFilteredThemes(fuzzyThemeFilter(themes.get(), _searchQuery.get()));
+    const unsub2 = themes.subscribe(syncThemes);
 
     const [themeItems, setThemeItems] = createState<GridItem[]>([]);
+    const [imageItems, setImageItems] = createState<GridItem[]>([]);
+
     const rebuildThemeItems = () => {
         const th = filteredThemes.get();
         const prev = themePreviews.get();
         const active = appliedTheme.get();
-        setThemeItems(
-            th.map((t) => ({
-                id: t,
-                previewPath: prev[t] || undefined,
-                label: t,
-                isActive: t === active,
-            })),
-        );
+        setThemeItems(th.map(t => ({ id: t, previewPath: prev[t], label: t, isActive: t === active })));
     };
-    filteredThemes.subscribe(rebuildThemeItems);
-    themePreviews.subscribe(rebuildThemeItems);
-    appliedTheme.subscribe(rebuildThemeItems);
-
-    const [imageItems, setImageItems] = createState<GridItem[]>([]);
+    
     const rebuildImageItems = () => {
         const imgs = filteredImages.get();
         const current = currentWallpaper.get();
-        setImageItems(
-            imgs.map((p) => ({
-                id: p,
-                previewPath: undefined,
-                label: p.split("/").pop() || "",
-                isActive: p === current,
-                isGif: p.toLowerCase().endsWith(".gif"),
-            })),
-        );
+        setImageItems(imgs.map(p => ({ id: p, label: p.split("/").pop() || "", isActive: p === current, isGif: p.toLowerCase().endsWith(".gif") })));
     };
-    filteredImages.subscribe(rebuildImageItems);
-    currentWallpaper.subscribe(rebuildImageItems);
-    filteredImages.subscribe(() => {
-        invalidateWallpaperPreviewQueue();
-        ensureWallpaperPreviewRange(0, 96);
+
+    const unsubs = [
+        filteredThemes.subscribe(rebuildThemeItems),
+        themePreviews.subscribe(rebuildThemeItems),
+        appliedTheme.subscribe(rebuildThemeItems),
+        filteredImages.subscribe(rebuildImageItems),
+        currentWallpaper.subscribe(rebuildImageItems),
+        filteredImages.subscribe(() => {
+            wallpaperPreviewEpoch++;
+            pendingWallpaperPreviewLoads.clear();
+            ensureWallpaperPreviewRange(0, 96);
+        })
+    ];
+
+    onCleanup(() => {
+        wallpaperService.disconnect(conn1);
+        wallpaperEngine.disconnect(conn2);
+        unsub1();
+        unsub2();
+        for (const unsub of unsubs) unsub();
     });
 
-    setTimeout(() => {
-        void init();
-    }, 0);
-
-    if (refreshSignal) {
-        refreshSignal.subscribe(() => {
-            void refreshDiscoveryData();
-        });
-    }
-
-    wallpaperService.connect("config-changed", () => {
-        void refreshDiscoveryData();
-    });
-
-    const handleSearchChange = (query: string) => {
-        setSearchQuery(query);
-
-        if (searchDebounceId) {
-            clearTimeout(searchDebounceId);
-        }
-
-        searchDebounceId = setTimeout(() => {
-            if (libraryView.get() === "themes") {
-                setFilteredThemes(fuzzyThemeFilter(themes.get(), query));
-                return;
-            }
-
-            const filtered = fuzzyFilter(allImages.get(), query);
-            setFilteredImages(filtered);
-        }, SEARCH_DEBOUNCE_MS);
-    };
-
-    const handleThemeChange = async (newTheme: string) => {
-        invalidateWallpaperPreviewQueue();
-        setBrowsingTheme(newTheme);
-        setLibraryView("wallpapers");
-        await loadImagesForTheme(newTheme);
-    };
-
-    const showCurrentThemeWallpapers = async () => {
-        const current =
-            appliedTheme.get() ||
-            browsingTheme.get() ||
-            inferThemeFromWallpaper(currentWallpaper.get());
-
-        if (!current) {
+    const controller: LibraryDataController = {
+        libraryView, setLibraryView, filteredThemes, filteredImages, browsingTheme,
+        selectedWallpaper, selectedIsFavorite, wallpaperPreviewThumbs, themeItems, imageItems,
+        isSearchVisible,
+        ensureThemePreviewRange, ensureWallpaperPreviewRange,
+        handleThemeChange: async (t) => {
+            setBrowsingTheme(t);
+            setLibraryView("wallpapers");
+            await loadImagesForTheme(t);
+        },
+        showCurrentThemeWallpapers: async () => {
+            const t = appliedTheme.get() || browsingTheme.get() || inferThemeFromWallpaper(currentWallpaper.get());
+            if (!t) return setLibraryView("themes");
+            if (libraryView.get() === "wallpapers" && browsingTheme.get() === t && filteredImages.get().length > 0) return;
+            await controller.handleThemeChange(t);
+        },
+        handleBackToThemes: () => {
             setLibraryView("themes");
-            return;
-        }
-
-        if (
-            libraryView.get() === "wallpapers" &&
-            browsingTheme.get() === current &&
-            allImages.get().length > 0
-        ) {
-            return;
-        }
-
-        await handleThemeChange(current);
-    };
-
-    const handleBackToThemes = () => {
-        invalidateWallpaperPreviewQueue();
-        setLibraryView("themes");
-        const currentQuery = _searchQuery.get();
-        setSearchQuery("");
-        setFilteredThemes(fuzzyThemeFilter(themes.get(), currentQuery));
-    };
-
-    const handleSelectImage = (path: string) => {
-        setSelectedWallpaper(path);
-    };
-
-    const handleActivateImage = async (path: string) => {
-        try {
-            await wallpaperService.setWallpaper(path);
-        } catch (error) {
-            Logger.error("Failed to set wallpaper:", error);
-        }
-    };
-
-    const handleRandomInTheme = async () => {
-        const theme = browsingTheme.get();
-        if (!theme) return;
-        try {
-            await wallpaperEngine.setSource("specific-theme", theme);
+            setSearchQuery("");
+            syncThemes();
+        },
+        handleSearchChange: (q) => {
+            setSearchQuery(q);
+            if (searchDebounceId) clearTimeout(searchDebounceId);
+            searchDebounceId = setTimeout(() => {
+                if (libraryView.get() === "themes") syncThemes();
+                else void loadImagesForTheme(browsingTheme.get());
+            }, SEARCH_DEBOUNCE_MS);
+        },
+        handleSelectImage: (p) => setSelectedWallpaper(p),
+        handleActivateImage: async (p) => { await wallpaperService.setWallpaper(p); },
+        handleRandomInTheme: async () => {
+            const t = browsingTheme.get();
+            if (!t) return;
+            wallpaperEngine.setSource("specific-theme", t);
             await wallpaperEngine.next();
-        } catch (error) {
-            Logger.error("Failed to set random wallpaper in theme:", error);
-        }
+        },
+        toggleSelectedFavorite: async () => {
+            const s = selectedWallpaper.get();
+            if (s) wallpaperEngine.toggleFavorite(s);
+        },
     };
 
-    const toggleSelectedFavorite = async () => {
-        const selected = selectedWallpaper.get();
-        if (!selected) return;
-        wallpaperEngine.toggleFavorite(selected);
+    const init = async () => {
+        await dataManager.init(wallpaperDir);
+        const config = loadConfig(PATHS.wallpaperConfig);
+        const themeFromFile = await getCurrentTheme(wallpaperDir, {
+            recursiveSearch: config.recursiveSearch,
+            includeHidden: config.includeHidden,
+        });
+        const effectiveTheme = inferThemeFromWallpaper(currentWallpaper.get()) || themeFromFile;
+        setAppliedTheme(effectiveTheme);
+        setBrowsingTheme(effectiveTheme);
+        if (effectiveTheme) await loadImagesForTheme(effectiveTheme);
     };
 
-    return {
-        libraryView,
-        setLibraryView,
-        filteredThemes,
-        filteredImages,
-        browsingTheme,
-        selectedWallpaper,
-        selectedIsFavorite,
-        wallpaperPreviewThumbs,
-        themeItems,
-        imageItems,
-        isSearchVisible: isSearchVisible ?? (() => false),
-        ensureThemePreviewRange,
-        ensureWallpaperPreviewRange,
-        handleThemeChange,
-        showCurrentThemeWallpapers,
-        handleBackToThemes,
-        handleSearchChange,
-        handleSelectImage,
-        handleActivateImage,
-        handleRandomInTheme,
-        toggleSelectedFavorite,
-    };
+    setTimeout(() => void init(), 100);
+
+    return controller;
 }

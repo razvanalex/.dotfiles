@@ -13,10 +13,11 @@ export interface PopupSelectorWindowProps {
     index: number;
     monitor: Gdk.Monitor;
     title: string;
-    searchPlaceholder: string;
+    searchPlaceholder: string | Accessor<string>;
     onSearchChange: (query: string) => void;
     getActiveGridView: () => Gtk.GridView;
     onShow?: () => void;
+    navHeader?: JSX.Element;
     children: JSX.Element;
 }
 
@@ -29,15 +30,16 @@ export default function PopupSelectorWindow({
     onSearchChange,
     getActiveGridView,
     onShow,
+    navHeader,
     children,
 }: PopupSelectorWindowProps) {
     const windowName = `${name}${index}`;
 
     const searchEntry = new Gtk.SearchEntry({
-        placeholder_text: searchPlaceholder,
         hexpand: true,
     });
     searchEntry.add_css_class("selector-popup-search-entry");
+    
     searchEntry.connect("search-changed", () => {
         onSearchChange(searchEntry.get_text());
     });
@@ -47,6 +49,8 @@ export default function PopupSelectorWindow({
         gridView: Gtk.GridView,
     ): boolean => {
         const selection = gridView.get_model() as Gtk.SingleSelection;
+        if (!selection) return false;
+        
         const model = selection.get_model();
         if (!model) return false;
 
@@ -163,10 +167,42 @@ export default function PopupSelectorWindow({
             keymode={Astal.Keymode.EXCLUSIVE}
             visible={false}
             $={(self) => {
+                if (typeof searchPlaceholder === "string") {
+                    searchEntry.placeholder_text = searchPlaceholder;
+                } else if (searchPlaceholder) {
+                    const p = searchPlaceholder as any;
+                    
+                    // Safely subscribe
+                    let unsub: (() => void) | null = null;
+                    if (typeof p.subscribe === "function") {
+                        unsub = p.subscribe((val: string) => {
+                            searchEntry.placeholder_text = val || "";
+                        });
+                    }
+                    
+                    // Safely get initial value
+                    if (typeof p.get === "function") {
+                        searchEntry.placeholder_text = p.get() || "";
+                    } else if (typeof p === "function") {
+                        try {
+                            searchEntry.placeholder_text = p() || "";
+                        } catch {
+                            searchEntry.placeholder_text = "";
+                        }
+                    }
+
+                    if (unsub) {
+                        self.connect("destroy", () => {
+                            if (typeof unsub === "function") unsub();
+                        });
+                    }
+                }
+
                 const entryKeyController = new Gtk.EventControllerKey();
                 entryKeyController.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
                 entryKeyController.connect("key-pressed", (_, keyval) => {
                     const gridView = getActiveGridView();
+                    if (!gridView) return false;
 
                     if (keyval === Gdk.KEY_Escape) {
                         self.set_visible(false);
@@ -175,6 +211,7 @@ export default function PopupSelectorWindow({
 
                     if (keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter) {
                         const selection = gridView.get_model() as Gtk.SingleSelection;
+                        if (!selection) return false;
                         const pos = selection.get_selected();
                         if (pos !== Gtk.INVALID_LIST_POSITION) {
                             gridView.emit("activate", pos);
@@ -225,7 +262,10 @@ export default function PopupSelectorWindow({
                 class={`${name}-root`}
                 spacing={12}
             >
-                {searchEntry}
+                <box orientation={Gtk.Orientation.HORIZONTAL} spacing={8}>
+                    {searchEntry}
+                </box>
+                {navHeader}
                 {children}
             </box>
         </window>

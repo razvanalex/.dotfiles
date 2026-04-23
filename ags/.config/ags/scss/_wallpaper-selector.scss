@@ -319,12 +319,34 @@
   padding: 0.477rem 0.682rem;
 
   &:focus {
-    outline: none;
+    outline-style: none;
     background-color: transparentize($primary, 0.88);
   }
 }
 
 // Image Grid
+.wallpaper-grid-flow {
+  outline-style: none;
+  box-shadow: none;
+
+  // Disable default GTK selection highlight on grid items
+  & > child {
+    background-color: transparent;
+    outline-style: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+
+    &:selected,
+    &:hover,
+    &:focus {
+      background-color: transparent;
+      outline-style: none;
+      box-shadow: none;
+    }
+  }
+}
+
 .wallpaper-grid-scroll {
   background-color: transparent;
 
@@ -408,23 +430,38 @@
   margin: 0.4rem;
   @include element_decel;
 
-  &:selected, &:focus {
-    outline: 2px solid $primary;
-    outline-offset: 2px;
-    @include normal-rounding;
+  // Remove focus outline from container - we handle it on the thumbnail
+  &:selected,
+  &:focus {
+    outline-style: none;
+    box-shadow: none;
   }
 
+  // Common thumbnail base
+  .wallpaper-thumbnail {
+    border: 2px solid transparent;
+    @include normal-rounding;
+    @include element_decel;
+  }
+
+  // Selection state (focused via keyboard/cursor)
   &.selected {
     .wallpaper-thumbnail {
-      border: 2px solid transparentize($secondary, 0.3);
-      box-shadow: none;
+      border-color: $secondary;
     }
   }
 
+  // Active state (currently applied wallpaper)
   &.active {
     .wallpaper-thumbnail {
-      border: 2px solid $primary;
-      box-shadow: none;
+      border-color: $primary;
+    }
+
+    // If both active and selected, use a mix or prioritize selection for visibility
+    &.selected {
+      .wallpaper-thumbnail {
+        border-color: $primary;
+      }
     }
 
     .active-indicator {
@@ -442,7 +479,6 @@
 
   &:focus,
   &:focus-visible {
-    box-shadow: 0 0 0 2px transparentize($secondary, 0.45);
   }
 
   &:hover {
@@ -451,7 +487,6 @@
     .wallpaper-thumbnail {
       border-color: mix($primary, $layer0, 40%);
       // Subtle Adwaita hover shadow
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
   }
 
@@ -554,7 +589,6 @@
   &:focus {
     background-color: $surfaceContainer;
     border-color: $primary;
-    box-shadow: 0 0 0 2px transparentize($primary, 0.7);
   }
 
   // Hide the search icon if it's too much, or style it

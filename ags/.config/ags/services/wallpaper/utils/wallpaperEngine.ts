@@ -149,19 +149,47 @@ export function loadEngineState(path?: string): WallpaperEngineState {
     }
 }
 
+import Gio from "gi://Gio";
+import GLib from "gi://GLib";
+
+const SAVE_DEBOUNCE_MS = 100;
+let saveTimer: number | null = null;
+let pendingState: { path: string; state: WallpaperEngineState } | null = null;
+
+async function writeFileAsync(path: string, content: string): Promise<void> {
+    try {
+        GLib.file_set_contents(path, content);
+    } catch (e) {
+        throw new Error(`Failed to write to ${path}: ${e}`);
+    }
+}
+
 export function saveEngineState(
     state: WallpaperEngineState,
     path?: string,
 ): void {
     const statePath = path || getEngineStatePath();
-
     const normalized = normalizeEngineState(state);
+    cachedState = normalized;
+    pendingState = { path: statePath, state: normalized };
 
-    try {
-        ensureDirectory(statePath);
-        GLib.file_set_contents(statePath, JSON.stringify(normalized, null, 2));
-        cachedState = normalized;
-    } catch (error) {
-        Logger.error("WallpaperEngine: Failed to save state:", error);
+    if (saveTimer !== null) {
+        GLib.source_remove(saveTimer);
     }
+
+    saveTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SAVE_DEBOUNCE_MS, () => {
+        if (!pendingState) return GLib.SOURCE_REMOVE;
+        
+        const { path: targetPath, state: data } = pendingState;
+        pendingState = null;
+        saveTimer = null;
+
+        const json = JSON.stringify(data, null, 2);
+        ensureDirectory(targetPath);
+        writeFileAsync(targetPath, json).catch(err => {
+            Logger.error(`WallpaperEngine: Failed to save state asynchronously: ${err}`);
+        });
+        
+        return GLib.SOURCE_REMOVE;
+    });
 }

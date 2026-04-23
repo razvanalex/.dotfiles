@@ -162,7 +162,7 @@ class Wallpaper extends GObject.Object {
 
         // Build awww command
         const params = buildTransitionParams(transitionOptions);
-        const cmd = ["awww", "img", expandedPath, ...params];
+        const cmdStr = `awww img "${expandedPath}" ${params.join(" ")}`;
 
         if (!this.#daemonReady) {
             await this.#ensureAwwwDaemon();
@@ -172,39 +172,33 @@ class Wallpaper extends GObject.Object {
         this.is_animating = true;
 
         try {
-            // Apply wallpaper
-            const beforeApply = Date.now();
+            // Apply wallpaper using truly asynchronous fire-and-forget spawn
             try {
-                await execAsync(cmd);
-                this.#daemonReady = true;
-            } catch (firstError) {
-                this.#daemonReady = false;
-                await this.#ensureAwwwDaemon();
-                await execAsync(cmd);
-                this.#daemonReady = true;
-                log.warn(`Recovered after awww retry: ${firstError}`);
+                GLib.spawn_command_line_async(cmdStr);
+            } catch (spawnError) {
+                log.error(`Spawn failed: ${spawnError}`);
+                // Fallback to execAsync if spawn fails
+                await execAsync(["bash", "-c", `${cmdStr} &`]);
             }
-            const afterApply = Date.now();
 
             // Update state
             this.current_wallpaper = expandedPath;
             this.#saveState();
 
-            // Trigger color generation
+            // Trigger color generation in background
             if (behavior?.applyColor !== false) {
-                await triggerColorGen(
+                void triggerColorGen(
                     this.#config.colorGenerationScript,
                     expandedPath,
                 );
             }
-            const afterColor = Date.now();
 
             // Emit signal
             this.emit("wallpaper-changed", expandedPath);
 
             if (DEBUG_WALLPAPER_TIMING) {
                 log.info(
-                    `timing total=${Date.now() - startedAt}ms apply=${afterApply - beforeApply}ms post=${afterColor - afterApply}ms`,
+                    `timing total=${Date.now() - startedAt}ms`,
                 );
             }
 

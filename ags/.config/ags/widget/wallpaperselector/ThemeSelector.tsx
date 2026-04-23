@@ -2,7 +2,7 @@ import type { Accessor } from "ags";
 import { createState } from "ags";
 import { Gtk } from "ags/gtk4";
 import Logger from "lib/logger";
-import { countImages } from "services/wallpaper/utils/wallpaperUtils";
+import { countImages } from "services/wallpaper/utils/wallpaper";
 import wallpaperEngine from "services/wallpaper/WallpaperEngine";
 
 export default function ThemeSelector({
@@ -22,7 +22,7 @@ export default function ThemeSelector({
     // Load themes on mount
     const initThemes = async () => {
         // Find theme directories
-        const { loadThemes } = await import("services/wallpaper/utils/wallpaperUtils");
+        const { loadThemes } = await import("services/wallpaper/utils/wallpaper");
         const themeList = await loadThemes(wallpaperDir);
         setThemes(themeList);
 

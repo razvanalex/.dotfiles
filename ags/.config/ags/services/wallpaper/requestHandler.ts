@@ -13,7 +13,8 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
         monitors.forEach((_, index) => {
             app.toggle_window(`wallpaper-selector${index}`);
         });
-        return res("ok");
+        res("");
+        return true;
     }
 
     if (argv[0] === "wallpaper-selector-popup") {
@@ -24,7 +25,8 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
             const win = app.get_window(name);
             if (win?.visible) win.present();
         });
-        return res("ok");
+        res("");
+        return true;
     }
 
     if (argv[0] === "theme-selector-popup") {
@@ -35,7 +37,8 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
             const win = app.get_window(name);
             if (win?.visible) win.present();
         });
-        return res("ok");
+        res("");
+        return true;
     }
 
     if (argv[0] === "wallpaper") {
@@ -63,25 +66,30 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
                 `${config.includeHidden ? "Enabled" : "Disabled"} hidden themes`,
             ]).catch(() => { });
 
-            return res(`hidden themes ${config.includeHidden ? "enabled" : "disabled"}`);
+            res(`hidden themes ${config.includeHidden ? "enabled" : "disabled"}`);
+            return true;
         }
 
         if (subcommand === "set-theme") {
             const themeName = argv[2];
-            if (!themeName) return res("error: theme name required");
+            if (!themeName) {
+                res("error: theme name required");
+                return true;
+            }
 
             wallpaperEngine.setSource("specific-theme", themeName);
-            wallpaperEngine.next()
+            await wallpaperEngine.next()
                 .then(() => res(`theme set to ${themeName}`))
                 .catch((err: Error) => res(`error: ${err.message}`));
-            return;
+            return true;
         }
 
         if (subcommand === "engine") {
             const engineCmd = argv[2];
 
             if (engineCmd === "get") {
-                return res(wallpaperEngine.engine_state);
+                res(wallpaperEngine.engine_state);
+                return true;
             }
 
             if (engineCmd === "set") {
@@ -90,35 +98,42 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
 
                 if (key === "mode") {
                     if (value !== "manual" && value !== "automatic") {
-                        return res("error: mode must be manual|automatic");
+                        res("error: mode must be manual|automatic");
+                        return true;
                     }
                     wallpaperEngine.setMode(value as any);
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
+                    return true;
                 }
 
                 if (key === "interval") {
                     const interval = parseInt(value, 10);
                     if (Number.isNaN(interval) || interval < 30) {
-                        return res("error: interval must be >= 30 seconds");
+                        res("error: interval must be >= 30 seconds");
+                        return true;
                     }
                     wallpaperEngine.setInterval(interval);
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
+                    return true;
                 }
 
                 if (key === "source") {
                     const sourceType = value as any;
                     const sourceValue = argv.slice(5).join(" ");
                     wallpaperEngine.setSource(sourceType, sourceValue);
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
+                    return true;
                 }
 
                 if (key === "strategy") {
                     const strategy = value as any;
                     wallpaperEngine.setStrategy(strategy);
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
+                    return true;
                 }
 
-                return res(`error: unknown engine set key ${key}`);
+                res(`error: unknown engine set key ${key}`);
+                return true;
             }
 
             if (engineCmd === "favorites") {
@@ -126,33 +141,45 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
                 const path = argv.slice(4).join(" ");
 
                 if (action === "list") {
-                    return res(JSON.stringify(wallpaperEngine.state.favorites));
+                    res(JSON.stringify(wallpaperEngine.state.favorites));
+                    return true;
                 }
 
                 if (action === "add") {
-                    if (!path) return res("error: favorites add requires a path");
+                    if (!path) {
+                        res("error: favorites add requires a path");
+                        return true;
+                    }
                     try {
                         wallpaperEngine.addFavorite(path);
-                        return res(wallpaperEngine.engine_state);
+                        res(wallpaperEngine.engine_state);
                     } catch (e: any) {
-                        return res(`error: ${e.message}`);
+                        res(`error: ${e.message}`);
                     }
+                    return true;
                 }
 
                 if (action === "remove") {
-                    if (!path) return res("error: favorites remove requires a path");
+                    if (!path) {
+                        res("error: favorites remove requires a path");
+                        return true;
+                    }
                     wallpaperEngine.removeFavorite(path);
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
+                    return true;
                 }
 
-                return res(`error: unknown favorites command ${action}`);
+                res(`error: unknown favorites command ${action}`);
+                return true;
             }
 
             if (engineCmd === "recent") {
                 if (argv[3] === "list") {
-                    return res(JSON.stringify([...wallpaperEngine.state.history].reverse()));
+                    res(JSON.stringify([...wallpaperEngine.state.history].reverse()));
+                    return true;
                 }
-                return res("error: unknown recent command");
+                res("error: unknown recent command");
+                return true;
             }
 
             if (engineCmd === "auto") {
@@ -162,30 +189,34 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
                     const intervalArg = argv[4];
                     const interval = intervalArg ? parseInt(intervalArg, 10) : undefined;
 
-                    wallpaperEngine.startAuto(interval)
+                    await wallpaperEngine.startAuto(interval)
                         .then(() => res(wallpaperEngine.engine_state))
                         .catch((error: Error) => res(`error: ${error.message}`));
-                    return;
+                    return true;
                 }
 
                 if (autoCmd === "stop") {
                     wallpaperEngine.stopAuto();
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
+                    return true;
                 }
 
                 if (autoCmd === "status") {
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
+                    return true;
                 }
 
-                return res(`error: unknown engine auto command ${autoCmd}`);
+                res(`error: unknown engine auto command ${autoCmd}`);
+                return true;
             }
 
-            return res(`error: unknown engine command ${engineCmd}`);
+            res(`error: unknown engine command ${engineCmd}`);
+            return true;
         }
 
         if (subcommand === "next") {
             const startedAt = Date.now();
-            wallpaperEngine.next()
+            await wallpaperEngine.next()
                 .then((path) => {
                     if (DEBUG_WALLPAPER_REQUEST_TIMING) {
                         Logger.info(`[wallpaper-next] completed in ${Date.now() - startedAt}ms`);
@@ -193,21 +224,21 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
                     res(String(path));
                 })
                 .catch((error: Error) => res(`error: ${error.message}`));
-            return;
+            return true;
         }
 
         if (subcommand === "prev") {
-            wallpaperEngine.prev()
+            await wallpaperEngine.prev()
                 .then((path) => res(path))
                 .catch((error: Error) => res(`error: ${error.message}`));
-            return;
+            return true;
         }
 
         if (subcommand === "random") {
-            wallpaper.setRandomWallpaper()
+            await wallpaper.setRandomWallpaper()
                 .then(() => res("random wallpaper set"))
                 .catch((error: Error) => res(`error: ${error.message}`));
-            return;
+            return true;
         }
 
         if (subcommand === "favorite") {
@@ -215,47 +246,57 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
             const pathArg = argv.slice(3).join(" ");
             const path = pathArg || wallpaper.getCurrentWallpaper();
 
-            if (!path) return res("error: no wallpaper path to favorite");
+            if (!path) {
+                res("error: no wallpaper path to favorite");
+                return true;
+            }
 
             if (action === "add") {
                 try {
                     wallpaperEngine.addFavorite(path);
-                    return res(wallpaperEngine.engine_state);
+                    res(wallpaperEngine.engine_state);
                 } catch (e: any) {
-                    return res(`error: ${e.message}`);
+                    res(`error: ${e.message}`);
                 }
+                return true;
             }
 
             if (action === "remove") {
                 wallpaperEngine.removeFavorite(path);
-                return res(wallpaperEngine.engine_state);
+                res(wallpaperEngine.engine_state);
+                return true;
             }
 
             if (action === "toggle") {
                 wallpaperEngine.toggleFavorite(path);
-                return res(wallpaperEngine.engine_state);
+                res(wallpaperEngine.engine_state);
+                return true;
             }
 
             if (action === "list") {
-                return res(JSON.stringify(wallpaperEngine.state.favorites));
+                res(JSON.stringify(wallpaperEngine.state.favorites));
+                return true;
             }
 
-            return res(`error: unknown favorite subcommand ${action}`);
+            res(`error: unknown favorite subcommand ${action}`);
+            return true;
         }
 
         if (subcommand === "play") {
-            wallpaperEngine.startAuto()
+            await wallpaperEngine.startAuto()
                 .then(() => res(wallpaperEngine.engine_state))
                 .catch((error: Error) => res(`error: ${error.message}`));
-            return;
+            return true;
         }
 
         if (subcommand === "pause") {
             wallpaperEngine.stopAuto();
-            return res(wallpaperEngine.engine_state);
+            res(wallpaperEngine.engine_state);
+            return true;
         }
 
-        return res(`unknown wallpaper subcommand: ${subcommand}`);
+        res(`unknown wallpaper subcommand: ${subcommand}`);
+        return true;
     }
 
     return false; // Not handled

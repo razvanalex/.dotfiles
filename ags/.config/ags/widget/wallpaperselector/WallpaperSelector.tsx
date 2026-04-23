@@ -1,10 +1,9 @@
-import { createState } from "ags";
-import { Gdk, Gtk } from "ags/gtk4";
+import { createState, onCleanup } from "ags";
+import { Astal, Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
-import { execAsync } from "ags/process";
-import { createPoll } from "ags/time";
 import { CONFIG_DIR, PATHS } from "lib/constants";
 import { loadConfig } from "services/wallpaper/utils/wallpaper";
+import wallpaperEngine from "services/wallpaper/WallpaperEngine";
 import SidebarNav from "./SidebarNav";
 import AboutSection from "./sections/AboutSection";
 import FavoritesSection from "./sections/FavoritesSection";
@@ -22,60 +21,52 @@ export default function WallpaperSelector(
     const wallpaperDir = config.wallpaperDir;
 
     const [navSection, setNavSection] = createState<NavSection>("library");
+    const [isSearchVisible, setIsSearchVisible] = createState(false);
 
-    const [discoveryRefreshSignal, setDiscoveryRefreshSignal] = createState(0);
+    // --- Engine State Direct Binding ---
+    const [isEngineRunning, setIsEngineRunning] = createState(
+        wallpaperEngine.state.isRunning,
+    );
 
-    // --- Engine State Polling for Playback Pill ---
-    const [isEngineRunning, setIsEngineRunning] = createState(false);
-    createPoll(0, 2000, async () => {
-        try {
-            const result = await execAsync([
-                "ags",
-                "request",
-                "wallpaper",
-                "engine",
-                "get",
-            ]);
-            const parsed = JSON.parse(result.trim());
-            setIsEngineRunning(Boolean(parsed.isRunning));
-        } catch {
-            setIsEngineRunning(false);
-        }
-        return 0; // The return value doesn't matter for the poll
+    const updateEngineState = () => {
+        setIsEngineRunning(wallpaperEngine.state.isRunning);
+    };
+
+    const engineChangedId = wallpaperEngine.connect("changed", updateEngineState);
+
+    onCleanup(() => {
+        wallpaperEngine.disconnect(engineChangedId);
     });
 
     const handleNavChange = (section: NavSection) => {
         setNavSection(section);
     };
 
-    // Create a regular GTK window
+    // Create a regular GTK window (Movable, Rounded by WM/Theme)
     const windowName = `wallpaper-selector${index}`;
     const win = new Gtk.Window({
         application: app,
+        name: windowName,
         title: "Wallpaper Selector",
         default_width: 1000,
         default_height: 700,
-        hide_on_close: true,
     });
-    win.set_name(windowName);
     win.add_css_class("wallpaper-selector-window");
-    win.set_visible(false);
-
+    
     // Minimum size
     win.set_size_request(600, 400);
 
-    // Escape to close
-    const controller = new Gtk.EventControllerKey();
-    controller.connect("key-pressed", (_, keyval) => {
+    // Close on Escape
+    const keyController = new Gtk.EventControllerKey();
+    keyController.connect("key-pressed", (_, keyval) => {
         if (keyval === Gdk.KEY_Escape) {
-            win.set_visible(false);
+            win.visible = false;
             return true;
         }
         return false;
     });
-    win.add_controller(controller);
+    win.add_controller(keyController);
 
-    // --- Root Box (Vertical: HeaderBar + Content) ---
     const rootBox = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
         css_classes: ["wallpaper-selector-root"],
@@ -87,67 +78,72 @@ export default function WallpaperSelector(
         css_classes: ["wallpaper-global-headerbar"],
     });
 
-    // Header Left: Search Icon (Aligned with sidebar width)
-    const [isSearchVisible, setIsSearchVisible] = createState(false);
-    const searchBtn = new Gtk.Button({ icon_name: "system-search-symbolic" });
-    searchBtn.add_css_class("wallpaper-header-icon-btn");
-    searchBtn.connect("clicked", () => {
-        handleNavChange("library");
-        setIsSearchVisible(!isSearchVisible.get());
-    });
-
+    // Header Left
     const headerLeft = new Gtk.Box({
         orientation: Gtk.Orientation.HORIZONTAL,
         spacing: 8,
         halign: Gtk.Align.START,
-        hexpand: false,
     });
     headerLeft.set_size_request(220, -1);
+    
+    const searchBtn = new Gtk.Button({
+        icon_name: "system-search-symbolic",
+        css_classes: ["wallpaper-header-icon-btn"],
+    });
+    searchBtn.connect("clicked", () => {
+        handleNavChange("library");
+        setIsSearchVisible(!isSearchVisible.get());
+    });
     headerLeft.append(searchBtn);
     headerBar.append(headerLeft);
 
-    // Header Center: Window Title
-    const windowTitle = new Gtk.Label({ label: "Wallpaper Selector" });
-    windowTitle.add_css_class("wallpaper-header-title");
-    windowTitle.set_halign(Gtk.Align.CENTER);
-    windowTitle.set_hexpand(true);
+    // Header Center
+    const windowTitle = new Gtk.Label({
+        label: "Wallpaper Selector",
+        css_classes: ["wallpaper-header-title"],
+        halign: Gtk.Align.CENTER,
+        hexpand: true,
+    });
     headerBar.append(windowTitle);
 
-    // Header Right: AI Sparkle, Settings, Close
+    // Header Right
     const headerRight = new Gtk.Box({
         orientation: Gtk.Orientation.HORIZONTAL,
         spacing: 8,
         halign: Gtk.Align.END,
-        hexpand: false,
     });
-    // Try to match width on right side to keep title perfectly centered
     headerRight.set_size_request(220, -1);
-
-    // spacer to push icons to the right
+    
     const rightSpacer = new Gtk.Box({ hexpand: true });
     headerRight.append(rightSpacer);
 
-    const aiBtn = new Gtk.Button();
-    aiBtn.add_css_class("wallpaper-header-icon-btn");
+    const aiBtn = new Gtk.Button({
+        css_classes: ["wallpaper-header-icon-btn"],
+    });
     const aiIcon = new Gtk.Image({ file: `${CONFIG_DIR}/assets/icons/spark-symbolic.svg` });
     aiBtn.set_child(aiIcon);
     headerRight.append(aiBtn);
 
-    const settingsBtn = new Gtk.Button({ icon_name: "emblem-system-symbolic" });
-    settingsBtn.add_css_class("wallpaper-header-icon-btn");
+    const settingsBtn = new Gtk.Button({
+        icon_name: "emblem-system-symbolic",
+        css_classes: ["wallpaper-header-icon-btn"],
+    });
     settingsBtn.connect("clicked", () => handleNavChange("settings"));
     headerRight.append(settingsBtn);
 
-    const closeBtn = new Gtk.Button({ icon_name: "window-close-symbolic" });
-    closeBtn.add_css_class("wallpaper-header-icon-btn");
-    closeBtn.connect("clicked", () => win.set_visible(false));
+    const closeBtn = new Gtk.Button({
+        icon_name: "window-close-symbolic",
+        css_classes: ["wallpaper-header-icon-btn"],
+    });
+    closeBtn.connect("clicked", () => {
+        win.visible = false;
+    });
     headerRight.append(closeBtn);
 
     headerBar.append(headerRight);
-
     rootBox.append(headerBar);
 
-    // --- Content Area (Horizontal: Sidebar + Main) ---
+    // Content Area
     const contentBox = new Gtk.Box({
         orientation: Gtk.Orientation.HORIZONTAL,
         hexpand: true,
@@ -158,11 +154,12 @@ export default function WallpaperSelector(
         activeSection: navSection,
         onSectionChange: handleNavChange,
     });
+    contentBox.append(sidebar);
 
-    // --- Main Content Overlay (Main Area + Pill) ---
-    const mainContentOverlay = new Gtk.Overlay();
-    mainContentOverlay.set_hexpand(true);
-    mainContentOverlay.set_vexpand(true);
+    const mainContentOverlay = new Gtk.Overlay({
+        hexpand: true,
+        vexpand: true,
+    });
 
     const mainArea = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
@@ -172,111 +169,67 @@ export default function WallpaperSelector(
         css_classes: ["wallpaper-selector-main-area"],
     });
 
-    const librarySection = LibrarySection({
-        wallpaperDir,
-        refreshSignal: discoveryRefreshSignal,
-        isSearchVisible: isSearchVisible,
-    });
-
-    const settingsSection = SettingsSection({
-        onDiscoveryChanged: () => {
-            setDiscoveryRefreshSignal(discoveryRefreshSignal.get() + 1);
-        },
-    });
-
-    const favoritesSection = FavoritesSection();
-    const recentSection = RecentSection();
-    const aboutSection = AboutSection();
-
-    mainArea.append(librarySection);
-    mainArea.append(favoritesSection);
-    mainArea.append(recentSection);
-    mainArea.append(settingsSection);
-    mainArea.append(aboutSection);
-
-    const updateMainContentVisibility = () => {
-        const section = navSection.get();
-
-        librarySection.set_visible(section === "library");
-        favoritesSection.set_visible(section === "favorites");
-        recentSection.set_visible(section === "recent");
-        settingsSection.set_visible(section === "settings");
-        aboutSection.set_visible(section === "about");
-    };
-
-    navSection.subscribe(updateMainContentVisibility);
-    updateMainContentVisibility();
+    // Use GObject tags to embed reactive sections
+    mainArea.append(<box visible={navSection.as(s => s === "library")} hexpand vexpand>
+        <LibrarySection 
+            wallpaperDir={wallpaperDir} 
+            isSearchVisible={isSearchVisible} 
+        />
+    </box> as unknown as Gtk.Widget);
+    
+    mainArea.append(<box visible={navSection.as(s => s === "favorites")} hexpand vexpand>
+        <FavoritesSection />
+    </box> as unknown as Gtk.Widget);
+    
+    mainArea.append(<box visible={navSection.as(s => s === "recent")} hexpand vexpand>
+        <RecentSection />
+    </box> as unknown as Gtk.Widget);
+    
+    mainArea.append(<box visible={navSection.as(s => s === "settings")} hexpand vexpand>
+        <SettingsSection />
+    </box> as unknown as Gtk.Widget);
+    
+    mainArea.append(<box visible={navSection.as(s => s === "about")} hexpand vexpand>
+        <AboutSection />
+    </box> as unknown as Gtk.Widget);
 
     mainContentOverlay.set_child(mainArea);
 
-    // --- Overlay for Floating Playback Pill ---
-    const playbackPill = new Gtk.Revealer({
-        transitionType: Gtk.RevealerTransitionType.SLIDE_UP,
-        valign: Gtk.Align.END,
-        halign: Gtk.Align.CENTER,
-        margin_bottom: 24,
-    });
-
-    const pillBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 8,
-        css_classes: ["wallpaper-playback-pill"],
-    });
-
-    const prevBtn = new Gtk.Button({
-        icon_name: "media-skip-backward-symbolic",
-    });
-    prevBtn.connect("clicked", () => {
-        execAsync(["ags", "request", "wallpaper", "prev"]).catch((err) =>
-            console.error(`[WallpaperSelector] prev failed: ${err}`),
-        );
-    });
-
-    const playBtn = new Gtk.Button({
-        icon_name: "media-playback-pause-symbolic",
-    }); // It's visible when running, so it pauses
-    playBtn.connect("clicked", () => {
-        execAsync(["ags", "request", "wallpaper", "pause"])
-            .then(() => {
-                setIsEngineRunning(false);
-            })
-            .catch((err) =>
-                console.error(`[WallpaperSelector] pause failed: ${err}`),
-            );
-    });
-
-    const nextBtn = new Gtk.Button({
-        icon_name: "media-skip-forward-symbolic",
-    });
-    nextBtn.connect("clicked", () => {
-        execAsync(["ags", "request", "wallpaper", "next"]).catch((err) =>
-            console.error(`[WallpaperSelector] next failed: ${err}`),
-        );
-    });
-
-    [prevBtn, playBtn, nextBtn].forEach((btn) => {
-        btn.add_css_class("pill-btn");
-        pillBox.append(btn);
-    });
-
-    playbackPill.set_child(pillBox);
-
-    // Bind play button icon to engine running state
-    isEngineRunning.subscribe((running) => {
-        playBtn.set_icon_name(
-            running
-                ? "media-playback-pause-symbolic"
-                : "media-playback-start-symbolic",
-        );
-    });
-
-    // Make pill always visible to allow starting/stopping globally
-    playbackPill.set_reveal_child(true);
+    // Playback pill
+    const playbackPill = (
+        <revealer
+            transitionType={Gtk.RevealerTransitionType.SLIDE_UP}
+            valign={Gtk.Align.END}
+            halign={Gtk.Align.CENTER}
+            margin_bottom={24}
+            revealChild={true}
+        >
+            <box orientation={Gtk.Orientation.HORIZONTAL} spacing={8} class="wallpaper-playback-pill">
+                <button
+                    class="pill-btn"
+                    iconName="media-skip-backward-symbolic"
+                    onClicked={() => void wallpaperEngine.prev().catch(e => console.error(e))}
+                />
+                <button
+                    class="pill-btn"
+                    iconName={isEngineRunning.as(running => 
+                        running ? "media-playback-pause-symbolic" : "media-playback-start-symbolic"
+                    )}
+                    onClicked={() => {
+                        if (wallpaperEngine.state.isRunning) wallpaperEngine.stopAuto();
+                        else void wallpaperEngine.startAuto().catch(e => console.error(e));
+                    }}
+                />
+                <button
+                    class="pill-btn"
+                    iconName="media-skip-forward-symbolic"
+                    onClicked={() => void wallpaperEngine.next().catch(e => console.error(e))}
+                />
+            </box>
+        </revealer>
+    ) as unknown as Gtk.Widget;
 
     mainContentOverlay.add_overlay(playbackPill);
-
-    // Append sidebar and main content to the contentBox
-    contentBox.append(sidebar);
     contentBox.append(mainContentOverlay);
     rootBox.append(contentBox);
 

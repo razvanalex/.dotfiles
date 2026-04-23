@@ -1,80 +1,9 @@
 import { Gdk, Gtk } from "ags/gtk4";
 import WallpaperGridView from "../../WallpaperGridView.js";
 import type { LibraryDataController } from "./controller";
+import { onCleanup } from "ags";
 
 export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
-    const root = new Gtk.Box({
-        orientation: Gtk.Orientation.VERTICAL,
-        spacing: 0,
-        hexpand: true,
-        vexpand: true,
-        css_classes: ["wallpaper-selector-main"],
-    });
-
-    // --- Action Bar (Breadcrumbs & Tools) ---
-    const actionBar = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 8,
-        css_classes: ["wallpaper-library-actionbar"],
-    });
-    actionBar.set_margin_bottom(12);
-
-    const breadcrumbBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 4,
-        hexpand: true,
-        valign: Gtk.Align.CENTER,
-    });
-
-    const breadcrumbLibrary = new Gtk.Button({ label: "Library" });
-    breadcrumbLibrary.add_css_class("wallpaper-breadcrumb-btn");
-    breadcrumbLibrary.connect("clicked", controller.handleBackToThemes);
-    breadcrumbBox.append(breadcrumbLibrary);
-
-    const breadcrumbSeparator = new Gtk.Label({ label: "›" });
-    breadcrumbSeparator.add_css_class("wallpaper-breadcrumb-sep");
-    breadcrumbBox.append(breadcrumbSeparator);
-
-    const breadcrumbTheme = new Gtk.Label({ label: "" });
-    breadcrumbTheme.add_css_class("wallpaper-breadcrumb-current");
-    breadcrumbBox.append(breadcrumbTheme);
-
-    actionBar.append(breadcrumbBox);
-
-    const headerActions = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 8,
-    });
-
-    const randomBtn = new Gtk.Button({ label: "Random" });
-    randomBtn.add_css_class("wallpaper-header-button");
-    randomBtn.connect("clicked", () => {
-        void controller.handleRandomInTheme();
-    });
-    headerActions.append(randomBtn);
-
-    const favoriteBtn = new Gtk.Button({
-        label: controller.selectedIsFavorite.get() ? "Unfavorite" : "Favorite",
-    });
-    favoriteBtn.add_css_class("wallpaper-header-button");
-    favoriteBtn.connect("clicked", () => {
-        void controller.toggleSelectedFavorite();
-    });
-    headerActions.append(favoriteBtn);
-
-    const applyBtn = new Gtk.Button({ label: "Apply" });
-    applyBtn.add_css_class("wallpaper-header-button");
-    applyBtn.add_css_class("is-primary");
-    applyBtn.connect("clicked", () => {
-        const selected = controller.selectedWallpaper.get();
-        if (selected) void controller.handleActivateImage(selected);
-    });
-    headerActions.append(applyBtn);
-
-    actionBar.append(headerActions);
-    root.append(actionBar);
-
-    // --- Search Bar ---
     const searchEntry = new Gtk.SearchEntry({
         placeholder_text: "Search...",
         hexpand: true,
@@ -84,105 +13,98 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
         controller.handleSearchChange(searchEntry.get_text());
     });
 
-    const searchContainer = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
+    const root = new Gtk.Box({
+        orientation: Gtk.Orientation.VERTICAL,
         spacing: 0,
-        css_classes: ["wallpaper-search-container"],
+        hexpand: true,
+        vexpand: true,
+        css_classes: ["wallpaper-selector-main"],
     });
-    searchContainer.append(searchEntry);
+
+    // Action Bar
+    const actionBar = (
+        <box 
+            orientation={Gtk.Orientation.HORIZONTAL} 
+            spacing={8} 
+            class="wallpaper-library-actionbar"
+            visible={controller.libraryView.as(m => m === "wallpapers")}
+            margin_bottom={12}
+        >
+            <box orientation={Gtk.Orientation.HORIZONTAL} spacing={4} hexpand valign={Gtk.Align.CENTER}>
+                <button class="wallpaper-breadcrumb-btn" label="Library" onClicked={() => controller.handleBackToThemes()} />
+                <label class="wallpaper-breadcrumb-sep" label="›" />
+                <label 
+                    class="wallpaper-breadcrumb-current" 
+                    label={controller.browsingTheme.as(t => t || "Wallpapers")} 
+                />
+            </box>
+
+            <box orientation={Gtk.Orientation.HORIZONTAL} spacing={8}>
+                <button class="wallpaper-header-button" label="Random" onClicked={() => void controller.handleRandomInTheme()} />
+                <button 
+                    class="wallpaper-header-button" 
+                    label={controller.selectedIsFavorite.as(fav => fav ? "Unfavorite" : "Favorite")} 
+                    onClicked={() => void controller.toggleSelectedFavorite()} 
+                    sensitive={controller.selectedWallpaper.as(s => Boolean(s))}
+                />
+                <button 
+                    class="wallpaper-header-button is-primary" 
+                    label="Apply" 
+                    onClicked={() => {
+                        const selected = controller.selectedWallpaper.get();
+                        if (selected) void controller.handleActivateImage(selected);
+                    }} 
+                    sensitive={controller.selectedWallpaper.as(s => Boolean(s))}
+                />
+            </box>
+        </box>
+    ) as Gtk.Box;
+    root.append(actionBar);
+
+    // Search Bar
+    const searchContainer = (
+        <box 
+            orientation={Gtk.Orientation.HORIZONTAL} 
+            spacing={0} 
+            class="wallpaper-search-container"
+            visible={controller.isSearchVisible.as(v => v)}
+        >
+            {searchEntry}
+        </box>
+    ) as Gtk.Box;
     root.append(searchContainer);
 
-    // --- Stack for Master/Detail ---
-    const stack = new Gtk.Stack({
-        transition_type: Gtk.StackTransitionType.SLIDE_LEFT_RIGHT,
-        transition_duration: 300,
-        hexpand: true,
-        vexpand: true,
-    });
-
-    const libraryThemeGrid = WallpaperGridView({
-        items: controller.themeItems,
-        onActivate: (theme) => {
-            void controller.handleThemeChange(theme);
-        },
-        onVisibleRangeChange: controller.ensureThemePreviewRange,
-    });
-
-    const wallpaperGrid = WallpaperGridView({
-        items: controller.imageItems,
-        onSelect: (path) => {
-            controller.handleSelectImage(path);
-        },
-        onActivate: (path) => {
-            void controller.handleActivateImage(path);
-        },
-        previewLookup: controller.wallpaperPreviewThumbs,
-        onVisibleRangeChange: controller.ensureWallpaperPreviewRange,
-    });
-
-    // --- AI Results Mock View ---
-    const aiResultsBox = new Gtk.Box({
-        orientation: Gtk.Orientation.VERTICAL,
-        spacing: 12,
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.CENTER,
-        hexpand: true,
-        vexpand: true,
-    });
-    const aiIcon = new Gtk.Image({
-        icon_name: "face-smile-symbolic",
-        pixel_size: 64,
-    });
-    aiIcon.add_css_class("wallpaper-thumbnail-error");
-    const aiLabel = new Gtk.Label({
-        label: "✨ AI is curating wallpapers for you...",
-    });
-    aiLabel.add_css_class("wallpaper-placeholder-title");
-    aiResultsBox.append(aiIcon);
-    aiResultsBox.append(aiLabel);
-
-    stack.add_named(libraryThemeGrid as Gtk.Widget, "themes");
-    stack.add_named(wallpaperGrid as Gtk.Widget, "wallpapers");
-    stack.add_named(aiResultsBox, "ai-results");
-
+    // Stack
+    const stack = (
+        <stack 
+            transitionType={Gtk.StackTransitionType.SLIDE_LEFT_RIGHT} 
+            transitionDuration={300}
+            hexpand vexpand
+            visibleChildName={controller.libraryView.as(v => v)}
+        >
+            <box $type="named" name="themes">
+                <WallpaperGridView 
+                    items={controller.themeItems} 
+                    onActivate={(theme) => void controller.handleThemeChange(theme)}
+                    onVisibleRangeChange={controller.ensureThemePreviewRange}
+                />
+            </box>
+            <box $type="named" name="wallpapers">
+                <WallpaperGridView 
+                    items={controller.imageItems} 
+                    onSelect={(path) => controller.handleSelectImage(path)}
+                    onActivate={(path) => void controller.handleActivateImage(path)}
+                    previewLookup={controller.wallpaperPreviewThumbs}
+                    onVisibleRangeChange={controller.ensureWallpaperPreviewRange}
+                />
+            </box>
+            <box $type="named" name="ai-results" orientation={Gtk.Orientation.VERTICAL} spacing={12} valign={Gtk.Align.CENTER} halign={Gtk.Align.CENTER}>
+                <image iconName="face-smile-symbolic" pixelSize={64} class="wallpaper-thumbnail-error" />
+                <label class="wallpaper-placeholder-title" label="✨ AI is curating wallpapers for you..." />
+            </box>
+        </stack>
+    ) as Gtk.Stack;
     root.append(stack);
-
-    // Let's hook into the global search query to trigger the AI view
-    const updateState = () => {
-        const mode = controller.libraryView.get();
-        const showWallpaperActions = mode === "wallpapers";
-
-        actionBar.set_visible(showWallpaperActions);
-        searchContainer.set_visible(controller.isSearchVisible.get());
-
-        const currentQuery = ""; // Search query state is now internal, and not used for AI view here
-        if (false) {
-            // AI view removed
-            stack.set_visible_child_name("ai-results");
-            actionBar.set_visible(false);
-        } else if (mode === "themes") {
-            stack.set_visible_child_name("themes");
-        } else {
-            stack.set_visible_child_name("wallpapers");
-            breadcrumbTheme.set_label(
-                controller.browsingTheme.get() || "Wallpapers",
-            );
-        }
-
-        const selected = controller.selectedWallpaper.get();
-        applyBtn.set_sensitive(Boolean(selected));
-        favoriteBtn.set_sensitive(Boolean(selected));
-        favoriteBtn.set_label(
-            controller.selectedIsFavorite.get() ? "Unfavorite" : "Favorite",
-        );
-    };
-
-    controller.libraryView.subscribe(updateState);
-    controller.selectedWallpaper.subscribe(updateState);
-    controller.selectedIsFavorite.subscribe(updateState);
-    controller.browsingTheme.subscribe(updateState);
-    controller.isSearchVisible.subscribe(updateState);
-    updateState();
 
     const controllerKey = new Gtk.EventControllerKey();
     controllerKey.connect("key-pressed", (_, keyval) => {
@@ -197,6 +119,7 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
         return false;
     });
     root.add_controller(controllerKey);
+    onCleanup(() => root.remove_controller(controllerKey));
 
     return root;
 }

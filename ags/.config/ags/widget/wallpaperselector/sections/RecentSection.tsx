@@ -1,4 +1,4 @@
-import { createState } from "ags";
+import { createState, onCleanup } from "ags";
 import { Gtk } from "ags/gtk4";
 import wallpaperService from "services/wallpaper/Wallpaper";
 import wallpaperEngine from "services/wallpaper/WallpaperEngine";
@@ -66,8 +66,13 @@ export default function RecentSection() {
         }
     };
 
-    wallpaperEngine.connect("changed", rebuildItems);
-    wallpaperService.connect("wallpaper-changed", rebuildItems);
+    const s1 = wallpaperEngine.connect("changed", rebuildItems);
+    const s2 = wallpaperService.connect("wallpaper-changed", rebuildItems);
+
+    onCleanup(() => {
+        wallpaperEngine.disconnect(s1);
+        wallpaperService.disconnect(s2);
+    });
 
     const grid = WallpaperGridView({
         items,
@@ -88,12 +93,12 @@ export default function RecentSection() {
         rebuildItems();
     });
 
-    const updateActions = () => {
+    const unsubSelected = selected.subscribe(() => {
         applyBtn.set_sensitive(Boolean(selected.get()));
-    };
-    selected.subscribe(updateActions);
-    updateActions();
+    });
+    onCleanup(unsubSelected);
 
+    applyBtn.set_sensitive(Boolean(selected.get()));
     rebuildItems();
 
     box.connect("map", () => {

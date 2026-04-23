@@ -5,9 +5,8 @@ interface SettingsSectionProps {
     onDiscoveryChanged?: () => void;
 }
 
-export default function SettingsSection({
-    onDiscoveryChanged,
-}: SettingsSectionProps) {
+export default function SettingsSection(props: SettingsSectionProps = {}) {
+    const { onDiscoveryChanged } = props;
     const controller = createSettingsController({ onDiscoveryChanged });
     setTimeout(() => {
         void controller.refreshEngineState();
