@@ -1,18 +1,18 @@
 import { createState } from "ags";
-import { Astal, Gdk, Gtk } from "ags/gtk4";
+import { Astal, type Gdk, type Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { PATHS } from "lib/constants";
 import { loadConfig } from "services/wallpaper/utils/wallpaper";
-import { createLibraryDataController } from "./sections/library/controller";
 import PopupSelectorWindow from "./PopupSelectorWindow";
-import WallpaperGridView from "./WallpaperGridView";
+import { createLibraryDataController } from "./sections/library/controller";
 import {
-    WALLPAPER_CARD_WIDTH,
-    WALLPAPER_CARD_IMAGE_HEIGHT,
-    WALLPAPER_CARD_LABEL_HEIGHT,
     GRID_COLUMN_SPACING,
     GRID_ROW_SPACING,
+    WALLPAPER_CARD_IMAGE_HEIGHT,
+    WALLPAPER_CARD_LABEL_HEIGHT,
+    WALLPAPER_CARD_WIDTH,
 } from "./types";
+import WallpaperGridView from "./WallpaperGridView";
 
 export default function ThemeSelectorPopup(
     monitor: Gdk.Monitor,
@@ -38,8 +38,17 @@ export default function ThemeSelectorPopup(
         items: controller.themeItems,
         onActivate: (theme) => {
             import("ags/process").then(({ execAsync }) => {
-                execAsync(["ags", "request", "wallpaper", "set-theme", theme])
-                    .catch(err => console.error(`[ThemeSelector] failed to set theme: ${err}`));
+                execAsync([
+                    "ags",
+                    "request",
+                    "wallpaper",
+                    "set-theme",
+                    theme,
+                ]).catch((err) =>
+                    console.error(
+                        `[ThemeSelector] failed to set theme: ${err}`,
+                    ),
+                );
             });
             app.get_window(windowName)?.set_visible(false);
         },

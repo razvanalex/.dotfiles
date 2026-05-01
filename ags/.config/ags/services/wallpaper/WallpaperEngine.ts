@@ -5,9 +5,9 @@ import { PATHS } from "lib/constants";
 import Logger from "lib/logger";
 import {
     findImages,
-    loadConfig,
     fuzzyFilter,
     getCurrentTheme,
+    loadConfig,
     updateCurrentTheme,
     type WallpaperConfig,
 } from "./utils/wallpaper";
@@ -46,7 +46,8 @@ class WallpaperEngine extends GObject.Object {
     }
 
     #state: WallpaperEngineState;
-    #sourcePoolCache: Map<string, { data: string[]; timestamp: number }> = new Map();
+    #sourcePoolCache: Map<string, { data: string[]; timestamp: number }> =
+        new Map();
 
     constructor() {
         super();
@@ -59,16 +60,22 @@ class WallpaperEngine extends GObject.Object {
         wallpaper.connect("wallpaper-changed", (_, path) => {
             if (!path) return;
             this.#updateHistory(String(path));
-            
+
             // Only update currentIndex if path is in queue
             const qIdx = this.#state.queue.indexOf(String(path));
             if (qIdx >= 0) this.#state.currentIndex = qIdx;
 
             const config = loadConfig(PATHS.wallpaperConfig);
-            const inferredTheme = this.inferThemeFromWallpaperPath(config.wallpaperDir, String(path));
+            const inferredTheme = this.inferThemeFromWallpaperPath(
+                config.wallpaperDir,
+                String(path),
+            );
             if (inferredTheme) {
                 // Await theme update to prevent race conditions during theme selection
-                void updateCurrentTheme(config.wallpaperDir, inferredTheme).catch((err) => {
+                void updateCurrentTheme(
+                    config.wallpaperDir,
+                    inferredTheme,
+                ).catch((err) => {
                     log.error(`Failed to update .crt_theme: ${err}`);
                 });
             }
@@ -101,13 +108,18 @@ class WallpaperEngine extends GObject.Object {
         if (last !== wallpaperPath) {
             this.#state.history.push(wallpaperPath);
             if (this.#state.history.length > this.#state.maxHistory) {
-                this.#state.history = this.#state.history.slice(-this.#state.maxHistory);
+                this.#state.history = this.#state.history.slice(
+                    -this.#state.maxHistory,
+                );
             }
         }
         this.#state.historyCursor = this.#state.history.length - 1;
     }
 
-    inferThemeFromWallpaperPath(wallpaperDir: string, wallpaperPath: string): string {
+    inferThemeFromWallpaperPath(
+        wallpaperDir: string,
+        wallpaperPath: string,
+    ): string {
         if (!wallpaperPath) return "";
         const prefix = `${wallpaperDir}/`;
         if (!wallpaperPath.startsWith(prefix)) return "";
@@ -145,7 +157,7 @@ class WallpaperEngine extends GObject.Object {
 
         const queueSet = new Set(this.#state.queue);
         const poolSet = new Set(uniquePool);
-        
+
         let poolChanged = queueSet.size !== poolSet.size;
         if (!poolChanged) {
             for (const item of queueSet) {
@@ -164,19 +176,28 @@ class WallpaperEngine extends GObject.Object {
             }
             this.#state.currentIndex = -1;
         }
-        
+
         const duration = Date.now() - start;
-        if (duration > 50) log.info(`Pool normalization took ${duration}ms for ${pool.length} items`);
+        if (duration > 50)
+            log.info(
+                `Pool normalization took ${duration}ms for ${pool.length} items`,
+            );
     }
 
-    async #withSourcePoolCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+    async #withSourcePoolCache<T>(
+        key: string,
+        fetcher: () => Promise<T>,
+    ): Promise<T> {
         const now = Date.now();
         const cached = this.#sourcePoolCache.get(key);
-        if (cached && (now - cached.timestamp < SOURCE_POOL_CACHE_TTL_MS)) {
+        if (cached && now - cached.timestamp < SOURCE_POOL_CACHE_TTL_MS) {
             return cached.data as unknown as T;
         }
         const data = await fetcher();
-        this.#sourcePoolCache.set(key, { data: data as unknown as string[], timestamp: now });
+        this.#sourcePoolCache.set(key, {
+            data: data as unknown as string[],
+            timestamp: now,
+        });
         return data;
     }
 
@@ -189,10 +210,15 @@ class WallpaperEngine extends GObject.Object {
         const optionsKey = `${config.wallpaperDir}|${findOptions.recursiveSearch ? 1 : 0}|${findOptions.includeHidden ? 1 : 0}`;
 
         if (this.#state.sourceType === "specific-theme") {
-            if (!this.#state.sourceValue) throw new Error("specific-theme source requires a theme path");
+            if (!this.#state.sourceValue)
+                throw new Error("specific-theme source requires a theme path");
             return this.#withSourcePoolCache(
                 `specific-theme|${optionsKey}|${this.#state.sourceValue}`,
-                () => findImages(`${config.wallpaperDir}/${this.#state.sourceValue}`, findOptions),
+                () =>
+                    findImages(
+                        `${config.wallpaperDir}/${this.#state.sourceValue}`,
+                        findOptions,
+                    ),
             );
         }
 
@@ -201,33 +227,55 @@ class WallpaperEngine extends GObject.Object {
         }
 
         if (this.#state.sourceType === "filtered-library") {
-            const all = await this.#withSourcePoolCache(`all|${optionsKey}`, () => findImages(config.wallpaperDir, findOptions));
+            const all = await this.#withSourcePoolCache(
+                `all|${optionsKey}`,
+                () => findImages(config.wallpaperDir, findOptions),
+            );
             if (!this.#state.sourceValue.trim()) return all;
             return fuzzyFilter(all, this.#state.sourceValue);
         }
 
         const currentWallpaper = wallpaper.getCurrentWallpaper();
-        const inferredTheme = this.inferThemeFromWallpaperPath(config.wallpaperDir, currentWallpaper);
+        const inferredTheme = this.inferThemeFromWallpaperPath(
+            config.wallpaperDir,
+            currentWallpaper,
+        );
 
         if (inferredTheme) {
             return this.#withSourcePoolCache(
                 `current-theme-inferred|${optionsKey}|${inferredTheme}`,
-                () => findImages(`${config.wallpaperDir}/${inferredTheme}`, findOptions),
+                () =>
+                    findImages(
+                        `${config.wallpaperDir}/${inferredTheme}`,
+                        findOptions,
+                    ),
             );
         }
 
-        const activeTheme = await getCurrentTheme(config.wallpaperDir, findOptions);
+        const activeTheme = await getCurrentTheme(
+            config.wallpaperDir,
+            findOptions,
+        );
         if (!activeTheme) {
-            return this.#withSourcePoolCache(`all|${optionsKey}`, () => findImages(config.wallpaperDir, findOptions));
+            return this.#withSourcePoolCache(`all|${optionsKey}`, () =>
+                findImages(config.wallpaperDir, findOptions),
+            );
         }
         return this.#withSourcePoolCache(
             `current-theme-active|${optionsKey}|${activeTheme}`,
-            () => findImages(`${config.wallpaperDir}/${activeTheme}`, findOptions),
+            () =>
+                findImages(
+                    `${config.wallpaperDir}/${activeTheme}`,
+                    findOptions,
+                ),
         );
     }
 
     async getNextPath(forwardInHistory = true): Promise<string> {
-        if (forwardInHistory && this.#state.historyCursor < this.#state.history.length - 1) {
+        if (
+            forwardInHistory &&
+            this.#state.historyCursor < this.#state.history.length - 1
+        ) {
             this.#state.historyCursor += 1;
             return this.#state.history[this.#state.historyCursor];
         }
@@ -236,16 +284,23 @@ class WallpaperEngine extends GObject.Object {
 
         if (this.#state.strategy !== "random" && this.#state.queue.length > 0) {
             if (this.#state.currentIndex < 0 && currentWallpaper) {
-                this.#state.currentIndex = this.#state.queue.indexOf(currentWallpaper);
+                this.#state.currentIndex =
+                    this.#state.queue.indexOf(currentWallpaper);
             }
 
-            if (this.#state.currentIndex >= 0 && this.#state.currentIndex < this.#state.queue.length - 1) {
+            if (
+                this.#state.currentIndex >= 0 &&
+                this.#state.currentIndex < this.#state.queue.length - 1
+            ) {
                 this.#state.currentIndex += 1;
                 return this.#state.queue[this.#state.currentIndex];
             }
 
             if (this.#state.currentIndex >= this.#state.queue.length - 1) {
-                if (this.#state.strategy === "shuffle" && this.#state.queue.length > 1) {
+                if (
+                    this.#state.strategy === "shuffle" &&
+                    this.#state.queue.length > 1
+                ) {
                     this.#state.queue = this.#shufflePaths(this.#state.queue);
                     this.#state.currentIndex = 0;
                     return this.#state.queue[0];
@@ -270,7 +325,8 @@ class WallpaperEngine extends GObject.Object {
 
         this.#normalizePoolForState(pool);
         if (this.#state.currentIndex < 0 && currentWallpaper) {
-            this.#state.currentIndex = this.#state.queue.indexOf(currentWallpaper);
+            this.#state.currentIndex =
+                this.#state.queue.indexOf(currentWallpaper);
         }
 
         let nextIndex = this.#state.currentIndex + 1;
@@ -301,7 +357,8 @@ class WallpaperEngine extends GObject.Object {
         this.#normalizePoolForState(pool);
         const currentWallpaper = wallpaper.getCurrentWallpaper();
         if (this.#state.currentIndex < 0 && currentWallpaper) {
-            this.#state.currentIndex = this.#state.queue.indexOf(currentWallpaper);
+            this.#state.currentIndex =
+                this.#state.queue.indexOf(currentWallpaper);
         }
 
         let prevIndex = this.#state.currentIndex - 1;
@@ -315,7 +372,7 @@ class WallpaperEngine extends GObject.Object {
 
     async next() {
         const path = await this.getNextPath(true);
-        void wallpaper.setWallpaper(path).catch(err => {
+        void wallpaper.setWallpaper(path).catch((err) => {
             log.error(`Failed to apply next wallpaper: ${err}`);
         });
         return path;
@@ -323,7 +380,7 @@ class WallpaperEngine extends GObject.Object {
 
     async prev() {
         const path = await this.getPreviousPath();
-        void wallpaper.setWallpaper(path).catch(err => {
+        void wallpaper.setWallpaper(path).catch((err) => {
             log.error(`Failed to apply previous wallpaper: ${err}`);
         });
         return path;
@@ -331,7 +388,7 @@ class WallpaperEngine extends GObject.Object {
 
     async startAuto(interval?: number, skipInitial = false) {
         if (interval) this.#state.intervalSeconds = interval;
-        
+
         await wallpaper.startAutoChange(
             undefined,
             this.#state.intervalSeconds,

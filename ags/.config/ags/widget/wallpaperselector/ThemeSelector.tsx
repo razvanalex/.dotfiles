@@ -22,7 +22,9 @@ export default function ThemeSelector({
     // Load themes on mount
     const initThemes = async () => {
         // Find theme directories
-        const { loadThemes } = await import("services/wallpaper/utils/wallpaper");
+        const { loadThemes } = await import(
+            "services/wallpaper/utils/wallpaper"
+        );
         const themeList = await loadThemes(wallpaperDir);
         setThemes(themeList);
 
@@ -41,7 +43,7 @@ export default function ThemeSelector({
     const handleThemeChange = async (newTheme: string) => {
         try {
             Logger.info(`Theme change requested: ${newTheme}`);
-            
+
             // Set source in engine and trigger next
             wallpaperEngine.setSource("specific-theme", newTheme);
             await wallpaperEngine.next();
@@ -155,4 +157,3 @@ export default function ThemeSelector({
         </box>
     );
 }
-

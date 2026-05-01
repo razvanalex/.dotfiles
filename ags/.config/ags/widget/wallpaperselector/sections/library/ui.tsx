@@ -1,7 +1,7 @@
+import { onCleanup } from "ags";
 import { Gdk, Gtk } from "ags/gtk4";
 import WallpaperGridView from "../../WallpaperGridView.js";
 import type { LibraryDataController } from "./controller";
-import { onCleanup } from "ags";
 
 export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
     const searchEntry = new Gtk.SearchEntry({
@@ -23,38 +23,60 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 
     // Action Bar
     const actionBar = (
-        <box 
-            orientation={Gtk.Orientation.HORIZONTAL} 
-            spacing={8} 
+        <box
+            orientation={Gtk.Orientation.HORIZONTAL}
+            spacing={8}
             class="wallpaper-library-actionbar"
-            visible={controller.libraryView.as(m => m === "wallpapers")}
+            visible={controller.libraryView.as((m) => m === "wallpapers")}
             margin_bottom={12}
         >
-            <box orientation={Gtk.Orientation.HORIZONTAL} spacing={4} hexpand valign={Gtk.Align.CENTER}>
-                <button class="wallpaper-breadcrumb-btn" label="Library" onClicked={() => controller.handleBackToThemes()} />
+            <box
+                orientation={Gtk.Orientation.HORIZONTAL}
+                spacing={4}
+                hexpand
+                valign={Gtk.Align.CENTER}
+            >
+                <button
+                    class="wallpaper-breadcrumb-btn"
+                    label="Library"
+                    onClicked={() => controller.handleBackToThemes()}
+                />
                 <label class="wallpaper-breadcrumb-sep" label="›" />
-                <label 
-                    class="wallpaper-breadcrumb-current" 
-                    label={controller.browsingTheme.as(t => t || "Wallpapers")} 
+                <label
+                    class="wallpaper-breadcrumb-current"
+                    label={controller.browsingTheme.as(
+                        (t) => t || "Wallpapers",
+                    )}
                 />
             </box>
 
             <box orientation={Gtk.Orientation.HORIZONTAL} spacing={8}>
-                <button class="wallpaper-header-button" label="Random" onClicked={() => void controller.handleRandomInTheme()} />
-                <button 
-                    class="wallpaper-header-button" 
-                    label={controller.selectedIsFavorite.as(fav => fav ? "Unfavorite" : "Favorite")} 
-                    onClicked={() => void controller.toggleSelectedFavorite()} 
-                    sensitive={controller.selectedWallpaper.as(s => Boolean(s))}
+                <button
+                    class="wallpaper-header-button"
+                    label="Random"
+                    onClicked={() => void controller.handleRandomInTheme()}
                 />
-                <button 
-                    class="wallpaper-header-button is-primary" 
-                    label="Apply" 
+                <button
+                    class="wallpaper-header-button"
+                    label={controller.selectedIsFavorite.as((fav) =>
+                        fav ? "Unfavorite" : "Favorite",
+                    )}
+                    onClicked={() => void controller.toggleSelectedFavorite()}
+                    sensitive={controller.selectedWallpaper.as((s) =>
+                        Boolean(s),
+                    )}
+                />
+                <button
+                    class="wallpaper-header-button is-primary"
+                    label="Apply"
                     onClicked={() => {
                         const selected = controller.selectedWallpaper.get();
-                        if (selected) void controller.handleActivateImage(selected);
-                    }} 
-                    sensitive={controller.selectedWallpaper.as(s => Boolean(s))}
+                        if (selected)
+                            void controller.handleActivateImage(selected);
+                    }}
+                    sensitive={controller.selectedWallpaper.as((s) =>
+                        Boolean(s),
+                    )}
                 />
             </box>
         </box>
@@ -63,11 +85,11 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 
     // Search Bar
     const searchContainer = (
-        <box 
-            orientation={Gtk.Orientation.HORIZONTAL} 
-            spacing={0} 
+        <box
+            orientation={Gtk.Orientation.HORIZONTAL}
+            spacing={0}
             class="wallpaper-search-container"
-            visible={controller.isSearchVisible.as(v => v)}
+            visible={controller.isSearchVisible.as((v) => v)}
         >
             {searchEntry}
         </box>
@@ -76,31 +98,52 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
 
     // Stack
     const stack = (
-        <stack 
-            transitionType={Gtk.StackTransitionType.SLIDE_LEFT_RIGHT} 
+        <stack
+            transitionType={Gtk.StackTransitionType.SLIDE_LEFT_RIGHT}
             transitionDuration={300}
-            hexpand vexpand
-            visibleChildName={controller.libraryView.as(v => v)}
+            hexpand
+            vexpand
+            visibleChildName={controller.libraryView.as((v) => v)}
         >
             <box $type="named" name="themes">
-                <WallpaperGridView 
-                    items={controller.themeItems} 
-                    onActivate={(theme) => void controller.handleThemeChange(theme)}
+                <WallpaperGridView
+                    items={controller.themeItems}
+                    onActivate={(theme) =>
+                        void controller.handleThemeChange(theme)
+                    }
                     onVisibleRangeChange={controller.ensureThemePreviewRange}
                 />
             </box>
             <box $type="named" name="wallpapers">
-                <WallpaperGridView 
-                    items={controller.imageItems} 
+                <WallpaperGridView
+                    items={controller.imageItems}
                     onSelect={(path) => controller.handleSelectImage(path)}
-                    onActivate={(path) => void controller.handleActivateImage(path)}
+                    onActivate={(path) =>
+                        void controller.handleActivateImage(path)
+                    }
                     previewLookup={controller.wallpaperPreviewThumbs}
-                    onVisibleRangeChange={controller.ensureWallpaperPreviewRange}
+                    onVisibleRangeChange={
+                        controller.ensureWallpaperPreviewRange
+                    }
                 />
             </box>
-            <box $type="named" name="ai-results" orientation={Gtk.Orientation.VERTICAL} spacing={12} valign={Gtk.Align.CENTER} halign={Gtk.Align.CENTER}>
-                <image iconName="face-smile-symbolic" pixelSize={64} class="wallpaper-thumbnail-error" />
-                <label class="wallpaper-placeholder-title" label="✨ AI is curating wallpapers for you..." />
+            <box
+                $type="named"
+                name="ai-results"
+                orientation={Gtk.Orientation.VERTICAL}
+                spacing={12}
+                valign={Gtk.Align.CENTER}
+                halign={Gtk.Align.CENTER}
+            >
+                <image
+                    iconName="face-smile-symbolic"
+                    pixelSize={64}
+                    class="wallpaper-thumbnail-error"
+                />
+                <label
+                    class="wallpaper-placeholder-title"
+                    label="✨ AI is curating wallpapers for you..."
+                />
             </box>
         </stack>
     ) as Gtk.Stack;

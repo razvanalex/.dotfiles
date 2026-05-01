@@ -1,11 +1,11 @@
 import { Astal, Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import {
-    WALLPAPER_CARD_WIDTH,
-    WALLPAPER_CARD_IMAGE_HEIGHT,
-    WALLPAPER_CARD_LABEL_HEIGHT,
     GRID_COLUMN_SPACING,
     GRID_ROW_SPACING,
+    WALLPAPER_CARD_IMAGE_HEIGHT,
+    WALLPAPER_CARD_LABEL_HEIGHT,
+    WALLPAPER_CARD_WIDTH,
 } from "./types";
 
 export interface PopupSelectorWindowProps {
@@ -39,7 +39,7 @@ export default function PopupSelectorWindow({
         hexpand: true,
     });
     searchEntry.add_css_class("selector-popup-search-entry");
-    
+
     searchEntry.connect("search-changed", () => {
         onSearchChange(searchEntry.get_text());
     });
@@ -50,7 +50,7 @@ export default function PopupSelectorWindow({
     ): boolean => {
         const selection = gridView.get_model() as Gtk.SingleSelection;
         if (!selection) return false;
-        
+
         const model = selection.get_model();
         if (!model) return false;
 
@@ -159,8 +159,8 @@ export default function PopupSelectorWindow({
             application={app}
             gdkmonitor={monitor}
             title={title}
-            defaultWidth={800}
-            defaultHeight={500}
+            defaultWidth={1000}
+            defaultHeight={1000}
             hideOnClose
             modal
             layer={Astal.Layer.OVERLAY}
@@ -171,7 +171,7 @@ export default function PopupSelectorWindow({
                     searchEntry.placeholder_text = searchPlaceholder;
                 } else if (searchPlaceholder) {
                     const p = searchPlaceholder as any;
-                    
+
                     // Safely subscribe
                     let unsub: (() => void) | null = null;
                     if (typeof p.subscribe === "function") {
@@ -179,7 +179,7 @@ export default function PopupSelectorWindow({
                             searchEntry.placeholder_text = val || "";
                         });
                     }
-                    
+
                     // Safely get initial value
                     if (typeof p.get === "function") {
                         searchEntry.placeholder_text = p.get() || "";
@@ -199,7 +199,9 @@ export default function PopupSelectorWindow({
                 }
 
                 const entryKeyController = new Gtk.EventControllerKey();
-                entryKeyController.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+                entryKeyController.set_propagation_phase(
+                    Gtk.PropagationPhase.CAPTURE,
+                );
                 entryKeyController.connect("key-pressed", (_, keyval) => {
                     const gridView = getActiveGridView();
                     if (!gridView) return false;
@@ -209,8 +211,12 @@ export default function PopupSelectorWindow({
                         return true;
                     }
 
-                    if (keyval === Gdk.KEY_Return || keyval === Gdk.KEY_KP_Enter) {
-                        const selection = gridView.get_model() as Gtk.SingleSelection;
+                    if (
+                        keyval === Gdk.KEY_Return ||
+                        keyval === Gdk.KEY_KP_Enter
+                    ) {
+                        const selection =
+                            gridView.get_model() as Gtk.SingleSelection;
                         if (!selection) return false;
                         const pos = selection.get_selected();
                         if (pos !== Gtk.INVALID_LIST_POSITION) {

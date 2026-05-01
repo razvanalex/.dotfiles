@@ -1,5 +1,5 @@
-import { createState, For, onCleanup } from "ags";
 import GLib from "gi://GLib";
+import { createState, For, onCleanup } from "ags";
 import { Gdk, Gtk } from "ags/gtk4";
 import apiKeyManager from "services/ai/ApiKeyManager";
 import chatHistoryManager from "services/ai/ChatHistoryManager";
@@ -63,15 +63,21 @@ function ChatHistory({
                         // Scroll to bottom when messages change
                         const unsub = messages.subscribe(() => {
                             if (scrolledWindow && messages.get().length > 0) {
-                                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                                    const vadjustment = scrolledWindow.get_vadjustment();
-                                    if (vadjustment) {
-                                        vadjustment.set_value(
-                                            vadjustment.get_upper() - vadjustment.get_page_size(),
-                                        );
-                                    }
-                                    return GLib.SOURCE_REMOVE;
-                                });
+                                GLib.timeout_add(
+                                    GLib.PRIORITY_DEFAULT,
+                                    100,
+                                    () => {
+                                        const vadjustment =
+                                            scrolledWindow.get_vadjustment();
+                                        if (vadjustment) {
+                                            vadjustment.set_value(
+                                                vadjustment.get_upper() -
+                                                    vadjustment.get_page_size(),
+                                            );
+                                        }
+                                        return GLib.SOURCE_REMOVE;
+                                    },
+                                );
                             }
                         });
                         onCleanup(unsub);
@@ -278,11 +284,20 @@ export default function ChatWidget() {
 
             if (errorMsg.includes("401") || errorMsg.includes("Unauthorized")) {
                 errorMsg = `❌ Authentication failed. Please check your API key for ${currentProvider.toUpperCase()}.`;
-            } else if (errorMsg.includes("429") || errorMsg.includes("Too Many")) {
+            } else if (
+                errorMsg.includes("429") ||
+                errorMsg.includes("Too Many")
+            ) {
                 errorMsg = `⏳ Rate limit exceeded. Please wait a moment and try again.`;
-            } else if (errorMsg.includes("500") || errorMsg.includes("Internal")) {
+            } else if (
+                errorMsg.includes("500") ||
+                errorMsg.includes("Internal")
+            ) {
                 errorMsg = `🔧 Server error. The API service is experiencing issues.`;
-            } else if (errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNREFUSED")) {
+            } else if (
+                errorMsg.includes("ENOTFOUND") ||
+                errorMsg.includes("ECONNREFUSED")
+            ) {
                 errorMsg = `🌐 Network error. Please check your connection.`;
             } else {
                 errorMsg = `❌ Error: ${errorMsg}`;

@@ -82,10 +82,14 @@ export default function Osd({
         let audioReady = false;
 
         // Suppress startup signals
-        const suppressTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
-            audioReady = true;
-            return GLib.SOURCE_REMOVE;
-        });
+        const suppressTimer = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            1500,
+            () => {
+                audioReady = true;
+                return GLib.SOURCE_REMOVE;
+            },
+        );
 
         const updateAudio = (show = true) => {
             if (currentSpeaker) {

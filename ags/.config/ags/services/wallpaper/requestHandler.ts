@@ -5,7 +5,11 @@ import Logger from "lib/logger";
 
 const DEBUG_WALLPAPER_REQUEST_TIMING = false;
 
-export async function handleWallpaperRequest(argv: string[], res: (response: any) => void, ENABLE_WALLPAPER: boolean) {
+export async function handleWallpaperRequest(
+    argv: string[],
+    res: (response: any) => void,
+    ENABLE_WALLPAPER: boolean,
+) {
     if (!ENABLE_WALLPAPER) return res("wallpaper disabled");
 
     if (argv[0] === "wallpaper-selector") {
@@ -58,15 +62,20 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
 
             execAsync([
                 "notify-send",
-                "--urgency", "low",
+                "--urgency",
+                "low",
                 "--transient",
-                "--expire-time", "1000",
-                "--app-name", "Wallpaper",
+                "--expire-time",
+                "1000",
+                "--app-name",
+                "Wallpaper",
                 "Themes",
                 `${config.includeHidden ? "Enabled" : "Disabled"} hidden themes`,
-            ]).catch(() => { });
+            ]).catch(() => {});
 
-            res(`hidden themes ${config.includeHidden ? "enabled" : "disabled"}`);
+            res(
+                `hidden themes ${config.includeHidden ? "enabled" : "disabled"}`,
+            );
             return true;
         }
 
@@ -78,7 +87,8 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
             }
 
             wallpaperEngine.setSource("specific-theme", themeName);
-            await wallpaperEngine.next()
+            await wallpaperEngine
+                .next()
                 .then(() => res(`theme set to ${themeName}`))
                 .catch((err: Error) => res(`error: ${err.message}`));
             return true;
@@ -175,7 +185,11 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
 
             if (engineCmd === "recent") {
                 if (argv[3] === "list") {
-                    res(JSON.stringify([...wallpaperEngine.state.history].reverse()));
+                    res(
+                        JSON.stringify(
+                            [...wallpaperEngine.state.history].reverse(),
+                        ),
+                    );
                     return true;
                 }
                 res("error: unknown recent command");
@@ -187,11 +201,16 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
 
                 if (autoCmd === "start") {
                     const intervalArg = argv[4];
-                    const interval = intervalArg ? parseInt(intervalArg, 10) : undefined;
+                    const interval = intervalArg
+                        ? parseInt(intervalArg, 10)
+                        : undefined;
 
-                    await wallpaperEngine.startAuto(interval)
+                    await wallpaperEngine
+                        .startAuto(interval)
                         .then(() => res(wallpaperEngine.engine_state))
-                        .catch((error: Error) => res(`error: ${error.message}`));
+                        .catch((error: Error) =>
+                            res(`error: ${error.message}`),
+                        );
                     return true;
                 }
 
@@ -216,10 +235,13 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
 
         if (subcommand === "next") {
             const startedAt = Date.now();
-            await wallpaperEngine.next()
+            await wallpaperEngine
+                .next()
                 .then((path) => {
                     if (DEBUG_WALLPAPER_REQUEST_TIMING) {
-                        Logger.info(`[wallpaper-next] completed in ${Date.now() - startedAt}ms`);
+                        Logger.info(
+                            `[wallpaper-next] completed in ${Date.now() - startedAt}ms`,
+                        );
                     }
                     res(String(path));
                 })
@@ -228,14 +250,16 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
         }
 
         if (subcommand === "prev") {
-            await wallpaperEngine.prev()
+            await wallpaperEngine
+                .prev()
                 .then((path) => res(path))
                 .catch((error: Error) => res(`error: ${error.message}`));
             return true;
         }
 
         if (subcommand === "random") {
-            await wallpaper.setRandomWallpaper()
+            await wallpaper
+                .setRandomWallpaper()
                 .then(() => res("random wallpaper set"))
                 .catch((error: Error) => res(`error: ${error.message}`));
             return true;
@@ -283,7 +307,8 @@ export async function handleWallpaperRequest(argv: string[], res: (response: any
         }
 
         if (subcommand === "play") {
-            await wallpaperEngine.startAuto()
+            await wallpaperEngine
+                .startAuto()
                 .then(() => res(wallpaperEngine.engine_state))
                 .catch((error: Error) => res(`error: ${error.message}`));
             return true;

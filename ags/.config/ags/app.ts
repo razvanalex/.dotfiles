@@ -3,16 +3,16 @@ import GLib from "gi://GLib";
 import { Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { CONFIG_DIR } from "lib/constants";
-import { COMPILED_STYLE_DIR, handleStyles } from "lib/styles";
 import { requestHandler } from "lib/requestHandler";
+import { COMPILED_STYLE_DIR, handleStyles } from "lib/styles";
 import Bar from "widget/bar/Bar";
 import Indicators from "widget/notifications/Indicators";
 import Session from "widget/session/Session";
 import SideLeft from "widget/sideleft/SideLeft";
 import SideRight from "widget/sideright/SideRight";
+import ThemeSelectorPopup from "widget/wallpaperselector/ThemeSelectorPopup";
 import WallpaperSelector from "widget/wallpaperselector/WallpaperSelector";
 import WallpaperSelectorPopup from "widget/wallpaperselector/WallpaperSelectorPopup";
-import ThemeSelectorPopup from "widget/wallpaperselector/ThemeSelectorPopup";
 
 const ENABLE_WALLPAPER = true;
 
@@ -60,7 +60,7 @@ app.start({
             SideLeft(monitor, index);
             SideRight(monitor, index);
             Session(monitor, index);
-            
+
             if (ENABLE_WALLPAPER) {
                 WallpaperSelector(monitor, index);
                 WallpaperSelectorPopup(monitor, index);

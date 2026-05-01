@@ -1,5 +1,5 @@
-import GLib from "gi://GLib";
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 import { execAsync } from "ags/process";
 import { CONFIG_DIR, ensureDirectory, PATHS } from "lib/constants";
 import Logger from "lib/logger";
@@ -71,7 +71,7 @@ export function expandPath(path: string): string {
     return path;
 }
 
-let cachedImages = new Map<string, string[]>();
+const cachedImages = new Map<string, string[]>();
 let cachedThemes: string[] | null = null;
 let cachedThemesKey = "";
 
@@ -101,7 +101,7 @@ export async function enumerateImages(
     const processDirectory = async (currentFile: Gio.File): Promise<void> => {
         const path = currentFile.get_path();
         if (!path) return;
-        
+
         const realPath = GLib.canonicalize_filename(path, null);
         if (visited.has(realPath)) return;
         visited.add(realPath);
@@ -116,7 +116,8 @@ export async function enumerateImages(
                 null,
                 async (obj, res) => {
                     try {
-                        const enumerator = currentFile.enumerate_children_finish(res);
+                        const enumerator =
+                            currentFile.enumerate_children_finish(res);
                         let info: Gio.FileInfo | null;
 
                         const children: Gio.File[] = [];
@@ -124,14 +125,18 @@ export async function enumerateImages(
                             const name = info.get_name();
                             const type = info.get_file_type();
 
-                            if (!includeHidden && name.startsWith(".")) continue;
+                            if (!includeHidden && name.startsWith("."))
+                                continue;
 
                             const childFile = enumerator.get_child(info);
                             const childPath = childFile.get_path() || "";
 
                             if (type === Gio.FileType.DIRECTORY && recursive) {
                                 children.push(childFile);
-                            } else if (type === Gio.FileType.REGULAR && isImage(name)) {
+                            } else if (
+                                type === Gio.FileType.REGULAR &&
+                                isImage(name)
+                            ) {
                                 images.push(childPath);
                                 if (limitOne) {
                                     resolve();
@@ -139,12 +144,12 @@ export async function enumerateImages(
                                 }
                             }
                         }
-                        
+
                         // Process subdirectories sequentially to avoid too many open enumerators
                         for (const child of children) {
                             await processDirectory(child);
                         }
-                        
+
                         resolve();
                     } catch (e) {
                         resolve(); // Ignore errors in subdirectories
@@ -186,7 +191,11 @@ export async function findImages(
     }
 
     try {
-        const images = await enumerateImages(expandedDir, recursiveSearch, includeHidden);
+        const images = await enumerateImages(
+            expandedDir,
+            recursiveSearch,
+            includeHidden,
+        );
 
         if (images.length === 0) {
             throw new Error(`No images found in directory: ${expandedDir}`);
@@ -195,7 +204,10 @@ export async function findImages(
         cachedImages.set(cacheKey, images);
         return images;
     } catch (error) {
-        if (error instanceof Error && error.message.includes("No images found")) {
+        if (
+            error instanceof Error &&
+            error.message.includes("No images found")
+        ) {
             throw error;
         }
         throw new Error(`Failed to find images in ${expandedDir}: ${error}`);
@@ -222,7 +234,12 @@ export async function findFirstImage(
     }
 
     try {
-        const images = await enumerateImages(expandedDir, recursiveSearch, includeHidden, true);
+        const images = await enumerateImages(
+            expandedDir,
+            recursiveSearch,
+            includeHidden,
+            true,
+        );
         return images[0] || "";
     } catch {
         return "";
@@ -263,21 +280,25 @@ export async function loadThemes(
             const file = Gio.File.new_for_path(dirPath);
             let enumerator: Gio.FileEnumerator;
             try {
-                enumerator = await new Promise<Gio.FileEnumerator>((resolve, reject) => {
-                    file.enumerate_children_async(
-                        "standard::name,standard::type",
-                        Gio.FileQueryInfoFlags.NONE,
-                        GLib.PRIORITY_DEFAULT,
-                        null,
-                        (obj, res) => {
-                            try {
-                                resolve(file.enumerate_children_finish(res));
-                            } catch (e) {
-                                reject(e);
-                            }
-                        }
-                    );
-                });
+                enumerator = await new Promise<Gio.FileEnumerator>(
+                    (resolve, reject) => {
+                        file.enumerate_children_async(
+                            "standard::name,standard::type",
+                            Gio.FileQueryInfoFlags.NONE,
+                            GLib.PRIORITY_DEFAULT,
+                            null,
+                            (obj, res) => {
+                                try {
+                                    resolve(
+                                        file.enumerate_children_finish(res),
+                                    );
+                                } catch (e) {
+                                    reject(e);
+                                }
+                            },
+                        );
+                    },
+                );
             } catch (e) {
                 return; // Skip directories we can't read
             }
@@ -288,15 +309,17 @@ export async function loadThemes(
                 if (info.get_file_type() === Gio.FileType.DIRECTORY) {
                     const name = info.get_name();
                     if (!includeHidden && name.startsWith(".")) continue;
-                    
+
                     const fullSubdirPath = `${dirPath}/${name}`;
-                    const relativePath = fullSubdirPath.slice(expandedBaseDir.length).replace(/^\/+/, "");
-                    
+                    const relativePath = fullSubdirPath
+                        .slice(expandedBaseDir.length)
+                        .replace(/^\/+/, "");
+
                     themes.push(relativePath);
                     subdirs.push(fullSubdirPath);
                 }
             }
-            
+
             if (recursiveSearch) {
                 for (const subdir of subdirs) {
                     await scan(subdir);
@@ -351,8 +374,8 @@ export async function getCurrentTheme(
         // We only care about the top-level part for the UI, but let's check if the path is valid
         const themeFullPath = `${wallpaperDir}/${themeName}`;
         if (!GLib.file_test(themeFullPath, GLib.FileTest.IS_DIR)) {
-             const themes = await loadThemes(wallpaperDir, options);
-             return themes[0] || "";
+            const themes = await loadThemes(wallpaperDir, options);
+            return themes[0] || "";
         }
 
         return themeName;
@@ -426,7 +449,7 @@ export async function countImages(
         const images = await enumerateImages(
             directory,
             options?.recursiveSearch ?? true,
-            options?.includeHidden ?? false
+            options?.includeHidden ?? false,
         );
         return images.length;
     } catch (error) {
@@ -473,18 +496,18 @@ export async function triggerColorGen(
 
         try {
             const venvActivate = `${GLib.get_home_dir()}/.config/ags/scripts/.venv/bin/activate`;
-            
+
             Logger.info(`Launching color generation for ${latestImagePath}`);
-            
+
             // Use spawn_command_line_async for truly non-blocking background execution
-            const cmdStr = `bash -c "source \"${venvActivate}\" && \"${expandedScript}\" \"${latestImagePath}\" --apply"`;
-            
+            const cmdStr = `bash -c "source "${venvActivate}" && "${expandedScript}" "${latestImagePath}" --apply"`;
+
             try {
                 GLib.spawn_command_line_async(cmdStr);
             } catch (err) {
                 Logger.error(`Failed to spawn color generation: ${err}`);
             }
-            
+
             lastColorGenLaunchAt = Date.now();
         } catch (error) {
             Logger.error(`Failed to trigger color generation: ${error}`);
@@ -493,11 +516,14 @@ export async function triggerColorGen(
 
     const now = Date.now();
     const timeSinceLast = now - lastColorGenLaunchAt;
-    
+
     if (timeSinceLast >= COLORGEN_MIN_INTERVAL_MS) {
         runLatest();
     } else {
-        const scheduleDelay = Math.max(COLORGEN_DEBOUNCE_MS, COLORGEN_MIN_INTERVAL_MS - timeSinceLast);
+        const scheduleDelay = Math.max(
+            COLORGEN_DEBOUNCE_MS,
+            COLORGEN_MIN_INTERVAL_MS - timeSinceLast,
+        );
         Logger.info(`Scheduling color generation in ${scheduleDelay}ms`);
         colorGenTimerId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
@@ -517,14 +543,21 @@ export async function triggerColorGen(
 export function buildTransitionParams(options: TransitionOptions): string[] {
     const params: string[] = [];
 
-    if (options.fps !== undefined) params.push("--transition-fps", options.fps.toString());
-    if (options.type !== undefined) params.push("--transition-type", options.type);
-    if (options.duration !== undefined) params.push("--transition-duration", options.duration.toString());
-    if (options.bezier !== undefined) params.push("--transition-bezier", options.bezier);
-    if (options.angle !== undefined) params.push("--transition-angle", options.angle.toString());
+    if (options.fps !== undefined)
+        params.push("--transition-fps", options.fps.toString());
+    if (options.type !== undefined)
+        params.push("--transition-type", options.type);
+    if (options.duration !== undefined)
+        params.push("--transition-duration", options.duration.toString());
+    if (options.bezier !== undefined)
+        params.push("--transition-bezier", options.bezier);
+    if (options.angle !== undefined)
+        params.push("--transition-angle", options.angle.toString());
     if (options.pos !== undefined) params.push("--transition-pos", options.pos);
-    if (options.wave !== undefined) params.push("--transition-wave", options.wave);
-    if (options.step !== undefined) params.push("--transition-step", options.step.toString());
+    if (options.wave !== undefined)
+        params.push("--transition-wave", options.wave);
+    if (options.step !== undefined)
+        params.push("--transition-step", options.step.toString());
     if (options.invertY) params.push("--invert-y");
 
     return params;
@@ -536,7 +569,10 @@ const SAVE_DEBOUNCE_MS = 100;
 let configSaveTimer: number | null = null;
 let stateSaveTimer: number | null = null;
 let pendingConfigSave: { path: string; config: WallpaperConfig } | null = null;
-let pendingStateSave: { path: string; state: { currentWallpaper: string } } | null = null;
+let pendingStateSave: {
+    path: string;
+    state: { currentWallpaper: string };
+} | null = null;
 
 async function readFileAsync(path: string): Promise<Uint8Array> {
     const file = Gio.File.new_for_path(path);
@@ -606,23 +642,29 @@ export function saveConfig(configPath: string, config: WallpaperConfig): void {
 
     if (configSaveTimer !== null) GLib.source_remove(configSaveTimer);
 
-    configSaveTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SAVE_DEBOUNCE_MS, () => {
-        if (!pendingConfigSave) return GLib.SOURCE_REMOVE;
-        const { path, config: data } = pendingConfigSave;
-        pendingConfigSave = null;
-        configSaveTimer = null;
-        ensureDirectory(path);
-        writeFileAsync(path, JSON.stringify(data, null, 2)).catch(err => {
-            Logger.error(`Failed to save config asynchronously: ${err}`);
-        });
-        return GLib.SOURCE_REMOVE;
-    });
+    configSaveTimer = GLib.timeout_add(
+        GLib.PRIORITY_DEFAULT,
+        SAVE_DEBOUNCE_MS,
+        () => {
+            if (!pendingConfigSave) return GLib.SOURCE_REMOVE;
+            const { path, config: data } = pendingConfigSave;
+            pendingConfigSave = null;
+            configSaveTimer = null;
+            ensureDirectory(path);
+            writeFileAsync(path, JSON.stringify(data, null, 2)).catch((err) => {
+                Logger.error(`Failed to save config asynchronously: ${err}`);
+            });
+            return GLib.SOURCE_REMOVE;
+        },
+    );
 }
 
 /**
  * Load state from file
  */
-export function loadState(statePath: string): { currentWallpaper: string } | null {
+export function loadState(
+    statePath: string,
+): { currentWallpaper: string } | null {
     const expandedPath = expandPath(statePath);
     if (!GLib.file_test(expandedPath, GLib.FileTest.EXISTS)) return null;
 
@@ -639,21 +681,28 @@ export function loadState(statePath: string): { currentWallpaper: string } | nul
 /**
  * Save state to file asynchronously with 100ms debounce
  */
-export function saveState(statePath: string, state: { currentWallpaper: string }): void {
+export function saveState(
+    statePath: string,
+    state: { currentWallpaper: string },
+): void {
     const expandedPath = expandPath(statePath);
     pendingStateSave = { path: expandedPath, state };
 
     if (stateSaveTimer !== null) GLib.source_remove(stateSaveTimer);
 
-    stateSaveTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SAVE_DEBOUNCE_MS, () => {
-        if (!pendingStateSave) return GLib.SOURCE_REMOVE;
-        const { path, state: data } = pendingStateSave;
-        pendingStateSave = null;
-        stateSaveTimer = null;
-        ensureDirectory(path);
-        writeFileAsync(path, JSON.stringify(data, null, 2)).catch(err => {
-            Logger.error(`Failed to save state asynchronously: ${err}`);
-        });
-        return GLib.SOURCE_REMOVE;
-    });
+    stateSaveTimer = GLib.timeout_add(
+        GLib.PRIORITY_DEFAULT,
+        SAVE_DEBOUNCE_MS,
+        () => {
+            if (!pendingStateSave) return GLib.SOURCE_REMOVE;
+            const { path, state: data } = pendingStateSave;
+            pendingStateSave = null;
+            stateSaveTimer = null;
+            ensureDirectory(path);
+            writeFileAsync(path, JSON.stringify(data, null, 2)).catch((err) => {
+                Logger.error(`Failed to save state asynchronously: ${err}`);
+            });
+            return GLib.SOURCE_REMOVE;
+        },
+    );
 }

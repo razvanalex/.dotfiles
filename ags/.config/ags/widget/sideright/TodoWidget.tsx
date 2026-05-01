@@ -99,7 +99,7 @@ function TodoList({ isDone }: { isDone: boolean }) {
     const id = todoService.connect("changed", () => {
         setTodos(todoService.todos);
     });
-    
+
     onCleanup(() => todoService.disconnect(id));
 
     return (

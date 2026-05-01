@@ -3,10 +3,10 @@ import type { Accessor, Setter } from "ags";
 import { createState, onCleanup } from "ags";
 import { PATHS } from "lib/constants";
 import Logger from "lib/logger";
-import { loadConfig } from "services/wallpaper/utils/wallpaper";
 import {
     fuzzyFilter,
     getCurrentTheme,
+    loadConfig,
     loadThemes,
 } from "services/wallpaper/utils/wallpaper";
 import wallpaperService from "services/wallpaper/Wallpaper";
@@ -34,7 +34,7 @@ class LibraryDataManager {
     setThemes: Setter<string[]>;
     themePreviews: Accessor<Record<string, string>>;
     setThemePreviews: Setter<Record<string, string>>;
-    
+
     private static instance: LibraryDataManager;
     private initialized = false;
 
@@ -47,11 +47,15 @@ class LibraryDataManager {
         this.themePreviews = p;
         this.setThemePreviews = sp;
 
-        wallpaperService.connect("config-changed", () => void this.loadThemeCatalog());
+        wallpaperService.connect(
+            "config-changed",
+            () => void this.loadThemeCatalog(),
+        );
     }
 
     static getInstance() {
-        if (!LibraryDataManager.instance) LibraryDataManager.instance = new LibraryDataManager();
+        if (!LibraryDataManager.instance)
+            LibraryDataManager.instance = new LibraryDataManager();
         return LibraryDataManager.instance;
     }
 
@@ -62,7 +66,8 @@ class LibraryDataManager {
     }
 
     async loadThemeCatalog(wallpaperDir?: string) {
-        const dir = wallpaperDir || loadConfig(PATHS.wallpaperConfig).wallpaperDir;
+        const dir =
+            wallpaperDir || loadConfig(PATHS.wallpaperConfig).wallpaperDir;
         const config = loadConfig(PATHS.wallpaperConfig);
         try {
             const list = await loadThemes(dir, {
@@ -72,10 +77,17 @@ class LibraryDataManager {
             this.setThemes(list);
 
             const previews: Record<string, string> = {};
-            await Promise.all(list.slice(0, THEME_PREVIEW_PRELOAD_LIMIT).map(async (t) => {
-                try { previews[t] = await wallpaperService.getFirstWallpaper(`${dir}/${t}`); }
-                catch { previews[t] = ""; }
-            }));
+            await Promise.all(
+                list.slice(0, THEME_PREVIEW_PRELOAD_LIMIT).map(async (t) => {
+                    try {
+                        previews[t] = await wallpaperService.getFirstWallpaper(
+                            `${dir}/${t}`,
+                        );
+                    } catch {
+                        previews[t] = "";
+                    }
+                }),
+            );
             this.setThemePreviews(previews);
         } catch (e) {
             Logger.error(`LibraryDataManager error: ${e}`);
@@ -115,21 +127,32 @@ interface CreateLibraryDataControllerProps {
     isSearchVisible?: Accessor<boolean>;
 }
 
-export function createLibraryDataController(props: CreateLibraryDataControllerProps): LibraryDataController {
+export function createLibraryDataController(
+    props: CreateLibraryDataControllerProps,
+): LibraryDataController {
     const { wallpaperDir, isSearchVisible: isSearchVisibleProp } = props;
-    
+
     // UI State (Per-Window)
     const [browsingTheme, setBrowsingTheme] = createState("");
     const [appliedTheme, setAppliedTheme] = createState("");
     const [filteredImages, setFilteredImages] = createState<string[]>([]);
     const [filteredThemes, setFilteredThemes] = createState<string[]>([]);
     const [_searchQuery, setSearchQuery] = createState("");
-    const [currentWallpaper, setCurrentWallpaper] = createState(wallpaperService.getCurrentWallpaper());
-    const [selectedWallpaper, setSelectedWallpaper] = createState(wallpaperService.getCurrentWallpaper());
+    const [currentWallpaper, setCurrentWallpaper] = createState(
+        wallpaperService.getCurrentWallpaper(),
+    );
+    const [selectedWallpaper, setSelectedWallpaper] = createState(
+        wallpaperService.getCurrentWallpaper(),
+    );
     const [selectedIsFavorite, setSelectedIsFavorite] = createState(false);
     const [libraryView, setLibraryView] = createState<LibraryView>("themes");
-    const [wallpaperPreviewThumbs, setWallpaperPreviewThumbs] = createState<Record<string, string>>({});
-    const [wallpaperVisibleRange, setWallpaperVisibleRange] = createState({ start: 0, end: 96 });
+    const [wallpaperPreviewThumbs, setWallpaperPreviewThumbs] = createState<
+        Record<string, string>
+    >({});
+    const [wallpaperVisibleRange, setWallpaperVisibleRange] = createState({
+        start: 0,
+        end: 96,
+    });
     const isSearchVisible = isSearchVisibleProp ?? createState(false)[0];
 
     const themes = dataManager.themes;
@@ -148,7 +171,7 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
             }
         }
         if (bestMatch) return bestMatch;
-        
+
         const parts = relative.split("/");
         if (parts.length > 1) {
             parts.pop();
@@ -174,11 +197,21 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
         const requestEpoch = wallpaperPreviewEpoch;
         const images = filteredImages.get();
         const previews = wallpaperPreviewThumbs.get();
-        
+
         const toLoad: string[] = [];
-        for (let i = Math.max(0, start); i < Math.min(end, images.length) && toLoad.length < WALLPAPER_PREVIEW_BATCH_SIZE; i++) {
+        for (
+            let i = Math.max(0, start);
+            i < Math.min(end, images.length) &&
+            toLoad.length < WALLPAPER_PREVIEW_BATCH_SIZE;
+            i++
+        ) {
             const path = images[i];
-            if (path && !previews[path] && !pendingWallpaperPreviewLoads.has(path)) toLoad.push(path);
+            if (
+                path &&
+                !previews[path] &&
+                !pendingWallpaperPreviewLoads.has(path)
+            )
+                toLoad.push(path);
         }
 
         if (toLoad.length === 0) return;
@@ -186,34 +219,56 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
         wallpaperPreviewBatchActive = true;
         for (const p of toLoad) pendingWallpaperPreviewLoads.add(p);
 
-        void primeWallpaperThumbnails(toLoad).then((batchMap) => {
-            if (requestEpoch !== wallpaperPreviewEpoch) return;
-            setWallpaperPreviewThumbs({ ...wallpaperPreviewThumbs.get(), ...batchMap });
-        }).finally(() => {
-            for (const p of toLoad) pendingWallpaperPreviewLoads.delete(p);
-            wallpaperPreviewBatchActive = false;
-            processWallpaperPreviewQueue();
-        });
+        void primeWallpaperThumbnails(toLoad)
+            .then((batchMap) => {
+                if (requestEpoch !== wallpaperPreviewEpoch) return;
+                setWallpaperPreviewThumbs({
+                    ...wallpaperPreviewThumbs.get(),
+                    ...batchMap,
+                });
+            })
+            .finally(() => {
+                for (const p of toLoad) pendingWallpaperPreviewLoads.delete(p);
+                wallpaperPreviewBatchActive = false;
+                processWallpaperPreviewQueue();
+            });
     };
 
     const ensureThemePreviewRange = (start: number, end: number) => {
         const list = filteredThemes.get();
         const previews = themePreviews.get();
         const toLoad: string[] = [];
-        for (let i = Math.max(0, start); i < Math.min(end, list.length) && toLoad.length < THEME_PREVIEW_LOAD_BATCH; i++) {
+        for (
+            let i = Math.max(0, start);
+            i < Math.min(end, list.length) &&
+            toLoad.length < THEME_PREVIEW_LOAD_BATCH;
+            i++
+        ) {
             const t = list[i];
-            if (t && previews[t] === undefined && !pendingThemePreviewLoads.has(t)) toLoad.push(t);
+            if (
+                t &&
+                previews[t] === undefined &&
+                !pendingThemePreviewLoads.has(t)
+            )
+                toLoad.push(t);
         }
 
         if (toLoad.length === 0) return;
         for (const t of toLoad) pendingThemePreviewLoads.add(t);
 
-        void Promise.all(toLoad.map(async (t) => {
-            const first = await wallpaperService.getFirstWallpaper(`${wallpaperDir}/${t}`);
-            return [t, first] as const;
-        })).then(async (entries) => {
+        void Promise.all(
+            toLoad.map(async (t) => {
+                const first = await wallpaperService.getFirstWallpaper(
+                    `${wallpaperDir}/${t}`,
+                );
+                return [t, first] as const;
+            }),
+        ).then(async (entries) => {
             const validPaths = entries.map(([, p]) => p).filter(Boolean);
-            const thumbMap = validPaths.length > 0 ? await primeWallpaperThumbnails(validPaths) : {};
+            const thumbMap =
+                validPaths.length > 0
+                    ? await primeWallpaperThumbnails(validPaths)
+                    : {};
             const next = { ...themePreviews.get() };
             for (const [t, p] of entries) {
                 next[t] = p ? thumbMap[p] || p : "";
@@ -224,7 +279,10 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
     };
 
     const ensureWallpaperPreviewRange = (start: number, end: number) => {
-        if (wallpaperVisibleRange.get().start !== start || wallpaperVisibleRange.get().end !== end) {
+        if (
+            wallpaperVisibleRange.get().start !== start ||
+            wallpaperVisibleRange.get().end !== end
+        ) {
             setWallpaperVisibleRange({ start, end });
         }
         queuedWallpaperRange = { start, end };
@@ -242,7 +300,9 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
 
     const refreshSelectedFavorite = () => {
         const s = selectedWallpaper.get();
-        setSelectedIsFavorite(s ? wallpaperEngine.state.favorites.includes(s) : false);
+        setSelectedIsFavorite(
+            s ? wallpaperEngine.state.favorites.includes(s) : false,
+        );
     };
     const unsub1 = selectedWallpaper.subscribe(refreshSelectedFavorite);
     const conn2 = wallpaperEngine.connect("changed", refreshSelectedFavorite);
@@ -250,14 +310,21 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
     const loadImagesForTheme = async (theme: string) => {
         if (!theme) return;
         try {
-            const images = await wallpaperService.getWallpapers(`${wallpaperDir}/${theme}`);
+            const images = await wallpaperService.getWallpapers(
+                `${wallpaperDir}/${theme}`,
+            );
             setFilteredImages(fuzzyFilter(images, _searchQuery.get()));
             const current = currentWallpaper.get();
-            setSelectedWallpaper(images.includes(current) ? current : (images[0] || ""));
-        } catch (e) { Logger.error(`Error loading theme images: ${e}`); }
+            setSelectedWallpaper(
+                images.includes(current) ? current : images[0] || "",
+            );
+        } catch (e) {
+            Logger.error(`Error loading theme images: ${e}`);
+        }
     };
 
-    const syncThemes = () => setFilteredThemes(fuzzyThemeFilter(themes.get(), _searchQuery.get()));
+    const syncThemes = () =>
+        setFilteredThemes(fuzzyThemeFilter(themes.get(), _searchQuery.get()));
     const unsub2 = themes.subscribe(syncThemes);
 
     const [themeItems, setThemeItems] = createState<GridItem[]>([]);
@@ -267,13 +334,27 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
         const th = filteredThemes.get();
         const prev = themePreviews.get();
         const active = appliedTheme.get();
-        setThemeItems(th.map(t => ({ id: t, previewPath: prev[t], label: t, isActive: t === active })));
+        setThemeItems(
+            th.map((t) => ({
+                id: t,
+                previewPath: prev[t],
+                label: t,
+                isActive: t === active,
+            })),
+        );
     };
-    
+
     const rebuildImageItems = () => {
         const imgs = filteredImages.get();
         const current = currentWallpaper.get();
-        setImageItems(imgs.map(p => ({ id: p, label: p.split("/").pop() || "", isActive: p === current, isGif: p.toLowerCase().endsWith(".gif") })));
+        setImageItems(
+            imgs.map((p) => ({
+                id: p,
+                label: p.split("/").pop() || "",
+                isActive: p === current,
+                isGif: p.toLowerCase().endsWith(".gif"),
+            })),
+        );
     };
 
     const unsubs = [
@@ -286,7 +367,7 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
             wallpaperPreviewEpoch++;
             pendingWallpaperPreviewLoads.clear();
             ensureWallpaperPreviewRange(0, 96);
-        })
+        }),
     ];
 
     onCleanup(() => {
@@ -298,19 +379,36 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
     });
 
     const controller: LibraryDataController = {
-        libraryView, setLibraryView, filteredThemes, filteredImages, browsingTheme,
-        selectedWallpaper, selectedIsFavorite, wallpaperPreviewThumbs, themeItems, imageItems,
+        libraryView,
+        setLibraryView,
+        filteredThemes,
+        filteredImages,
+        browsingTheme,
+        selectedWallpaper,
+        selectedIsFavorite,
+        wallpaperPreviewThumbs,
+        themeItems,
+        imageItems,
         isSearchVisible,
-        ensureThemePreviewRange, ensureWallpaperPreviewRange,
+        ensureThemePreviewRange,
+        ensureWallpaperPreviewRange,
         handleThemeChange: async (t) => {
             setBrowsingTheme(t);
             setLibraryView("wallpapers");
             await loadImagesForTheme(t);
         },
         showCurrentThemeWallpapers: async () => {
-            const t = appliedTheme.get() || browsingTheme.get() || inferThemeFromWallpaper(currentWallpaper.get());
+            const t =
+                appliedTheme.get() ||
+                browsingTheme.get() ||
+                inferThemeFromWallpaper(currentWallpaper.get());
             if (!t) return setLibraryView("themes");
-            if (libraryView.get() === "wallpapers" && browsingTheme.get() === t && filteredImages.get().length > 0) return;
+            if (
+                libraryView.get() === "wallpapers" &&
+                browsingTheme.get() === t &&
+                filteredImages.get().length > 0
+            )
+                return;
             await controller.handleThemeChange(t);
         },
         handleBackToThemes: () => {
@@ -327,7 +425,9 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
             }, SEARCH_DEBOUNCE_MS);
         },
         handleSelectImage: (p) => setSelectedWallpaper(p),
-        handleActivateImage: async (p) => { await wallpaperService.setWallpaper(p); },
+        handleActivateImage: async (p) => {
+            await wallpaperService.setWallpaper(p);
+        },
         handleRandomInTheme: async () => {
             const t = browsingTheme.get();
             if (!t) return;
@@ -347,7 +447,8 @@ export function createLibraryDataController(props: CreateLibraryDataControllerPr
             recursiveSearch: config.recursiveSearch,
             includeHidden: config.includeHidden,
         });
-        const effectiveTheme = inferThemeFromWallpaper(currentWallpaper.get()) || themeFromFile;
+        const effectiveTheme =
+            inferThemeFromWallpaper(currentWallpaper.get()) || themeFromFile;
         setAppliedTheme(effectiveTheme);
         setBrowsingTheme(effectiveTheme);
         if (effectiveTheme) await loadImagesForTheme(effectiveTheme);

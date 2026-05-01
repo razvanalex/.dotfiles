@@ -49,7 +49,7 @@ function TimeRow() {
             return "Uptime: unknown";
         }
     });
-    
+
     onCleanup(() => uptime.drop());
 
     return (
@@ -147,7 +147,7 @@ export default function SideRight(monitor: Gdk.Monitor, index: number = 0) {
                         },
                     );
                     self.add_controller(controller);
-                    
+
                     onCleanup(() => {
                         controller.disconnect(connId);
                     });

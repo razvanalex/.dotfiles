@@ -177,19 +177,25 @@ export function saveEngineState(
         GLib.source_remove(saveTimer);
     }
 
-    saveTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SAVE_DEBOUNCE_MS, () => {
-        if (!pendingState) return GLib.SOURCE_REMOVE;
-        
-        const { path: targetPath, state: data } = pendingState;
-        pendingState = null;
-        saveTimer = null;
+    saveTimer = GLib.timeout_add(
+        GLib.PRIORITY_DEFAULT,
+        SAVE_DEBOUNCE_MS,
+        () => {
+            if (!pendingState) return GLib.SOURCE_REMOVE;
 
-        const json = JSON.stringify(data, null, 2);
-        ensureDirectory(targetPath);
-        writeFileAsync(targetPath, json).catch(err => {
-            Logger.error(`WallpaperEngine: Failed to save state asynchronously: ${err}`);
-        });
-        
-        return GLib.SOURCE_REMOVE;
-    });
+            const { path: targetPath, state: data } = pendingState;
+            pendingState = null;
+            saveTimer = null;
+
+            const json = JSON.stringify(data, null, 2);
+            ensureDirectory(targetPath);
+            writeFileAsync(targetPath, json).catch((err) => {
+                Logger.error(
+                    `WallpaperEngine: Failed to save state asynchronously: ${err}`,
+                );
+            });
+
+            return GLib.SOURCE_REMOVE;
+        },
+    );
 }

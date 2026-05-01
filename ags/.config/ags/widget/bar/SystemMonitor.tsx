@@ -1,6 +1,6 @@
+import { onCleanup } from "ags";
 import { Gtk } from "ags/gtk4";
 import { createPoll } from "ags/time";
-import { onCleanup } from "ags";
 import { CircularProgress } from "./CircularProgress";
 
 const widgets = [

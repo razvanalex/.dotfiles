@@ -19,18 +19,21 @@ function TrayItem({ item }: { item: Tray.TrayItem }) {
         const controller = new Gtk.GestureClick();
         controller.set_button(0); // Listen to all buttons
         controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE); // Catch event before button
-        const releasedId = controller.connect("released", (gesture, _n, x, y) => {
-            const btn = gesture.get_current_button();
-            if (btn === Gdk.BUTTON_PRIMARY) {
-                // Left Click: Activate the app
-                item.activate(x, y);
-                gesture.set_state(Gtk.EventSequenceState.CLAIMED);
-            } else if (btn === Gdk.BUTTON_SECONDARY) {
-                // Right Click: Open the menu
-                self.set_active(true);
-                gesture.set_state(Gtk.EventSequenceState.CLAIMED);
-            }
-        });
+        const releasedId = controller.connect(
+            "released",
+            (gesture, _n, x, y) => {
+                const btn = gesture.get_current_button();
+                if (btn === Gdk.BUTTON_PRIMARY) {
+                    // Left Click: Activate the app
+                    item.activate(x, y);
+                    gesture.set_state(Gtk.EventSequenceState.CLAIMED);
+                } else if (btn === Gdk.BUTTON_SECONDARY) {
+                    // Right Click: Open the menu
+                    self.set_active(true);
+                    gesture.set_state(Gtk.EventSequenceState.CLAIMED);
+                }
+            },
+        );
         self.add_controller(controller);
 
         onCleanup(() => {

@@ -1,5 +1,5 @@
-import GLib from "gi://GLib";
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 import app from "ags/gtk4/app";
 import { execAsync } from "ags/process";
 import userOptions from "services/options/Options";
@@ -28,20 +28,28 @@ export function handleStyles(resetMusic: boolean = false) {
     }
 
     isStyleApplying = true;
-    
+
     // Run the style generation in background to avoid blocking
     void (async () => {
         try {
             const stateDir = GLib.get_user_state_dir();
-            
+
             // Create directory if missing
-            await execAsync(["mkdir", "-p", `${stateDir}/ags/scss`]).catch(() => {});
+            await execAsync(["mkdir", "-p", `${stateDir}/ags/scss`]).catch(
+                () => {},
+            );
 
             if (resetMusic) {
                 try {
                     await Promise.all([
-                        writeFileAsync(`${stateDir}/ags/scss/_musicwal.scss`, ""),
-                        writeFileAsync(`${stateDir}/ags/scss/_musicmaterial.scss`, ""),
+                        writeFileAsync(
+                            `${stateDir}/ags/scss/_musicwal.scss`,
+                            "",
+                        ),
+                        writeFileAsync(
+                            `${stateDir}/ags/scss/_musicmaterial.scss`,
+                            "",
+                        ),
                     ]);
                 } catch (e) {
                     Logger.error("Failed to reset music styles:", e);
@@ -51,7 +59,9 @@ export function handleStyles(resetMusic: boolean = false) {
             // Generate overrides
             const lightdark = SystemService.dark_mode ? "dark" : "light";
             const symbolicIconTheme =
-                userOptions.icons.symbolicIconTheme[lightdark as "dark" | "light"];
+                userOptions.icons.symbolicIconTheme[
+                    lightdark as "dark" | "light"
+                ];
 
             const mixinOverrides = `@mixin symbolic-icon {
     --gtk-icon-theme-name: '${symbolicIconTheme}';
@@ -86,7 +96,7 @@ async function applyStyle() {
         const stateDir = GLib.get_user_state_dir();
 
         await execAsync(["mkdir", "-p", COMPILED_STYLE_DIR]).catch(() => {});
-        
+
         // Find node path to ensure sass (which often uses #!/usr/bin/env node) can find it
         const home = GLib.get_home_dir();
         // Try common NVM locations
@@ -98,8 +108,9 @@ async function applyStyle() {
         try {
             // Use absolute path to sass if possible, or assume it's in PATH
             await execAsync([
-                "bash", "-c",
-                `export PATH="${combinedPath}"; sass -I "${stateDir}/ags/scss" "${configDir}/ags/scss/main.scss" "${COMPILED_STYLE_DIR}/style.css"`
+                "bash",
+                "-c",
+                `export PATH="${combinedPath}"; sass -I "${stateDir}/ags/scss" "${configDir}/ags/scss/main.scss" "${COMPILED_STYLE_DIR}/style.css"`,
             ]);
         } catch (e: any) {
             // execAsync error might be an object with output
@@ -108,7 +119,7 @@ async function applyStyle() {
             return;
         }
 
-        // app.reset_css(); // REMOVED: reset_css() is too aggressive and causes flicker. 
+        // app.reset_css(); // REMOVED: reset_css() is too aggressive and causes flicker.
         // GTK4 will correctly apply the new CSS on top of the old one if it's the same provider.
         app.apply_css(`${COMPILED_STYLE_DIR}/style.css`);
         Logger.info("Styles loaded:", `${COMPILED_STYLE_DIR}/style.css`);

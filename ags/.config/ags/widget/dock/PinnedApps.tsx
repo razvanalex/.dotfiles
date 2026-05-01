@@ -94,7 +94,7 @@ export function PinnedApps() {
         </box>
     );
 }
-/;;;;;;;;;>;
+/;;;;;;;;;;;>;
 )
       })}
     </box>

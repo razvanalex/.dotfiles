@@ -1,6 +1,9 @@
 import brightness from "./Brightness";
 
-export async function handleSystemRequest(argv: string[], res: (response: any) => void) {
+export async function handleSystemRequest(
+    argv: string[],
+    res: (response: any) => void,
+) {
     if (argv[0] === "brightness") {
         let valStr = argv[1];
         if (valStr === "--") valStr = argv[2];

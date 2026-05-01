@@ -563,6 +563,17 @@
   padding: 0;
 }
 
+.wallpaper-no-results {
+  padding: 2rem;
+  opacity: 0.8;
+  
+  .wallpaper-no-results-text {
+    @include titlefont;
+    font-size: 1.2rem;
+    color: $onSurfaceVariant;
+  }
+}
+
 // --- Popup TSX Selectors ---
 .wallpaper-selector-popup-window, .theme-selector-popup-window {
   background-color: transparent;

@@ -1,6 +1,6 @@
 import Hyprland from "gi://AstalHyprland";
-import { Gtk } from "ags/gtk4";
 import { onCleanup } from "ags";
+import { Gtk } from "ags/gtk4";
 import userOptions from "services/options/Options";
 
 const hypr = Hyprland.get_default();
@@ -189,7 +189,8 @@ export function HyprlandWorkspaces() {
     };
 
     const getCurrentWorkspaceId = (): number => {
-        const focused = hypr.focusedWorkspace?.id || hypr.get_focused_workspace()?.id;
+        const focused =
+            hypr.focusedWorkspace?.id || hypr.get_focused_workspace()?.id;
         return focused || 1;
     };
 
@@ -227,23 +228,30 @@ export function HyprlandWorkspaces() {
 
             if (id) {
                 if (isButton) {
-                    const buttonClasses = ["bar-ws", "bar-ws-active-transparent"];
+                    const buttonClasses = [
+                        "bar-ws",
+                        "bar-ws-active-transparent",
+                    ];
                     child.set_css_classes(buttonClasses);
 
                     // @ts-expect-error
                     const inner = child.get_child();
                     if (inner) {
-                        const innerClasses = getInnerClasses(id).split(" ").filter((c) => c);
+                        const innerClasses = getInnerClasses(id)
+                            .split(" ")
+                            .filter((c) => c);
                         inner.set_css_classes(innerClasses);
                     }
                 } else {
                     const isOccupied = isWorkspaceOccupied(id);
                     const isActive = isWorkspaceActive(id);
 
-                    if (!child.has_css_class("bar-ws")) child.add_css_class("bar-ws");
+                    if (!child.has_css_class("bar-ws"))
+                        child.add_css_class("bar-ws");
 
                     if (isOccupied || isActive) {
-                        if (!child.has_css_class("bar-ws-occupied")) child.add_css_class("bar-ws-occupied");
+                        if (!child.has_css_class("bar-ws-occupied"))
+                            child.add_css_class("bar-ws-occupied");
                         child.remove_css_class("bar-ws-occupied-single");
                         child.remove_css_class("bar-ws-occupied-first");
                         child.remove_css_class("bar-ws-occupied-middle");
@@ -332,7 +340,14 @@ export function HyprlandWorkspaces() {
                 updateWorkspaceClasses(bgBox, false);
                 updateWorkspaceClasses(buttonBox, true);
                 if (pageChanged) {
-                    setTimeout(() => setTimeout(() => updateCursorPosition(currentId, start), 0), 10);
+                    setTimeout(
+                        () =>
+                            setTimeout(
+                                () => updateCursorPosition(currentId, start),
+                                0,
+                            ),
+                        10,
+                    );
                 } else {
                     updateCursorPosition(currentId, start);
                 }
@@ -345,7 +360,7 @@ export function HyprlandWorkspaces() {
             hypr.connect("notify::focused-workspace", update),
             hypr.connect("client-added", update),
             hypr.connect("client-removed", update),
-            hypr.connect("client-moved", update)
+            hypr.connect("client-moved", update),
         ];
 
         onCleanup(() => {
@@ -364,14 +379,34 @@ export function HyprlandWorkspaces() {
 
     return (
         <overlay class="bar-ws-wrapper" onRealize={setup}>
-            <box css={`min-width: ${count * WS_WIDTH_REM + 0.5}rem; min-height: 1.774rem;`} />
-            <box $type="overlay" halign={Gtk.Align.START} valign={Gtk.Align.CENTER} spacing={0} $={(w) => (bgBox = w)} />
-            <box $type="overlay" name="bar-ws-cursor" class="bar-ws-cursor" halign={Gtk.Align.START} valign={Gtk.Align.CENTER} $={(w) => {
+            <box
+                css={`min-width: ${count * WS_WIDTH_REM + 0.5}rem; min-height: 1.774rem;`}
+            />
+            <box
+                $type="overlay"
+                halign={Gtk.Align.START}
+                valign={Gtk.Align.CENTER}
+                spacing={0}
+                $={(w) => (bgBox = w)}
+            />
+            <box
+                $type="overlay"
+                name="bar-ws-cursor"
+                class="bar-ws-cursor"
+                halign={Gtk.Align.START}
+                valign={Gtk.Align.CENTER}
+                $={(w) => {
                     cursor = w;
                     cursor.set_visible(false);
                 }}
             />
-            <box $type="overlay" halign={Gtk.Align.START} valign={Gtk.Align.CENTER} spacing={0} $={(w) => (buttonBox = w)} />
+            <box
+                $type="overlay"
+                halign={Gtk.Align.START}
+                valign={Gtk.Align.CENTER}
+                spacing={0}
+                $={(w) => (buttonBox = w)}
+            />
         </overlay>
     );
 }

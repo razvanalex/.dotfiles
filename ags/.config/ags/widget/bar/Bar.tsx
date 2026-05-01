@@ -1,10 +1,10 @@
 import Battery from "gi://AstalBattery";
 import GLib from "gi://GLib";
+import { onCleanup } from "ags";
 import { Astal, type Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { execAsync } from "ags/process";
 import { createPoll } from "ags/time";
-import { onCleanup } from "ags";
 import Logger from "lib/logger";
 import userOptions from "services/options/Options";
 import StatusIcons from "./StatusIcons";

@@ -94,7 +94,7 @@ class Wallpaper extends GObject.Object {
         if (state?.currentWallpaper) {
             this.#currentWallpaper = state.currentWallpaper;
             this.notify("current-wallpaper");
-            log.info(`Restored last wallpaper: ${this.#currentWallpaper}`);
+            log.debug(`Restored last wallpaper: ${this.#currentWallpaper}`);
         }
 
         // Ensure awww daemon is running
@@ -111,7 +111,7 @@ class Wallpaper extends GObject.Object {
             // Check if daemon is running
             await execAsync("awww query");
             this.#daemonReady = true;
-            log.info("awww daemon is already running");
+            log.debug("awww daemon is already running");
         } catch {
             // Start daemon
             log.info("Starting awww daemon...");
@@ -197,12 +197,10 @@ class Wallpaper extends GObject.Object {
             this.emit("wallpaper-changed", expandedPath);
 
             if (DEBUG_WALLPAPER_TIMING) {
-                log.info(
-                    `timing total=${Date.now() - startedAt}ms`,
-                );
+                log.debug(`timing total=${Date.now() - startedAt}ms`);
             }
 
-            log.info(`Applied ${expandedPath}`);
+            log.debug(`Applied ${expandedPath}`);
         } catch (error) {
             const errorMsg = `Failed to apply wallpaper: ${error}`;
             this.emit("wallpaper-error", errorMsg);
@@ -334,7 +332,8 @@ class Wallpaper extends GObject.Object {
                 if (this.#autoChangePicker) {
                     const selected = await this.#autoChangePicker();
                     if (!selected) {
-                        const errorMsg = "Auto-change picker returned no wallpaper";
+                        const errorMsg =
+                            "Auto-change picker returned no wallpaper";
                         this.emit("wallpaper-error", errorMsg);
                         throw new Error(errorMsg);
                     }
@@ -390,7 +389,7 @@ class Wallpaper extends GObject.Object {
                 },
             );
 
-            log.info(`Auto-change started (interval: ${interval}s)`);
+            log.debug(`Auto-change started (interval: ${interval}s)`);
         } catch (error) {
             const errorMsg = `Failed to start auto-change: ${error}`;
             this.emit("wallpaper-error", errorMsg);
@@ -450,7 +449,7 @@ class Wallpaper extends GObject.Object {
             },
         );
 
-        log.info(`Auto-change interval updated to ${interval}s`);
+        log.debug(`Auto-change interval updated to ${interval}s`);
     }
 
     /**
@@ -461,7 +460,7 @@ class Wallpaper extends GObject.Object {
             GLib.source_remove(this.#autoChangeTimer);
             this.#autoChangeTimer = null;
             this.#autoChangePicker = null;
-            log.info("Auto-change stopped");
+            log.debug("Auto-change stopped");
         }
     }
 
@@ -486,7 +485,7 @@ class Wallpaper extends GObject.Object {
         };
         saveConfig(this.#configPath, this.#config);
         this.emit("config-changed");
-        log.info("Configuration updated");
+        log.debug("Configuration updated");
     }
 
     /**

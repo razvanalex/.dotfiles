@@ -1,6 +1,10 @@
 import { handleUIRequest } from "./uiRequestHandler";
 
-export async function requestHandler(inputArgv: string[], res: (response: any) => void, ENABLE_WALLPAPER: boolean) {
+export async function requestHandler(
+    inputArgv: string[],
+    res: (response: any) => void,
+    ENABLE_WALLPAPER: boolean,
+) {
     try {
         let argv = inputArgv;
         if (argv.length === 1 && argv[0].includes(" ")) {
@@ -17,14 +21,26 @@ export async function requestHandler(inputArgv: string[], res: (response: any) =
         if (uiHandled !== false) return;
 
         if (cmd === "brightness") {
-            const { handleSystemRequest } = await import("services/system/requestHandler");
+            const { handleSystemRequest } = await import(
+                "services/system/requestHandler"
+            );
             const systemHandled = await handleSystemRequest(argv, res);
             if (systemHandled !== false) return;
         }
 
-        if (cmd === "wallpaper" || (cmd && cmd.includes("wallpaper-selector")) || cmd === "theme-selector-popup") {
-            const { handleWallpaperRequest } = await import("services/wallpaper/requestHandler");
-            const wallpaperHandled = await handleWallpaperRequest(argv, res, ENABLE_WALLPAPER);
+        if (
+            cmd === "wallpaper" ||
+            (cmd && cmd.includes("wallpaper-selector")) ||
+            cmd === "theme-selector-popup"
+        ) {
+            const { handleWallpaperRequest } = await import(
+                "services/wallpaper/requestHandler"
+            );
+            const wallpaperHandled = await handleWallpaperRequest(
+                argv,
+                res,
+                ENABLE_WALLPAPER,
+            );
             if (wallpaperHandled !== false) return;
         }
 

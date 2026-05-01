@@ -82,18 +82,26 @@ class SystemService extends GObject.Object {
         const lightdark = value ? "dark" : "light";
         const stateDir = GLib.get_user_state_dir();
         const configDir = GLib.get_user_config_dir();
-execAsyncNoExcept(
-    `bash -c "mkdir -p ${stateDir}/ags/user && sed -i '1s/.*/${lightdark}/' ${stateDir}/ags/user/colormode.txt"`,
-)
-    .then(() => {
         execAsyncNoExcept(
-            `bash -c "${configDir}/ags/scripts/color_generation/switchcolor.sh"`,
-        );
-        // Also call handleStyles to ensure AGS UI colors are updated immediately if possible
-        import("lib/styles").then(({ handleStyles }) => {
-            handleStyles();
-        }).catch(err => Logger.error(`Failed to dynamic import handleStyles: ${err}`));
-    })    .catch((e) => Logger.error(e));        this.notify("dark-mode");
+            `bash -c "mkdir -p ${stateDir}/ags/user && sed -i '1s/.*/${lightdark}/' ${stateDir}/ags/user/colormode.txt"`,
+        )
+            .then(() => {
+                execAsyncNoExcept(
+                    `bash -c "${configDir}/ags/scripts/color_generation/switchcolor.sh"`,
+                );
+                // Also call handleStyles to ensure AGS UI colors are updated immediately if possible
+                import("lib/styles")
+                    .then(({ handleStyles }) => {
+                        handleStyles();
+                    })
+                    .catch((err) =>
+                        Logger.error(
+                            `Failed to dynamic import handleStyles: ${err}`,
+                        ),
+                    );
+            })
+            .catch((e) => Logger.error(e));
+        this.notify("dark-mode");
         this.emit("changed");
     }
 

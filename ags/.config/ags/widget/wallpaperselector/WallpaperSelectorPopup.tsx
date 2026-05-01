@@ -1,12 +1,12 @@
+import GLib from "gi://GLib";
 import { createState, onCleanup } from "ags";
-import { Astal, Gdk, Gtk } from "ags/gtk4";
+import { Astal, type Gdk, Gtk } from "ags/gtk4";
 import app from "ags/gtk4/app";
 import { PATHS } from "lib/constants";
 import { loadConfig } from "services/wallpaper/utils/wallpaper";
-import { createLibraryDataController } from "./sections/library/controller";
 import PopupSelectorWindow from "./PopupSelectorWindow";
+import { createLibraryDataController } from "./sections/library/controller";
 import WallpaperGridView from "./WallpaperGridView";
-import GLib from "gi://GLib";
 
 export default function WallpaperSelectorPopup(
     monitor: Gdk.Monitor,
@@ -41,35 +41,39 @@ export default function WallpaperSelectorPopup(
         return imageGridRef;
     };
 
-    const placeholder = controller.libraryView.as(v => v === "themes" ? "Search themes..." : "Search wallpapers...");
+    const placeholder = controller.libraryView.as((v) =>
+        v === "themes" ? "Search themes..." : "Search wallpapers...",
+    );
 
     const navHeader = (
-        <box 
-            orientation={Gtk.Orientation.HORIZONTAL} 
+        <box
+            orientation={Gtk.Orientation.HORIZONTAL}
             spacing={8}
-            visible={controller.libraryView.as(v => v === "wallpapers")}
+            visible={controller.libraryView.as((v) => v === "wallpapers")}
             margin_bottom={4}
         >
-            <button 
-                class="wallpaper-breadcrumb-btn" 
-                label="‹ Back to Themes" 
-                onClicked={() => controller.handleBackToThemes()} 
+            <button
+                class="wallpaper-breadcrumb-btn"
+                label="‹ Back to Themes"
+                onClicked={() => controller.handleBackToThemes()}
             />
-            <label 
-                class="wallpaper-breadcrumb-current" 
-                label={controller.browsingTheme.as(t => t)} 
+            <label
+                class="wallpaper-breadcrumb-current"
+                label={controller.browsingTheme.as((t) => t)}
             />
         </box>
     ) as JSX.Element;
 
     const themesView = (
         <box $type="named" name="themes">
-            <WallpaperGridView 
-                items={controller.themeItems} 
+            <WallpaperGridView
+                items={controller.themeItems}
                 onActivate={(theme) => void controller.handleThemeChange(theme)}
                 onVisibleRangeChange={controller.ensureThemePreviewRange}
                 $={(grid) => {
-                    themeGridRef = (grid as Gtk.ScrolledWindow).get_child() as Gtk.GridView;
+                    themeGridRef = (
+                        grid as Gtk.ScrolledWindow
+                    ).get_child() as Gtk.GridView;
                 }}
             />
         </box>
@@ -77,8 +81,8 @@ export default function WallpaperSelectorPopup(
 
     const wallpapersView = (
         <box $type="named" name="wallpapers">
-            <WallpaperGridView 
-                items={controller.imageItems} 
+            <WallpaperGridView
+                items={controller.imageItems}
                 onSelect={(path) => controller.handleSelectImage(path)}
                 onActivate={(path) => {
                     void controller.handleActivateImage(path);
@@ -87,7 +91,9 @@ export default function WallpaperSelectorPopup(
                 previewLookup={controller.wallpaperPreviewThumbs}
                 onVisibleRangeChange={controller.ensureWallpaperPreviewRange}
                 $={(grid) => {
-                    imageGridRef = (grid as Gtk.ScrolledWindow).get_child() as Gtk.GridView;
+                    imageGridRef = (
+                        grid as Gtk.ScrolledWindow
+                    ).get_child() as Gtk.GridView;
                 }}
             />
         </box>
@@ -102,18 +108,19 @@ export default function WallpaperSelectorPopup(
             searchPlaceholder={placeholder}
             onSearchChange={controller.handleSearchChange}
             getActiveGridView={getActiveGridView as any}
-            onShow={() => { 
+            onShow={() => {
                 // Delay showing current wallpapers to ensure stack is fully initialized
                 GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                    void controller.showCurrentThemeWallpapers(); 
+                    void controller.showCurrentThemeWallpapers();
                     return GLib.SOURCE_REMOVE;
                 });
             }}
             navHeader={navHeader}
         >
-            <stack 
-                hexpand vexpand 
-                transitionType={Gtk.StackTransitionType.CROSSFADE} 
+            <stack
+                hexpand
+                vexpand
+                transitionType={Gtk.StackTransitionType.CROSSFADE}
                 transitionDuration={200}
                 visibleChildName={controller.libraryView}
             >

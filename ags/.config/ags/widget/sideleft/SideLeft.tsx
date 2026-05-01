@@ -95,16 +95,19 @@ export default function SideLeft(monitor: Gdk.Monitor, index: number = 0) {
                 $={(self: Gtk.Window) => {
                     Logger.info(`SideLeft window setup ${self.name}`);
                     const controller = new Gtk.EventControllerKey();
-                    const connId = controller.connect("key-pressed", (_, keyval) => {
-                        // Close on Escape
-                        if (keyval === Gdk.KEY_Escape) {
-                            self.visible = false;
-                            return true;
-                        }
-                        return false;
-                    });
+                    const connId = controller.connect(
+                        "key-pressed",
+                        (_, keyval) => {
+                            // Close on Escape
+                            if (keyval === Gdk.KEY_Escape) {
+                                self.visible = false;
+                                return true;
+                            }
+                            return false;
+                        },
+                    );
                     self.add_controller(controller);
-                    
+
                     onCleanup(() => {
                         controller.disconnect(connId);
                     });

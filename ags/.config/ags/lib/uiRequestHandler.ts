@@ -2,7 +2,10 @@ import GLib from "gi://GLib";
 import app from "ags/gtk4/app";
 import { handleStyles } from "lib/styles";
 
-export async function handleUIRequest(argv: string[], res: (response: any) => void) {
+export async function handleUIRequest(
+    argv: string[],
+    res: (response: any) => void,
+) {
     if (argv[0] === "handleStyles") {
         const visibleWindows: string[] = [];
         const allWindows = app.get_windows();

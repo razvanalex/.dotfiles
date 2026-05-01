@@ -32,7 +32,10 @@ export default function WallpaperSelector(
         setIsEngineRunning(wallpaperEngine.state.isRunning);
     };
 
-    const engineChangedId = wallpaperEngine.connect("changed", updateEngineState);
+    const engineChangedId = wallpaperEngine.connect(
+        "changed",
+        updateEngineState,
+    );
 
     onCleanup(() => {
         wallpaperEngine.disconnect(engineChangedId);
@@ -52,7 +55,7 @@ export default function WallpaperSelector(
         default_height: 700,
     });
     win.add_css_class("wallpaper-selector-window");
-    
+
     // Minimum size
     win.set_size_request(600, 400);
 
@@ -85,7 +88,7 @@ export default function WallpaperSelector(
         halign: Gtk.Align.START,
     });
     headerLeft.set_size_request(220, -1);
-    
+
     const searchBtn = new Gtk.Button({
         icon_name: "system-search-symbolic",
         css_classes: ["wallpaper-header-icon-btn"],
@@ -113,14 +116,16 @@ export default function WallpaperSelector(
         halign: Gtk.Align.END,
     });
     headerRight.set_size_request(220, -1);
-    
+
     const rightSpacer = new Gtk.Box({ hexpand: true });
     headerRight.append(rightSpacer);
 
     const aiBtn = new Gtk.Button({
         css_classes: ["wallpaper-header-icon-btn"],
     });
-    const aiIcon = new Gtk.Image({ file: `${CONFIG_DIR}/assets/icons/spark-symbolic.svg` });
+    const aiIcon = new Gtk.Image({
+        file: `${CONFIG_DIR}/assets/icons/spark-symbolic.svg`,
+    });
     aiBtn.set_child(aiIcon);
     headerRight.append(aiBtn);
 
@@ -170,28 +175,60 @@ export default function WallpaperSelector(
     });
 
     // Use GObject tags to embed reactive sections
-    mainArea.append(<box visible={navSection.as(s => s === "library")} hexpand vexpand>
-        <LibrarySection 
-            wallpaperDir={wallpaperDir} 
-            isSearchVisible={isSearchVisible} 
-        />
-    </box> as unknown as Gtk.Widget);
-    
-    mainArea.append(<box visible={navSection.as(s => s === "favorites")} hexpand vexpand>
-        <FavoritesSection />
-    </box> as unknown as Gtk.Widget);
-    
-    mainArea.append(<box visible={navSection.as(s => s === "recent")} hexpand vexpand>
-        <RecentSection />
-    </box> as unknown as Gtk.Widget);
-    
-    mainArea.append(<box visible={navSection.as(s => s === "settings")} hexpand vexpand>
-        <SettingsSection />
-    </box> as unknown as Gtk.Widget);
-    
-    mainArea.append(<box visible={navSection.as(s => s === "about")} hexpand vexpand>
-        <AboutSection />
-    </box> as unknown as Gtk.Widget);
+    mainArea.append(
+        (
+            <box
+                visible={navSection.as((s) => s === "library")}
+                hexpand
+                vexpand
+            >
+                <LibrarySection
+                    wallpaperDir={wallpaperDir}
+                    isSearchVisible={isSearchVisible}
+                />
+            </box>
+        ) as unknown as Gtk.Widget,
+    );
+
+    mainArea.append(
+        (
+            <box
+                visible={navSection.as((s) => s === "favorites")}
+                hexpand
+                vexpand
+            >
+                <FavoritesSection />
+            </box>
+        ) as unknown as Gtk.Widget,
+    );
+
+    mainArea.append(
+        (
+            <box visible={navSection.as((s) => s === "recent")} hexpand vexpand>
+                <RecentSection />
+            </box>
+        ) as unknown as Gtk.Widget,
+    );
+
+    mainArea.append(
+        (
+            <box
+                visible={navSection.as((s) => s === "settings")}
+                hexpand
+                vexpand
+            >
+                <SettingsSection />
+            </box>
+        ) as unknown as Gtk.Widget,
+    );
+
+    mainArea.append(
+        (
+            <box visible={navSection.as((s) => s === "about")} hexpand vexpand>
+                <AboutSection />
+            </box>
+        ) as unknown as Gtk.Widget,
+    );
 
     mainContentOverlay.set_child(mainArea);
 
@@ -204,26 +241,44 @@ export default function WallpaperSelector(
             margin_bottom={24}
             revealChild={true}
         >
-            <box orientation={Gtk.Orientation.HORIZONTAL} spacing={8} class="wallpaper-playback-pill">
+            <box
+                orientation={Gtk.Orientation.HORIZONTAL}
+                spacing={8}
+                class="wallpaper-playback-pill"
+            >
                 <button
                     class="pill-btn"
                     iconName="media-skip-backward-symbolic"
-                    onClicked={() => void wallpaperEngine.prev().catch(e => console.error(e))}
+                    onClicked={() =>
+                        void wallpaperEngine
+                            .prev()
+                            .catch((e) => console.error(e))
+                    }
                 />
                 <button
                     class="pill-btn"
-                    iconName={isEngineRunning.as(running => 
-                        running ? "media-playback-pause-symbolic" : "media-playback-start-symbolic"
+                    iconName={isEngineRunning.as((running) =>
+                        running
+                            ? "media-playback-pause-symbolic"
+                            : "media-playback-start-symbolic",
                     )}
                     onClicked={() => {
-                        if (wallpaperEngine.state.isRunning) wallpaperEngine.stopAuto();
-                        else void wallpaperEngine.startAuto().catch(e => console.error(e));
+                        if (wallpaperEngine.state.isRunning)
+                            wallpaperEngine.stopAuto();
+                        else
+                            void wallpaperEngine
+                                .startAuto()
+                                .catch((e) => console.error(e));
                     }}
                 />
                 <button
                     class="pill-btn"
                     iconName="media-skip-forward-symbolic"
-                    onClicked={() => void wallpaperEngine.next().catch(e => console.error(e))}
+                    onClicked={() =>
+                        void wallpaperEngine
+                            .next()
+                            .catch((e) => console.error(e))
+                    }
                 />
             </box>
         </revealer>
