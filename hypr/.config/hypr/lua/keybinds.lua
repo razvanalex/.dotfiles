@@ -37,6 +37,11 @@ local keybinds = {
     { mods = "$mainMod", key = "R", type = "bind", cmd = "exec, /home/razvan/Workspace/ai/tts-read/tts_read.sh" },
     { mods = "Ctrl+$mainMod", key = "C", type = "bind", cmd = "exec, $UserScripts/VSCode.sh" },
 
+    -- App Launchers & Search
+    { mods = "$mainMod", key = "D", type = "bind", cmd = "exec, qs ipc call search toggle || (pkill rofi || rofi -show drun -modi drun,filebrowser,run,window)" },
+    { mods = "$mainMod", key = "A", type = "bind", cmd = "exec, qs ipc call search toggle" },
+    { mods = "$mainMod", key = "$mainMod_L", type = "bindr", cmd = "exec, qs ipc call search toggle" },
+
     -- Quickshell Widgets & Controls
     { mods = "$mainMod", key = "W", type = "bind", cmd = "exec, qs ipc call wallpaperSelector toggle" },
     { mods = "$mainMod+Alt", key = "W", type = "bind", cmd = "exec, qs ipc call wallpapers toggleHidden" },
