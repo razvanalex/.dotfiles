@@ -6,8 +6,8 @@ local settings = {
         gaps_in = 2,
         gaps_out = 5,
         resize_on_border = true,
-        ["col.active_border"] = "rgba(33ccffee) rgba(00ff99ee) 45deg",
-        ["col.inactive_border"] = "rgba(595959aa)",
+        ["col.active_border"] = "rgba(a0a0a0ee) rgba(606060ee) 45deg",
+        ["col.inactive_border"] = "rgba(2a2a2aaa)",
         layout = "dwindle",
         allow_tearing = false,
     },
@@ -75,8 +75,8 @@ local settings = {
         "3, down, mod: SUPER, scale: 1.5, fullscreen",
     },
     group = {
-        ["col.border_active"] = "rgba(33ccffee)",
-        groupbar = { ["col.active"] = "rgba(33ccffee)" },
+        ["col.border_active"] = "rgba(a0a0a0ee)",
+        groupbar = { ["col.active"] = "rgba(a0a0a0ee)" },
     },
     misc = {
         disable_hyprland_logo = true,
