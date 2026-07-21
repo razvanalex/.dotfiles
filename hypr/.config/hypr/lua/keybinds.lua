@@ -38,6 +38,10 @@ local keybinds = {
     { mods = "Ctrl+$mainMod", key = "C", type = "bind", cmd = "exec, $UserScripts/VSCode.sh" },
 
     -- Quickshell Widgets & Controls
+    { mods = "$mainMod", key = "W", type = "bind", cmd = "exec, qs ipc call wallpaperSelector toggle" },
+    { mods = "$mainMod+Alt", key = "W", type = "bind", cmd = "exec, qs ipc call wallpapers toggleHidden" },
+    { mods = "Ctrl+Alt", key = "W", type = "bind", cmd = "exec, qs ipc call wallpapers random" },
+    { mods = "$mainMod", key = "C", type = "bind", cmd = "exec, qs ipc call wallpapers random" },
     { mods = "Ctrl+$mainMod", key = "R", type = "bindr", cmd = "exec, pkill quickshell; quickshell &" },
     { mods = "$mainMod", key = "A", type = "bind", cmd = "exec, qs ipc call panelFamily cycle" },
 
