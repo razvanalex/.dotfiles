@@ -26,8 +26,6 @@ const WALLPAPER_PREVIEW_LOOKAHEAD = 24;
 const WALLPAPER_PREVIEW_BATCH_SIZE = 24;
 const SEARCH_DEBOUNCE_MS = 120;
 
-let searchDebounceId: ReturnType<typeof setTimeout> | null = null;
-
 // --- Shared Data Layer (The Singleton) ---
 class LibraryDataManager {
     themes: Accessor<string[]>;
@@ -109,6 +107,7 @@ export interface LibraryDataController {
     themeItems: Accessor<GridItem[]>;
     imageItems: Accessor<GridItem[]>;
     isSearchVisible: Accessor<boolean>;
+    searchQuery: Accessor<string>;
     ensureThemePreviewRange: (start: number, end: number) => void;
     ensureWallpaperPreviewRange: (start: number, end: number) => void;
     handleThemeChange: (newTheme: string) => Promise<void>;
@@ -131,6 +130,8 @@ export function createLibraryDataController(
     props: CreateLibraryDataControllerProps,
 ): LibraryDataController {
     const { wallpaperDir, isSearchVisible: isSearchVisibleProp } = props;
+
+    let searchDebounceId: ReturnType<typeof setTimeout> | null = null;
 
     // UI State (Per-Window)
     const [browsingTheme, setBrowsingTheme] = createState("");
@@ -390,6 +391,7 @@ export function createLibraryDataController(
         themeItems,
         imageItems,
         isSearchVisible,
+        searchQuery: _searchQuery,
         ensureThemePreviewRange,
         ensureWallpaperPreviewRange,
         handleThemeChange: async (t) => {

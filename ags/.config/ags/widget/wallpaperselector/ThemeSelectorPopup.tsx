@@ -36,19 +36,15 @@ export default function ThemeSelectorPopup(
     // Grid View
     const libraryThemeGrid = WallpaperGridView({
         items: controller.themeItems,
+        searchQuery: controller.searchQuery,
         onActivate: (theme) => {
             import("ags/process").then(({ execAsync }) => {
-                execAsync([
-                    "ags",
-                    "request",
-                    "wallpaper",
-                    "set-theme",
-                    theme,
-                ]).catch((err) =>
-                    console.error(
-                        `[ThemeSelector] failed to set theme: ${err}`,
-                    ),
-                );
+                execAsync(["ags", "request", "wallpaper", "set-theme", theme])
+                    .catch((err) =>
+                        console.error(
+                            `[ThemeSelector] failed to set theme: ${err}`,
+                        ),
+                    );
             });
             app.get_window(windowName)?.set_visible(false);
         },

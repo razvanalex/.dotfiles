@@ -59,7 +59,42 @@ if [[ "$XDG_CURRENT_DESKTOP" != "Hyprland" ]]; then
 fi
 
 log_info "Starting AGS watcher in $DIR"
-log_info "Environment: ${XDG_CURRENT_DESKTOP:-unknown}"
+
+while true; do
+    WAYLAND_DISPLAY=$(systemctl --user show-environment | grep "^WAYLAND_DISPLAY=" | cut -d= -f2)
+    if [ -n "$WAYLAND_DISPLAY" ]; then
+        export WAYLAND_DISPLAY
+        break
+    fi
+    sleep 1
+done
+while [ ! -S "/run/user/$(id -u)/$WAYLAND_DISPLAY" ]; do
+    sleep 1
+done
+sleep 0.5
+
+# Wait for Wayland socket to be available
+while [ -z "$WAYLAND_DISPLAY" ] || [ "$WAYLAND_DISPLAY" == "unknown" ]; do
+    # Try to import it from systemd if it missing
+    WAYLAND_DISPLAY=$(systemctl --user show-environment | grep "^WAYLAND_DISPLAY=" | cut -d= -f2)
+    if [ -z "$WAYLAND_DISPLAY" ]; then
+        log_info "Waiting for WAYLAND_DISPLAY in systemd environment..."
+        sleep 2
+        continue
+    fi
+    export WAYLAND_DISPLAY
+    log_info "Found WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
+    log_info "Waiting for WAYLAND_DISPLAY..."
+    sleep 1
+done
+
+while [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; do
+    log_info "Waiting for Wayland socket $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY..."
+    sleep 1
+done
+
+# Give the compositor another second to finish its own internal init
+sleep 1
 
 # ============================================================================
 # AGS Process Management

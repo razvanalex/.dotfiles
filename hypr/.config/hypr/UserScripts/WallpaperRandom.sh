@@ -22,7 +22,7 @@ SWWW_PARAMS="--transition-fps $FPS --transition-type $TYPE --transition-duration
 
 awww query || awww-daemon --format xrgb && awww img "${RANDOMPICS}" $SWWW_PARAMS
 
-cp -r "${RANDOMPICS}" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
+cp --remove-destination "${RANDOMPICS}" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
 ln -sf "${RANDOMPICS}" "$HOME/.config/rofi/.current_wallpaper"
 source ~/.config/ags/scripts/.venv/bin/activate && \
 ~/.config/ags/scripts/color_generation/colorgen.sh "${RANDOMPICS}" --apply

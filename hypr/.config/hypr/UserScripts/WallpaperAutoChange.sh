@@ -27,7 +27,7 @@ while true; do
 		| while read -r img; do
 			awww img "$img" --transition-type fade --transition-fps 60 --transition-duration 1
 			ln -sf "$img" "$HOME/.config/rofi/.current_wallpaper"
-			cp -r "$img" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
+			cp --remove-destination "$img" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
 			source ~/.config/ags/scripts/.venv/bin/activate && \
 			~/.config/ags/scripts/color_generation/colorgen.sh "${img}" --apply
 			sleep $INTERVAL

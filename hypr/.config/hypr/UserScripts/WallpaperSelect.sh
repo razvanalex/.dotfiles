@@ -71,7 +71,7 @@ main() {
     awww img "${RANDOM_PIC}" $SWWW_PARAMS
     sleep 0.5
     ln -sf "${RANDOM_PIC}" "$HOME/.config/rofi/.current_wallpaper"
-    cp -r "${RANDOM_PIC}" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
+    cp --remove-destination "${RANDOM_PIC}" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
     source ~/.config/ags/scripts/.venv/bin/activate && \
     ~/.config/ags/scripts/color_generation/colorgen.sh "${RANDOM_PIC}" --apply
     return
@@ -94,7 +94,7 @@ function basename(file) {
     awww img "$picture" $SWWW_PARAMS
     sleep 0.5
     ln -sf "$picture" "$HOME/.config/rofi/.current_wallpaper"
-    cp -r "$picture" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
+    cp --remove-destination "$picture" "$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
     source ~/.config/ags/scripts/.venv/bin/activate && \
     ~/.config/ags/scripts/color_generation/colorgen.sh "$picture" --apply
     sleep 0.5

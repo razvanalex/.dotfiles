@@ -113,6 +113,7 @@ export class WallpaperItem extends GObject.Object {
 
 interface WallpaperGridViewProps {
     items: Accessor<GridItem[]>;
+    searchQuery?: Accessor<string>;
     onActivate: (id: string) => void;
     onSelect?: (id: string) => void;
     previewLookup?: Accessor<Record<string, string>>;
@@ -123,6 +124,7 @@ interface WallpaperGridViewProps {
 
 export default function WallpaperGridView({
     items,
+    searchQuery,
     onActivate,
     onSelect,
     previewLookup,
@@ -146,6 +148,38 @@ export default function WallpaperGridView({
 
     let scrollerRef: Gtk.ScrolledWindow | undefined;
     let gridViewRef: Gtk.GridView | undefined;
+    let lastActiveIndex = Gtk.INVALID_LIST_POSITION;
+
+    const scrollToActive = () => {
+        if (!scrollerRef || !gridViewRef || lastActiveIndex === Gtk.INVALID_LIST_POSITION) return;
+
+        const allocatedWidth = Math.max(
+            gridViewRef.get_allocated_width(),
+            WALLPAPER_CARD_WIDTH,
+        );
+        const cols = Math.max(
+            1,
+            Math.floor(
+                (allocatedWidth + GRID_COLUMN_SPACING) /
+                    (WALLPAPER_CARD_WIDTH + GRID_COLUMN_SPACING),
+            ),
+        );
+        const rowHeight =
+            WALLPAPER_CARD_IMAGE_HEIGHT +
+            WALLPAPER_CARD_LABEL_HEIGHT +
+            GRID_ROW_SPACING;
+
+        const row = Math.floor(lastActiveIndex / cols);
+        const targetY = row * rowHeight;
+        const adjustment = scrollerRef.get_vadjustment();
+        if (adjustment) {
+            const pageSize = adjustment.get_page_size();
+            // Center the row in the viewport if possible
+            adjustment.set_value(
+                Math.max(0, targetY - pageSize / 2 + rowHeight / 2),
+            );
+        }
+    };
 
     const emitVisibleRange = () => {
         const count = store.get_n_items();
@@ -188,6 +222,7 @@ export default function WallpaperGridView({
     const unsubscribeItems = items.subscribe(() => {
         const newItems = items.get() || [];
         const currentCount = store.get_n_items();
+        const query = searchQuery?.get() || "";
 
         let initialSelected = Gtk.INVALID_LIST_POSITION;
         const lookup = previewLookup?.get();
@@ -201,7 +236,35 @@ export default function WallpaperGridView({
             return gobj;
         });
         store.splice(0, currentCount, newGObjects);
+
+        // Option A: If searching, always jump to the first result to maintain 
+        // keyboard visibility and fast navigation.
+        if (query !== "" && newGObjects.length > 0) {
+            initialSelected = 0;
+        } else if (
+            initialSelected === Gtk.INVALID_LIST_POSITION &&
+            newGObjects.length > 0
+        ) {
+            initialSelected = 0;
+        }
+
         selectionModel.selected = initialSelected;
+        lastActiveIndex = initialSelected;
+
+        // Reset scroll position to top on search/filter update,
+        // OR scroll to active item if query is empty.
+        if (scrollerRef) {
+            const adj = scrollerRef.get_vadjustment();
+            if (adj) {
+                if (query !== "") {
+                    adj.set_value(0);
+                } else if (lastActiveIndex !== Gtk.INVALID_LIST_POSITION) {
+                    // Scroll to the active item with a small delay to ensure geometry is ready
+                    setTimeout(scrollToActive, 100);
+                }
+            }
+        }
+
         setTimeout(emitVisibleRange, 0);
     });
 
@@ -462,13 +525,21 @@ export default function WallpaperGridView({
             $={(self) => {
                 scrollerRef = self;
                 const adj = self.get_vadjustment();
+                const onShow = () => {
+                    const query = searchQuery?.get() || "";
+                    if (query === "") setTimeout(scrollToActive, 100);
+                };
                 const ids = [
                     adj.connect("value-changed", emitVisibleRange),
                     self.connect("notify::allocated-width", emitVisibleRange),
+                    self.connect("notify::visible", onShow),
+                    self.connect("map", onShow),
                 ];
                 onCleanup(() => {
                     adj.disconnect(ids[0]);
                     self.disconnect(ids[1]);
+                    self.disconnect(ids[2]);
+                    self.disconnect(ids[3]);
                 });
                 if ($) $(self);
             }}

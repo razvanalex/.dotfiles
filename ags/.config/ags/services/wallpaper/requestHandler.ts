@@ -79,6 +79,11 @@ export async function handleWallpaperRequest(
             return true;
         }
 
+        if (subcommand === "get-current") {
+            res(wallpaper.getCurrentWallpaper());
+            return true;
+        }
+
         if (subcommand === "set-theme") {
             const themeName = argv[2];
             if (!themeName) {

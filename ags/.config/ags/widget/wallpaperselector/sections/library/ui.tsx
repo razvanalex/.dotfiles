@@ -106,27 +106,24 @@ export function createLibraryUi(controller: LibraryDataController): Gtk.Widget {
             visibleChildName={controller.libraryView.as((v) => v)}
         >
             <box $type="named" name="themes">
-                <WallpaperGridView
-                    items={controller.themeItems}
-                    onActivate={(theme) =>
-                        void controller.handleThemeChange(theme)
-                    }
+                <WallpaperGridView 
+                    items={controller.themeItems} 
+                    searchQuery={controller.searchQuery}
+                    onActivate={(theme) => void controller.handleThemeChange(theme)}
                     onVisibleRangeChange={controller.ensureThemePreviewRange}
                 />
             </box>
             <box $type="named" name="wallpapers">
-                <WallpaperGridView
-                    items={controller.imageItems}
+                <WallpaperGridView 
+                    items={controller.imageItems} 
+                    searchQuery={controller.searchQuery}
                     onSelect={(path) => controller.handleSelectImage(path)}
-                    onActivate={(path) =>
-                        void controller.handleActivateImage(path)
-                    }
+                    onActivate={(path) => void controller.handleActivateImage(path)}
                     previewLookup={controller.wallpaperPreviewThumbs}
-                    onVisibleRangeChange={
-                        controller.ensureWallpaperPreviewRange
-                    }
+                    onVisibleRangeChange={controller.ensureWallpaperPreviewRange}
                 />
             </box>
+
             <box
                 $type="named"
                 name="ai-results"

@@ -66,14 +66,13 @@ export default function WallpaperSelectorPopup(
 
     const themesView = (
         <box $type="named" name="themes">
-            <WallpaperGridView
-                items={controller.themeItems}
+            <WallpaperGridView 
+                items={controller.themeItems} 
+                searchQuery={controller.searchQuery}
                 onActivate={(theme) => void controller.handleThemeChange(theme)}
                 onVisibleRangeChange={controller.ensureThemePreviewRange}
                 $={(grid) => {
-                    themeGridRef = (
-                        grid as Gtk.ScrolledWindow
-                    ).get_child() as Gtk.GridView;
+                    themeGridRef = (grid as Gtk.ScrolledWindow).get_child() as Gtk.GridView;
                 }}
             />
         </box>
@@ -81,8 +80,9 @@ export default function WallpaperSelectorPopup(
 
     const wallpapersView = (
         <box $type="named" name="wallpapers">
-            <WallpaperGridView
-                items={controller.imageItems}
+            <WallpaperGridView 
+                items={controller.imageItems} 
+                searchQuery={controller.searchQuery}
                 onSelect={(path) => controller.handleSelectImage(path)}
                 onActivate={(path) => {
                     void controller.handleActivateImage(path);
@@ -91,13 +91,12 @@ export default function WallpaperSelectorPopup(
                 previewLookup={controller.wallpaperPreviewThumbs}
                 onVisibleRangeChange={controller.ensureWallpaperPreviewRange}
                 $={(grid) => {
-                    imageGridRef = (
-                        grid as Gtk.ScrolledWindow
-                    ).get_child() as Gtk.GridView;
+                    imageGridRef = (grid as Gtk.ScrolledWindow).get_child() as Gtk.GridView;
                 }}
             />
         </box>
     );
+
 
     return (
         <PopupSelectorWindow

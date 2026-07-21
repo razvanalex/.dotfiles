@@ -116,7 +116,7 @@ class Wallpaper extends GObject.Object {
             // Start daemon
             log.info("Starting awww daemon...");
             try {
-                await execAsync("awww-daemon --format xrgb &");
+                await execAsync("awww-daemon --format xrgb");
                 // Give it a moment to start
                 await new Promise((resolve) =>
                     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
@@ -195,6 +195,13 @@ class Wallpaper extends GObject.Object {
 
             // Emit signal
             this.emit("wallpaper-changed", expandedPath);
+            
+            // Trigger hyprlock reload (SIGUSR2) to pick up the new wallpaper via reload_cmd
+            try {
+                await execAsync("pkill -USR2 hyprlock");
+            } catch (e) {
+                log.debug(`Hyprlock not running or failed to receive SIGUSR2: ${e}`);
+            }
 
             if (DEBUG_WALLPAPER_TIMING) {
                 log.debug(`timing total=${Date.now() - startedAt}ms`);

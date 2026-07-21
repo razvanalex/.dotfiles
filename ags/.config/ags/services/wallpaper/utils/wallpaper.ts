@@ -499,8 +499,8 @@ export async function triggerColorGen(
 
             Logger.info(`Launching color generation for ${latestImagePath}`);
 
-            // Use spawn_command_line_async for truly non-blocking background execution
-            const cmdStr = `bash -c "source "${venvActivate}" && "${expandedScript}" "${latestImagePath}" --apply"`;
+            // Use positional arguments in bash -c for safe non-blocking background execution with spaces/parentheses in paths
+            const cmdStr = `bash -c 'source "$1" && "$2" "$3" --apply' _ "${venvActivate}" "${expandedScript}" "${latestImagePath}"`;
 
             try {
                 GLib.spawn_command_line_async(cmdStr);
