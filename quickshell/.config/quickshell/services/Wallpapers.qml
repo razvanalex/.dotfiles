@@ -218,6 +218,26 @@ Singleton {
         folderModel.showHidden = root.showHiddenFolders;
     }
 
+    function setTheme(themeName) {
+        if (!themeName || themeName.length === 0) return;
+        let themePath = themeName;
+        if (!themePath.startsWith("/")) {
+            themePath = `${Directories.pictures}/Wallpapers/${themeName}`;
+        }
+        root.setDirectory(themePath);
+        Quickshell.execDetached(["bash", "-c", `echo "${themePath}" > "${Directories.pictures}/Wallpapers/.crt_theme"`]);
+        randomTimer.restart();
+    }
+
+    Timer {
+        id: randomTimer
+        interval: 150
+        repeat: false
+        onTriggered: {
+            root.randomFromCurrentFolder();
+        }
+    }
+
     IpcHandler {
         target: "wallpapers"
 
@@ -231,6 +251,10 @@ Singleton {
 
         function random(): void {
             root.randomFromCurrentFolder();
+        }
+
+        function setTheme(themeName: string): void {
+            root.setTheme(themeName);
         }
     }
 }

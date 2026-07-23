@@ -81,7 +81,7 @@ local keybinds = {
     { mods = "$mainMod", key = "W", type = "bind", cmd = "exec, qs ipc call wallpaperSelector toggle" },
     { mods = "$mainMod+Alt", key = "W", type = "bind", cmd = "exec, qs ipc call wallpapers toggleHidden" },
     { mods = "Ctrl+Alt", key = "W", type = "bind", cmd = "exec, qs ipc call wallpapers random" },
-    { mods = "$mainMod", key = "C", type = "bind", cmd = "exec, qs ipc call wallpapers random" },
+    { mods = "$mainMod", key = "C", type = "bind", cmd = "exec, qs ipc call wallpapers setTheme Kitty" },
     { mods = "Ctrl+$mainMod", key = "R", type = "bindr", cmd = "exec, pkill quickshell; quickshell &" },
 
     -- Special Workspace
