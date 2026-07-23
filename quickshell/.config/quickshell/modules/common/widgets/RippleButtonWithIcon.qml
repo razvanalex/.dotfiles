@@ -14,13 +14,14 @@ RippleButton {
             visible: text !== ""
             text: buttonWithIconRoot.mainText
             font.pixelSize: Appearance.font.pixelSize.small
-            color: Appearance.colors.colOnSecondaryContainer
+            color: buttonWithIconRoot.colOnBackground
         }
     }
     implicitHeight: 35
     horizontalPadding: 10
     buttonRadius: Appearance.rounding.small
     colBackground: Appearance.colors.colLayer2
+    property color colOnBackground: Appearance.colors.colOnLayer2
 
     contentItem: RowLayout {
         Item {
@@ -33,7 +34,7 @@ RippleButton {
                 sourceComponent: MaterialSymbol {
                     text: buttonWithIconRoot.materialIcon
                     iconSize: Appearance.font.pixelSize.larger
-                    color: Appearance.colors.colOnSecondaryContainer
+                    color: buttonWithIconRoot.colOnBackground
                     fill: buttonWithIconRoot.materialIconFill ? 1 : 0
                 }
             }
