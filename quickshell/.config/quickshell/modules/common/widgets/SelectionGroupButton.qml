@@ -18,9 +18,9 @@ GroupButton {
     property bool rightmost: false
     leftRadius: (toggled || leftmost) ? (height / 2) : Appearance.rounding.unsharpenmore
     rightRadius: (toggled || rightmost) ? (height / 2) : Appearance.rounding.unsharpenmore
-    colBackground: Appearance.colors.colSecondaryContainer
-    colBackgroundHover: Appearance.colors.colSecondaryContainerHover
-    colBackgroundActive: Appearance.colors.colSecondaryContainerActive
+    colBackground: Appearance.colors.colLayer2
+    colBackgroundHover: Appearance.colors.colLayer2Hover
+    colBackgroundActive: Appearance.colors.colLayer2Active
 
     contentItem: RowLayout {
         spacing: 4 * (root.buttonText?.length > 0)
@@ -36,7 +36,7 @@ GroupButton {
                     anchors.centerIn: parent
                     text: root.buttonIcon
                     iconSize: Appearance.font.pixelSize.larger
-                    color: root.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSecondaryContainer
+                    color: root.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
                 }
             }
         }
@@ -54,7 +54,7 @@ GroupButton {
             StyledText {
                 id: textItem
                 anchors.centerIn: parent
-                color: root.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSecondaryContainer
+                color: root.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
                 text: root.buttonText
             }
         }
