@@ -22,7 +22,7 @@ StyledImage {
         const md5Hash = Qt.md5(`file://${encodedUrlWithoutFileProtocol}`);
         return `${Directories.genericCache}/thumbnails/${thumbnailSizeName}/${md5Hash}.png`;
     }
-    source: thumbnailPath
+    source: (status === Image.Error) ? root.sourcePath : thumbnailPath
 
     asynchronous: true
     smooth: true
