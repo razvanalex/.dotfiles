@@ -319,11 +319,17 @@ switch() {
         [[ "$term_fg_boost" != "null" && -n "$term_fg_boost" ]] && generate_colors_material_args+=(--term_fg_boost "$term_fg_boost")
     fi
 
-    matugen "${matugen_args[@]}"
-    source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
+    if command -v matugen &>/dev/null; then
+        matugen "${matugen_args[@]}"
+    fi
+    if [ -n "$ILLOGICAL_IMPULSE_VIRTUAL_ENV" ] && [ -f "$ILLOGICAL_IMPULSE_VIRTUAL_ENV/bin/activate" ]; then
+        source "$ILLOGICAL_IMPULSE_VIRTUAL_ENV/bin/activate"
+    fi
     python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
         > "$STATE_DIR"/user/generated/material_colors.scss
-    deactivate
+    if type deactivate &>/dev/null; then
+        deactivate
+    fi
     "$SCRIPT_DIR"/applycolor.sh
 
     # Pass screen width, height, and wallpaper path to post_process
@@ -333,12 +339,12 @@ switch() {
 }
 
 main() {
-    imgpath=""
-    mode_flag=""
-    type_flag=""
-    color_flag=""
-    color=""
-    noswitch_flag=""
+    local noswitch_flag=""
+    local mode_flag=""
+    local type_flag=""
+    local color_flag=""
+    local color=""
+    local imgpath=""
 
     get_type_from_config() {
         jq -r '.appearance.palette.type' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "auto"
@@ -346,6 +352,7 @@ main() {
     get_accent_color_from_config() {
         jq -r '.appearance.palette.accentColor' "$SHELL_CONFIG_FILE" 2>/dev/null || echo ""
     }
+
     set_accent_color() {
         local color="$1"
         jq --arg color "$color" '.appearance.palette.accentColor = $color' "$SHELL_CONFIG_FILE" > "$SHELL_CONFIG_FILE.tmp" && mv "$SHELL_CONFIG_FILE.tmp" "$SHELL_CONFIG_FILE"
@@ -353,9 +360,13 @@ main() {
 
     detect_scheme_type_from_image() {
         local img="$1"
-        source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
-        "$SCRIPT_DIR"/scheme_for_image.py "$img" 2>/dev/null | tr -d '\n'
-        deactivate
+        if [ -n "$ILLOGICAL_IMPULSE_VIRTUAL_ENV" ] && [ -f "$ILLOGICAL_IMPULSE_VIRTUAL_ENV/bin/activate" ]; then
+            source "$ILLOGICAL_IMPULSE_VIRTUAL_ENV/bin/activate"
+        fi
+        python3 "$SCRIPT_DIR"/scheme_for_image.py "$img" 2>/dev/null | tr -d '\n'
+        if type deactivate &>/dev/null; then
+            deactivate
+        fi
     }
 
     while [[ $# -gt 0 ]]; do
