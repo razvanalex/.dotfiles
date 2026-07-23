@@ -6,6 +6,8 @@ StyledText {
     property real iconSize: Appearance?.font.pixelSize.small ?? 16
     property real fill: 0
     property real truncatedFill: fill.toFixed(1) // Reduce memory consumption spikes from constant font remapping
+    implicitWidth: iconSize
+    horizontalAlignment: Text.AlignHCenter
     renderType: Text.NativeRendering
     font {
         hintingPreference: Font.PreferNoHinting
