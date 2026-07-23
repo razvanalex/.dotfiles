@@ -2,5 +2,5 @@
 
 export HYPRLAND_INSTANCE_SIGNATURE=$(ls -t $XDG_RUNTIME_DIR/hypr/ | head -n 1)
 
-# Turn off physical monitor backlight during Sunshine streaming
-hyprctl eval 'hl.dsp.dpms("off")'
+# Turn off DPMS for physical display (Hyprland v0.55+ Lua API)
+hyprctl eval 'hl.dispatch(hl.dsp.dpms({ action = "off", monitor = "HDMI-A-1" }))'
