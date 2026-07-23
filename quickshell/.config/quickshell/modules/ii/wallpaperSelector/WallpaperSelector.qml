@@ -67,6 +67,9 @@ Scope {
             Wallpapers.openFallbackPicker(Appearance.m3colors.darkmode);
             return;
         }
+        if (!GlobalStates.wallpaperSelectorOpen) {
+            Wallpapers.openThemeDirectory();
+        }
         GlobalStates.wallpaperSelectorOpen = !GlobalStates.wallpaperSelectorOpen
     }
 
@@ -75,6 +78,11 @@ Scope {
 
         function toggle(): void {
             root.toggleWallpaperSelector();
+        }
+
+        function openRoot(): void {
+            Wallpapers.setDirectory(`${Directories.pictures}/Wallpapers`);
+            GlobalStates.wallpaperSelectorOpen = true;
         }
 
         function random(): void {

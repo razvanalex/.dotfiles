@@ -136,11 +136,17 @@ Singleton {
         path: `${Directories.pictures}/Wallpapers/.crt_theme`
         onLoadedChanged: {
             if (loaded) {
-                const themePath = crtThemeFile.text().trim();
-                if (themePath.length > 0) {
-                    root.setDirectory(themePath);
-                }
+                root.openThemeDirectory();
             }
+        }
+    }
+
+    function openThemeDirectory() {
+        const themePath = crtThemeFile.text().trim();
+        if (themePath.length > 0) {
+            root.setDirectory(themePath);
+        } else {
+            root.setDirectory(`${Directories.pictures}/Wallpapers`);
         }
     }
     function navigateUp() {
