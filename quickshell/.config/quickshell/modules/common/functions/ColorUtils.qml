@@ -133,7 +133,8 @@ Singleton {
      */
     function isDark(color) {
         var c = Qt.color(color);
-        return c.hslLightness < 0.5;
+        var lum = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b);
+        return lum < 0.5;
     }
 
     /**
