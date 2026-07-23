@@ -45,11 +45,9 @@ apply_kitty() {
     sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
   done
 
-  # Reload
-  if ! pgrep -f kitty >/dev/null; then
-    return
-  fi
-  kill -SIGUSR1 $(pidof kitty)
+  # Note: Do not send SIGUSR1 to Kitty as it resets in-memory font size adjustments.
+  # Live color updates for open terminals are handled by apply_anyterm escape sequences.
+  return
 }
 
 apply_anyterm() {
