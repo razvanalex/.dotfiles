@@ -130,6 +130,19 @@ Singleton {
     function setDirectory(path) {
         validateDirProc.setDirectoryIfValid(path)
     }
+
+    FileView {
+        id: crtThemeFile
+        path: `${Directories.pictures}/Wallpapers/.crt_theme`
+        onLoadedChanged: {
+            if (loaded) {
+                const themePath = crtThemeFile.text().trim();
+                if (themePath.length > 0) {
+                    root.setDirectory(themePath);
+                }
+            }
+        }
+    }
     function navigateUp() {
         folderModel.navigateUp()
     }
