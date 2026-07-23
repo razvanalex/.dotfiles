@@ -383,6 +383,35 @@ MouseArea {
 
                             IconToolbarButton {
                                 implicitWidth: height
+                                onClicked: {
+                                    Config.options.background.autoChange.enable = !Config.options.background.autoChange.enable;
+                                }
+                                text: Config.options.background.autoChange.enable ? "sync" : "sync_disabled"
+                                colBackground: Config.options.background.autoChange.enable ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer1
+                                StyledToolTip {
+                                    text: Config.options.background.autoChange.enable ?
+                                        Translation.tr("Auto-rotation: Enabled (%1 min)\nClick to disable").arg(Config.options.background.autoChange.intervalMinutes || 30) :
+                                        Translation.tr("Auto-rotation: Disabled\nClick to enable")
+                                }
+                            }
+
+                            IconToolbarButton {
+                                implicitWidth: height
+                                visible: Config.options.background.autoChange.enable
+                                onClicked: {
+                                    const curMode = Config.options.background.autoChange.mode || "random";
+                                    Config.options.background.autoChange.mode = (curMode === "random" ? "sequential" : "random");
+                                }
+                                text: (Config.options.background.autoChange.mode === "sequential") ? "format_list_numbered" : "casino"
+                                StyledToolTip {
+                                    text: (Config.options.background.autoChange.mode === "sequential") ?
+                                        Translation.tr("Rotation Mode: In Order\nClick to switch to Random") :
+                                        Translation.tr("Rotation Mode: Random\nClick to switch to In Order")
+                                }
+                            }
+
+                            IconToolbarButton {
+                                implicitWidth: height
                                 onClicked: root.useDarkMode = !root.useDarkMode
                                 text: root.useDarkMode ? "dark_mode" : "light_mode"
                                 StyledToolTip {

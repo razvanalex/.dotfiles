@@ -75,6 +75,34 @@ Singleton {
         root.select(filePath, darkMode);
     }
 
+    function nextSequential(darkMode = Appearance.m3colors.darkmode) {
+        if (folderModel.count === 0) return;
+        let cur = Config.options.background.autoChange.currentIndex || 0;
+        if (cur >= folderModel.count) cur = 0;
+        const filePath = folderModel.get(cur, "filePath");
+        Config.options.background.autoChange.currentIndex = (cur + 1) % folderModel.count;
+        print("Sequential wallpaper selected:", filePath);
+        root.select(filePath, darkMode);
+    }
+
+    function autoRotate(darkMode = Appearance.m3colors.darkmode) {
+        if (Config.options.background.autoChange.mode === "sequential") {
+            root.nextSequential(darkMode);
+        } else {
+            root.randomFromCurrentFolder(darkMode);
+        }
+    }
+
+    Timer {
+        id: autoChangeTimer
+        running: Config.ready && Config.options.background.autoChange.enable
+        interval: Math.max(1, Config.options.background.autoChange.intervalMinutes || 30) * 60 * 1000
+        repeat: true
+        onTriggered: {
+            root.autoRotate();
+        }
+    }
+
     Process {
         id: validateDirProc
         property string nicePath: ""

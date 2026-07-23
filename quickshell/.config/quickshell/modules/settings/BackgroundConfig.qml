@@ -53,6 +53,51 @@ ContentPage {
     }
 
     ContentSection {
+        icon: "update"
+        title: Translation.tr("Wallpaper Auto-Change")
+
+        ConfigSwitch {
+            buttonIcon: "sync"
+            text: Translation.tr("Enable Auto-Rotation")
+            checked: Config.options.background.autoChange.enable
+            onCheckedChanged: {
+                Config.options.background.autoChange.enable = checked;
+            }
+        }
+
+        ConfigSelectionArray {
+            currentValue: Config.options.background.autoChange.mode || "random"
+            onSelected: newValue => {
+                Config.options.background.autoChange.mode = newValue;
+            }
+            options: [
+                {
+                    displayName: Translation.tr("Random"),
+                    icon: "casino",
+                    value: "random"
+                },
+                {
+                    displayName: Translation.tr("In Order"),
+                    icon: "format_list_numbered",
+                    value: "sequential"
+                }
+            ]
+        }
+
+        ConfigSpinBox {
+            icon: "timer"
+            text: Translation.tr("Interval (minutes)")
+            value: Config.options.background.autoChange.intervalMinutes || 30
+            from: 1
+            to: 1440
+            stepSize: 5
+            onValueChanged: {
+                Config.options.background.autoChange.intervalMinutes = value;
+            }
+        }
+    }
+
+    ContentSection {
         id: settingsClock
         icon: "clock_loader_40"
         title: Translation.tr("Widget: Clock")

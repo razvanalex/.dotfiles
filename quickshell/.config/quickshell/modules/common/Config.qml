@@ -213,6 +213,12 @@ Singleton {
                 property string wallpaperPath: ""
                 property string thumbnailPath: ""
                 property bool hideWhenFullscreen: true
+                property JsonObject autoChange: JsonObject {
+                    property bool enable: false
+                    property int intervalMinutes: 30
+                    property string mode: "random" // "random" or "sequential"
+                    property int currentIndex: 0
+                }
                 property JsonObject parallax: JsonObject {
                     property bool vertical: false
                     property bool autoVertical: false

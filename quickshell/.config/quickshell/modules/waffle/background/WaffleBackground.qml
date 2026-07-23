@@ -41,6 +41,7 @@ Variants {
             anchors.fill: parent
             source: Config.options.background.wallpaperPath
             fillMode: Image.PreserveAspectCrop
+            opacity: 0
         }
     }
 }
