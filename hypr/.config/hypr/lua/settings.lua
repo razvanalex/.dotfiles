@@ -1,13 +1,16 @@
--- Hyprland Settings Configuration (Layout, Input, Animations, Decoration)
+-- Hyprland Settings Configuration (Layout, Input, Animations, Decoration, Gestures)
+-- See https://wiki.hypr.land/Configuring/Variables/
 
-local settings = {
+hl.config({
     general = {
         border_size = 2,
         gaps_in = 2,
         gaps_out = 5,
         resize_on_border = true,
-        ["col.active_border"] = "rgba(a0a0a0ee) rgba(606060ee) 45deg",
-        ["col.inactive_border"] = "rgba(2a2a2aaa)",
+        col = {
+            active_border = { colors = { "rgba(a0a0a0ee)", "rgba(606060ee)" }, angle = 45 },
+            inactive_border = "rgba(2a2a2aaa)",
+        },
         layout = "dwindle",
         allow_tearing = false,
     },
@@ -36,15 +39,6 @@ local settings = {
     },
     animations = {
         enabled = true,
-        bezier = { "myBezier, 0.0, 1.0, 0.0, 1.0" },
-        animation = {
-            "windows, 1, 5, myBezier",
-            "windowsOut, 1, 5, default, popin 80%",
-            "border, 1, 5, default",
-            "borderangle, 1, 5, default",
-            "fade, 1, 5, default",
-            "workspaces, 1, 3, default",
-        },
     },
     input = {
         kb_layout = "ro,us",
@@ -58,25 +52,23 @@ local settings = {
         touchpad = {
             disable_while_typing = true,
             natural_scroll = true,
-            scroll_factor = 0.4,
             clickfinger_behavior = true,
             middle_button_emulation = false,
-            ["tap-to-click"] = true,
+            tap_to_click = true,
             drag_lock = false,
         },
         touchdevice = { enabled = true },
         tablet = { transform = 0, left_handed = 0 },
     },
-    gesture = {
-        "3, horizontal, workspace",
-        "3, up, mod: ALT, float",
-        "3, down, mod: ALT, float",
-        "3, up, mod: SUPER, scale: 1.5, fullscreen",
-        "3, down, mod: SUPER, scale: 1.5, fullscreen",
-    },
     group = {
-        ["col.border_active"] = "rgba(a0a0a0ee)",
-        groupbar = { ["col.active"] = "rgba(a0a0a0ee)" },
+        col = {
+            border_active = "rgba(a0a0a0ee)",
+        },
+        groupbar = {
+            col = {
+                active = "rgba(a0a0a0ee)",
+            },
+        },
     },
     misc = {
         disable_hyprland_logo = true,
@@ -100,6 +92,50 @@ local settings = {
         warp_on_change_workspace = true,
     },
     debug = { disable_logs = false },
-}
+})
 
-return settings
+-- Animation Curves (from old Settings.conf)
+hl.curve("myBezier", { type = "bezier", points = { { 0.0, 1.0 }, { 0.0, 1.0 } } })
+
+-- Animations (from old Settings.conf, using official hl.animation leaf field)
+hl.animation({ leaf = "windows", enabled = true, speed = 5, bezier = "myBezier" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 5, bezier = "default", style = "popin 80%" })
+hl.animation({ leaf = "border", enabled = true, speed = 5, bezier = "default" })
+hl.animation({ leaf = "borderangle", enabled = true, speed = 5, bezier = "default" })
+hl.animation({ leaf = "fade", enabled = true, speed = 5, bezier = "default" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 3, bezier = "default" })
+
+-- Touchpad & Screen Gestures (Official Hyprland v0.55+ API using `mods` field)
+hl.gesture({
+    fingers = 3,
+    direction = "horizontal",
+    action = "workspace",
+})
+
+hl.gesture({
+    fingers = 3,
+    direction = "up",
+    mods = "ALT",
+    action = "float",
+})
+
+hl.gesture({
+    fingers = 3,
+    direction = "down",
+    mods = "ALT",
+    action = "float",
+})
+
+hl.gesture({
+    fingers = 3,
+    direction = "up",
+    mods = "SUPER",
+    action = "fullscreen",
+})
+
+hl.gesture({
+    fingers = 3,
+    direction = "down",
+    mods = "SUPER",
+    action = "fullscreen",
+})

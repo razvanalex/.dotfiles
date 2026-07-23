@@ -1,8 +1,22 @@
 -- Hyprland Monitors Configuration
+-- See https://wiki.hypr.land/Configuring/Monitors/
+-- Configure display resolution, offset, scale and color depth here (use `hyprctl monitors` for details).
 
-local monitors = {
-    { name = "", spec = "preferred,auto,1,vrr,1,bitdepth,10,cm,srgb" },
-    { name = "HEADLESS-2", spec = "2560x1600@60,auto,1.25" },
-}
+-- Primary Monitor
+hl.monitor({
+    output   = "",
+    mode     = "preferred",
+    position = "auto",
+    scale    = 1,
+    vrr      = 1,
+    bitdepth = 10,
+    cm       = "srgb",
+})
 
-return monitors
+-- Headless Monitor / Display Output
+hl.monitor({
+    output   = "HEADLESS-2",
+    mode     = "2560x1600@60",
+    position = "auto",
+    scale    = 1.25,
+})

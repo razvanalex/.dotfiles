@@ -1,38 +1,42 @@
 -- Hyprland Autostart Configuration
+-- Commands & Apps executed at launch
 
-local autostart = {
-    -- Environment setup
-    "tmux setenv -g HYPRLAND_INSTANCE_SIGNATURE \"$HYPRLAND_INSTANCE_SIGNATURE\"",
-    "gsettings set org.gnome.desktop.interface cursor-theme \"Bibata-Modern-Classic\"",
-    "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP",
-    "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP",
-    "hyprctl setcursor Bibata-Modern-Classic 24",
-    "sleep 5s && systemctl --user start hyprland.target",
-    "$scriptsDir/wait-for-tray.sh systemctl --user restart sunshine.service",
-    "$scriptsDir/Polkit.sh",
+local vars = require("lua.variables")
 
-    -- Desktop Shell (Quickshell)
-    "quickshell &",
+hl.on("hyprland.start", function()
+    -- Environment setup & TMUX instance signature
+    hl.exec_cmd('tmux setenv -g HYPRLAND_INSTANCE_SIGNATURE "$HYPRLAND_INSTANCE_SIGNATURE"')
 
-    -- Applets & Daemons
-    "$scriptsDir/wait-for-tray.sh blueman-applet &",
-    "$scriptsDir/wait-for-tray.sh solaar -w hide &",
-    "openrgb --server --mode static --color 000000 &",
-    "bash -l -c \"sleep 10 && aw-qt &>> ~/.cache/activitywatch/log/aw-qt.log\" &",
+    -- GNOME desktop interface cursor theme
+    hl.exec_cmd('gsettings set org.gnome.desktop.interface cursor-theme "Bibata-Modern-Classic"')
 
-    -- Clipboard history
-    "wl-paste --type text --watch cliphist store",
-    "wl-paste --type image --watch cliphist store",
+    -- DBus & Systemd environment import
+    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
+    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
 
-    -- Idle & Utilities
-    "hypridle &",
-    "pypr &",
-    "$UserScripts/WallpaperAutoChange.sh &",
-}
+    -- Hyprland cursor theme and size
+    hl.exec_cmd("hyprctl setcursor Bibata-Modern-Classic 24")
 
-local shutdown = {
-    "systemctl --user stop hyprland.target",
-    "systemctl --user stop sunshine.service",
-}
+    -- Start systemd hyprland.target (starts quickshell.service, hypridle.service, etc.)
+    hl.exec_cmd("sleep 5s && systemctl --user start hyprland.target")
 
-return { autostart = autostart, shutdown = shutdown }
+    -- Sunshine streaming service restart after system tray is ready
+    hl.exec_cmd(vars.scriptsDir .. "/wait-for-tray.sh systemctl --user restart sunshine.service")
+
+    -- Polkit authentication agent (Polkit Gnome / KDE)
+    hl.exec_cmd(vars.scriptsDir .. "/Polkit.sh")
+
+    -- Applets & Daemons (Bluetooth, Logitech Solaar, OpenRGB, ActivityWatch)
+    hl.exec_cmd(vars.scriptsDir .. "/wait-for-tray.sh blueman-applet &")
+    hl.exec_cmd(vars.scriptsDir .. "/wait-for-tray.sh solaar -w hide &")
+    hl.exec_cmd("openrgb --server --mode static --color 000000 &")
+    hl.exec_cmd('bash -l -c "sleep 10 && aw-qt &>> ~/.cache/activitywatch/log/aw-qt.log" &')
+
+    -- Clipboard manager watchers (text & image via cliphist)
+    hl.exec_cmd("wl-paste --type text --watch cliphist store")
+    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+
+    -- Idle daemon & Pyprland daemon
+    hl.exec_cmd("hypridle &")
+    hl.exec_cmd("pypr &")
+end)
