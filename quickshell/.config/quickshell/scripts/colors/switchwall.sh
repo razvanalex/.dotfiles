@@ -294,7 +294,13 @@ switch() {
             generate_colors_material_args+=(--mode "$mode_flag")
         fi
     fi
-    [[ -n "$type_flag" ]] && matugen_args+=(--type "$type_flag") && generate_colors_material_args+=(--scheme "$type_flag")
+    if [[ -z "$type_flag" ]]; then
+        type_flag=$(jq -r '.appearance.palette.type' "$SHELL_CONFIG_FILE" 2>/dev/null)
+    fi
+    if [[ -n "$type_flag" && "$type_flag" != "null" && "$type_flag" != "auto" ]]; then
+        matugen_args+=(--type "$type_flag")
+        generate_colors_material_args+=(--scheme "$type_flag")
+    fi
     generate_colors_material_args+=(--termscheme "$terminalscheme" --blend_bg_fg)
     generate_colors_material_args+=(--cache "$STATE_DIR/user/generated/color.txt")
     generate_colors_material_args+=(--json_out "$STATE_DIR/user/generated/colors.json")
