@@ -126,4 +126,5 @@ apply_hypr_borders() {
 }
 apply_hypr_borders &
 
-# apply_qt & # Qt theming is already handled by kde-material-colors
+qs ipc call theme reload 2>/dev/null || true
+

@@ -20,17 +20,22 @@ Singleton {
     }
 
     function applyColors(fileContent) {
-        const json = JSON.parse(fileContent)
-        for (const key in json) {
-            if (json.hasOwnProperty(key)) {
-                // Convert snake_case to CamelCase
-                const camelCaseKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase())
-                const m3Key = `m3${camelCaseKey}`
-                Appearance.m3colors[m3Key] = json[key]
+        try {
+            const json = JSON.parse(fileContent);
+            for (const key in json) {
+                if (json.hasOwnProperty(key)) {
+                    // Convert snake_case to CamelCase
+                    const camelCaseKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+                    const m3Key = `m3${camelCaseKey}`;
+                    if (m3Key in Appearance.m3colors) {
+                        Appearance.m3colors[m3Key] = Qt.color(json[key]);
+                    }
+                }
             }
+            Appearance.m3colors.darkmode = ColorUtils.isDark(Appearance.m3colors.m3background);
+        } catch (e) {
+            console.warn("Failed to parse material colors:", e);
         }
-        
-        Appearance.m3colors.darkmode = ColorUtils.isDark(Appearance.m3colors.m3background)
     }
 
     function resetFilePathNextTime() {
@@ -89,6 +94,10 @@ Singleton {
 
     IpcHandler {
         target: "theme"
+
+        function reload(): void {
+            root.reapplyTheme();
+        }
 
         function toggleLightDark(): void {
             root.toggleLightDark();
