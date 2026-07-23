@@ -32,7 +32,11 @@ Singleton {
                     }
                 }
             }
-            Appearance.m3colors.darkmode = ColorUtils.isDark(Appearance.m3colors.m3background);
+            if ("darkmode" in json) {
+                Appearance.m3colors.darkmode = json["darkmode"];
+            } else {
+                Appearance.m3colors.darkmode = ColorUtils.isDark(Appearance.m3colors.m3background);
+            }
         } catch (e) {
             console.warn("Failed to parse material colors:", e);
         }

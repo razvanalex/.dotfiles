@@ -171,6 +171,7 @@ if args.json_out:
         snake_key = re.sub(r'(?<!^)(?=[A-Z])', '_', key).lower()
         json_colors[snake_key] = val
         json_colors[key] = val
+    json_colors["darkmode"] = darkmode
     with open(args.json_out, 'w') as f:
         json.dump(json_colors, f, indent=2)
 
