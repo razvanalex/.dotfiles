@@ -80,10 +80,20 @@ Scope {
         target: "search"
 
         function toggle() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            if (GlobalStates.overviewOpen && GlobalStates.overviewMode === "search") {
+                GlobalStates.overviewOpen = false;
+            } else {
+                GlobalStates.overviewMode = "search";
+                GlobalStates.overviewOpen = true;
+            }
         }
         function workspacesToggle() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            if (GlobalStates.overviewOpen && GlobalStates.overviewMode === "workspaces") {
+                GlobalStates.overviewOpen = false;
+            } else {
+                GlobalStates.overviewMode = "workspaces";
+                GlobalStates.overviewOpen = true;
+            }
         }
         function close() {
             GlobalStates.overviewOpen = false;
