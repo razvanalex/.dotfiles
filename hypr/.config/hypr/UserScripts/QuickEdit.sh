@@ -1,45 +1,48 @@
 #!/bin/bash
-# Rofi menu for Quick Edit / View of Settings (SUPER E)
+# Rofi menu for Quick Edit / View of Hyprland Lua Settings
 
-# define your preferred text editor and terminal to use
 editor=nvim
 tty=kitty
 
-configs="$HOME/.config/hypr/configs"
+configs="$HOME/.config/hypr/lua"
 
 menu(){
-  printf "1. edit ENVariables\n"
-  printf "2. edit WindowRules\n"
-  printf "3. edit StartupApps\n"
-  printf "4. edit Keybinds\n"
-  printf "5. edit Monitors\n"
-  printf "6. edit WorkspaceRules\n"
-  printf "7. edit Settings\n"
+  printf "1. edit env.lua\n"
+  printf "2. edit window_rules.lua\n"
+  printf "3. edit autostart.lua\n"
+  printf "4. edit keybinds.lua\n"
+  printf "5. edit monitors.lua\n"
+  printf "6. edit workspace_rules.lua\n"
+  printf "7. edit settings.lua\n"
+  printf "8. edit hyprland.lua\n"
 }
 
 main() {
     choice=$(menu | rofi -i -dmenu -config ~/.config/rofi/config-compact.rasi | cut -d. -f1)
     case $choice in
         1)
-            $tty $editor "$configs/ENVariables.conf"
+            $tty $editor "$configs/env.lua"
             ;;
         2)
-            $tty $editor "$configs/WindowRules.conf"
+            $tty $editor "$configs/window_rules.lua"
             ;;
         3)
-            $tty $editor "$configs/StartupApps.conf"
+            $tty $editor "$configs/autostart.lua"
             ;;
         4)
-            $tty $editor "$configs/Keybinds.conf"
+            $tty $editor "$configs/keybinds.lua"
             ;;
         5)
-            $tty $editor "$configs/Monitors.conf"
+            $tty $editor "$configs/monitors.lua"
             ;;
         6)
-            $tty $editor "$configs/WorkspaceRules.conf"
+            $tty $editor "$configs/workspace_rules.lua"
             ;;
         7)
-            $tty $editor "$configs/Settings.conf"
+            $tty $editor "$configs/settings.lua"
+            ;;
+        8)
+            $tty $editor "$HOME/.config/hypr/hyprland.lua"
             ;;
         *)
             ;;

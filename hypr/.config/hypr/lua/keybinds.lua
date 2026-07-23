@@ -1,144 +1,162 @@
 -- Hyprland Keybindings Configuration
 
-local keybinds = {
-    -- Basic Actions & Session
-    { mods = "$mainMod", key = "S", type = "bind", cmd = "exec, ~/.config/ags/scripts/grimblast.sh --freeze copy area" },
-    { mods = "$mainMod+Ctrl+Alt", key = "M", type = "bind", cmd = "exec, hyprctl dispatch exit 0" },
-    { mods = "$mainMod", key = "P", type = "bind", cmd = "exec, $scriptsDir/LockScreen.sh" },
-    { mods = "Ctrl+Alt", key = "P", type = "bind", cmd = "exec, $scriptsDir/Wlogout.sh" },
-    { mods = "$mainMod+Shift", key = "P", type = "bindl", cmd = "exec, sleep 0.1 && systemctl suspend || loginctl suspend" },
+local vars = require("lua.variables")
+local mainMod = vars.mainMod
 
-    -- Window Focus
-    { mods = "$mainMod", key = "Left", type = "bind", cmd = "movefocus, l" },
-    { mods = "$mainMod", key = "Right", type = "bind", cmd = "movefocus, r" },
-    { mods = "$mainMod", key = "Up", type = "bind", cmd = "movefocus, u" },
-    { mods = "$mainMod", key = "Down", type = "bind", cmd = "movefocus, d" },
-    { mods = "$mainMod", key = "H", type = "bind", cmd = "movefocus, l" },
-    { mods = "$mainMod", key = "L", type = "bind", cmd = "movefocus, r" },
-    { mods = "$mainMod", key = "K", type = "bind", cmd = "movefocus, u" },
-    { mods = "$mainMod", key = "J", type = "bind", cmd = "movefocus, d" },
-    { mods = "$mainMod", key = "BracketLeft", type = "bind", cmd = "movefocus, l" },
-    { mods = "$mainMod", key = "BracketRight", type = "bind", cmd = "movefocus, r" },
+-- Actions & Session
+hl.bind(mainMod .. " + S", hl.dsp.exec_cmd("grimblast --freeze copy area"))
+hl.bind(mainMod .. " + CTRL + ALT + M", hl.dsp.exec_cmd("hyprctl dispatch exit 0"))
+hl.bind(mainMod .. " + P", hl.dsp.exec_cmd(vars.scriptsDir .. "/LockScreen.sh"))
+hl.bind("CTRL + ALT + P", hl.dsp.exec_cmd(vars.scriptsDir .. "/Wlogout.sh"))
+hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd("sleep 0.1 && systemctl suspend || loginctl suspend"), { locked = true })
 
-    -- Window Movement & Actions
-    { mods = "$mainMod+Shift", key = "Left", type = "bind", cmd = "movewindow, l" },
-    { mods = "$mainMod+Shift", key = "Right", type = "bind", cmd = "movewindow, r" },
-    { mods = "$mainMod+Shift", key = "Up", type = "bind", cmd = "movewindow, u" },
-    { mods = "$mainMod+Shift", key = "Down", type = "bind", cmd = "movewindow, d" },
-    { mods = "$mainMod+Shift", key = "H", type = "bind", cmd = "movewindow, l" },
-    { mods = "$mainMod+Shift", key = "L", type = "bind", cmd = "movewindow, r" },
-    { mods = "$mainMod+Shift", key = "K", type = "bind", cmd = "movewindow, u" },
-    { mods = "$mainMod+Shift", key = "J", type = "bind", cmd = "movewindow, d" },
-    { mods = "$mainMod", key = "Q", type = "bind", cmd = "killactive," },
-    { mods = "$mainMod+Shift", key = "Q", type = "bind", cmd = "exec, $scriptsDir/KillActiveProcess.sh" },
-    { mods = "$mainMod+Shift+Alt", key = "Q", type = "bind", cmd = "exec, hyprctl kill" },
-    { mods = "$mainMod+Alt", key = "Space", type = "bind", cmd = "togglefloating," },
-    { mods = "$mainMod", key = "F", type = "bind", cmd = "fullscreen, 0" },
-    { mods = "$mainMod+Ctrl", key = "F", type = "bind", cmd = "fullscreen, 1" },
-    { mods = "Ctrl+$mainMod", key = "Backslash", type = "bind", cmd = "resizeactive, exact 1024 768" },
+-- Applications & Tools
+hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(vars.terminal))
+hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(vars.fileManager))
+hl.bind(mainMod .. " + I", hl.dsp.exec_cmd('XDG_CURRENT_DESKTOP="gnome" gnome-control-center'))
+hl.bind("CTRL + " .. mainMod .. " + V", hl.dsp.exec_cmd("pavucontrol"))
+hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("gnome-system-monitor"))
 
-    -- Mouse Binds (Dragging & Resizing)
-    { mods = "$mainMod", key = "mouse:272", type = "bindm", cmd = "movewindow" },
-    { mods = "$mainMod", key = "mouse:273", type = "bindm", cmd = "resizewindow" },
+-- Native Hyprland Desktop Zoom Toggle (SUPER + Z)
+local currentZoom = 1.0
+hl.bind(mainMod .. " + Z", function()
+    if currentZoom == 1.0 then
+        currentZoom = 2.0
+    else
+        currentZoom = 1.0
+    end
+    hl.config({ cursor = { zoom_factor = currentZoom } })
+end)
 
-    -- Active Window Resizing (Repeating)
-    { mods = "$mainMod+Ctrl", key = "Left", type = "binde", cmd = "resizeactive, -50 0" },
-    { mods = "$mainMod+Ctrl", key = "Right", type = "binde", cmd = "resizeactive, 50 0" },
-    { mods = "$mainMod+Ctrl", key = "Up", type = "binde", cmd = "resizeactive, 0 -50" },
-    { mods = "$mainMod+Ctrl", key = "Down", type = "binde", cmd = "resizeactive, 0 50" },
-    { mods = "$mainMod+Ctrl", key = "H", type = "binde", cmd = "resizeactive, -50 0" },
-    { mods = "$mainMod+Ctrl", key = "L", type = "binde", cmd = "resizeactive, 50 0" },
-    { mods = "$mainMod+Ctrl", key = "K", type = "binde", cmd = "resizeactive, 0 -50" },
-    { mods = "$mainMod+Ctrl", key = "J", type = "binde", cmd = "resizeactive, 0 50" },
+hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd(vars.scriptsDir .. "/SwitchKeyboardLayout.sh"), { non_consuming = true })
+hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { locked = true })
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"))
+hl.bind("CTRL + " .. mainMod .. " + C", hl.dsp.exec_cmd(vars.userScripts .. "/VSCode.sh"))
+hl.bind(mainMod .. " + ALT + C", hl.dsp.exec_cmd(vars.userScripts .. "/RofiCalc.sh"))
 
-    -- Window Pinning & Groups & Cycling
-    { mods = "$mainMod", key = "P", type = "bind", cmd = "pin" },
-    { mods = "$mainMod", key = "G", type = "bind", cmd = "togglegroup" },
-    { mods = "$mainMod+Shift", key = "Tab", type = "bind", cmd = "changegroupactive" },
-    { mods = "Alt", key = "Tab", type = "bind", cmd = "cyclenext" },
+-- Launchers & Quickshell Controls
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("qs ipc call search toggle || (pkill rofi || rofi -show drun -modi drun,filebrowser,run,window)"))
+hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("qs ipc call search workspacesToggle"))
+hl.bind(mainMod .. " + Slash", hl.dsp.exec_cmd("qs ipc call cheatsheet toggle"))
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("qs ipc call wallpaperSelector toggle"))
+hl.bind(mainMod .. " + ALT + W", hl.dsp.exec_cmd("qs ipc call wallpapers toggleHidden"))
+hl.bind("CTRL + ALT + W", hl.dsp.exec_cmd("qs ipc call wallpapers random"))
+hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("qs ipc call wallpapers setTheme Kitty"))
+hl.bind("CTRL + " .. mainMod .. " + R", hl.dsp.exec_cmd("systemctl --user restart quickshell.service"), { release = true })
+hl.bind(mainMod .. " + ALT + S", hl.dsp.exec_cmd("qs ipc call panelFamily cycle")) -- Cycle skin (Material <-> Win11)
 
-    -- Applications & Tools
-    { mods = "$mainMod", key = "Return", type = "bind", cmd = "exec, kitty" },
-    { mods = "$mainMod", key = "E", type = "bind", cmd = "exec, nautilus --new-window" },
-    { mods = "$mainMod", key = "I", type = "bind", cmd = "exec, XDG_CURRENT_DESKTOP=\"gnome\" gnome-control-center" },
-    { mods = "Ctrl+$mainMod", key = "V", type = "bind", cmd = "exec, pavucontrol" },
-    { mods = "Ctrl+Shift", key = "Escape", type = "bind", cmd = "exec, gnome-system-monitor" },
-    { mods = "$mainMod+Shift", key = "Return", type = "bind", cmd = "exec, pypr toggle term" },
-    { mods = "$mainMod", key = "Z", type = "bind", cmd = "exec, pypr zoom" },
-    { mods = "$mainMod", key = "Space", type = "bindn", cmd = "exec, $scriptsDir/SwitchKeyboardLayout.sh" },
-    { mods = "$mainMod", key = "Grave", type = "bindl", cmd = "exec, $UserScripts/VM.sh" },
-    { mods = "$mainMod", key = "R", type = "bind", cmd = "exec, /home/razvan/Workspace/ai/tts-read/tts_read.sh" },
-    { mods = "Ctrl+$mainMod", key = "C", type = "bind", cmd = "exec, $UserScripts/VSCode.sh" },
-    { mods = "$mainMod+Alt", key = "C", type = "bind", cmd = "exec, $UserScripts/RofiCalc.sh" },
+-- Super Key Hold -> Quickshell Workspace Numbers (bindit equivalent in Lua)
+hl.bind("Super_L", hl.dsp.global("quickshell:workspaceNumber"), { transparent = true, non_consuming = true, ignore_mods = true })
+hl.bind("Super_R", hl.dsp.global("quickshell:workspaceNumber"), { transparent = true, non_consuming = true, ignore_mods = true })
 
-    -- App Launchers & Search
-    { mods = "$mainMod", key = "D", type = "bind", cmd = "exec, qs ipc call search toggle || (pkill rofi || rofi -show drun -modi drun,filebrowser,run,window)" },
-    { mods = "$mainMod", key = "A", type = "bind", cmd = "exec, qs ipc call search toggle" },
-    { mods = "$mainMod", key = "$mainMod_L", type = "bindr", cmd = "exec, qs ipc call search toggle" },
-    { mods = "$mainMod", key = "Slash", type = "bind", cmd = "exec, qs ipc call cheatsheet toggle || ags -t cheatsheet0" },
+-- Directional Focus
+hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
+hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
+hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
+hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
+hl.bind(mainMod .. " + H",     hl.dsp.focus({ direction = "left" }))
+hl.bind(mainMod .. " + L",     hl.dsp.focus({ direction = "right" }))
+hl.bind(mainMod .. " + K",     hl.dsp.focus({ direction = "up" }))
+hl.bind(mainMod .. " + J",     hl.dsp.focus({ direction = "down" }))
+hl.bind(mainMod .. " + BracketLeft",  hl.dsp.focus({ direction = "left" }))
+hl.bind(mainMod .. " + BracketRight", hl.dsp.focus({ direction = "right" }))
 
-    -- Quickshell Widgets & Controls
-    { mods = "$mainMod", key = "W", type = "bind", cmd = "exec, qs ipc call wallpaperSelector toggle" },
-    { mods = "$mainMod+Alt", key = "W", type = "bind", cmd = "exec, qs ipc call wallpapers toggleHidden" },
-    { mods = "Ctrl+Alt", key = "W", type = "bind", cmd = "exec, qs ipc call wallpapers random" },
-    { mods = "$mainMod", key = "C", type = "bind", cmd = "exec, qs ipc call wallpapers setTheme Kitty" },
-    { mods = "Ctrl+$mainMod", key = "R", type = "bindr", cmd = "exec, pkill quickshell; quickshell &" },
+-- Window Movement & Actions
+hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))
+hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))
+hl.bind(mainMod .. " + SHIFT + H",     hl.dsp.window.move({ direction = "left" }))
+hl.bind(mainMod .. " + SHIFT + L",     hl.dsp.window.move({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + K",     hl.dsp.window.move({ direction = "up" }))
+hl.bind(mainMod .. " + SHIFT + J",     hl.dsp.window.move({ direction = "down" }))
 
-    -- Special Workspace
-    { mods = "$mainMod", key = "U", type = "bind", cmd = "togglespecialworkspace," },
-    { mods = "$mainMod", key = "mouse:275", type = "bind", cmd = "togglespecialworkspace," },
-    { mods = "$mainMod+Shift", key = "U", type = "bind", cmd = "movetoworkspacesilent, special" },
+hl.bind(mainMod .. " + Q", hl.dsp.window.close())
+hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exec_cmd(vars.scriptsDir .. "/KillActiveProcess.sh"))
+hl.bind(mainMod .. " + SHIFT + ALT + Q", hl.dsp.exec_cmd("hyprctl kill"))
+hl.bind(mainMod .. " + ALT + Space", hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
+hl.bind(mainMod .. " + CTRL + F", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
+hl.bind("CTRL + " .. mainMod .. " + Backslash", hl.dsp.exec_cmd("hyprctl dispatch resizeactive exact 1024 768"))
 
-    -- Relative Workspace Switching
-    { mods = "Ctrl+Alt", key = "Right", type = "bind", cmd = "workspace, +1" },
-    { mods = "Ctrl+Alt", key = "Left", type = "bind", cmd = "workspace, -1" },
-    { mods = "Ctrl+Alt", key = "L", type = "bind", cmd = "workspace, +1" },
-    { mods = "Ctrl+Alt", key = "H", type = "bind", cmd = "workspace, -1" },
-    { mods = "$mainMod", key = "mouse_up", type = "bind", cmd = "workspace, +1" },
-    { mods = "$mainMod", key = "mouse_down", type = "bind", cmd = "workspace, -1" },
-    { mods = "Ctrl+Alt", key = "mouse_up", type = "bind", cmd = "workspace, +1" },
-    { mods = "Ctrl+Alt", key = "mouse_down", type = "bind", cmd = "workspace, -1" },
-    { mods = "$mainMod", key = "Page_Down", type = "bind", cmd = "workspace, +1" },
-    { mods = "$mainMod", key = "Page_Up", type = "bind", cmd = "workspace, -1" },
-    { mods = "Ctrl+Alt", key = "Page_Down", type = "bind", cmd = "workspace, +1" },
-    { mods = "Ctrl+Alt", key = "Page_Up", type = "bind", cmd = "workspace, -1" },
+-- Mouse Binds (Dragging & Resizing)
+hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
+hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
-    -- Move Window to Relative Workspace
-    { mods = "$mainMod+Alt", key = "L", type = "bind", cmd = "movetoworkspacesilent, +1" },
-    { mods = "$mainMod+Alt", key = "H", type = "bind", cmd = "movetoworkspacesilent, -1" },
-    { mods = "$mainMod+Alt", key = "Right", type = "bind", cmd = "movetoworkspacesilent, +1" },
-    { mods = "$mainMod+Alt", key = "Left", type = "bind", cmd = "movetoworkspacesilent, -1" },
-    { mods = "Ctrl+Alt+Shift", key = "L", type = "bind", cmd = "movetoworkspace, +1" },
-    { mods = "Ctrl+Alt+Shift", key = "H", type = "bind", cmd = "movetoworkspace, -1" },
-    { mods = "Ctrl+Alt+Shift", key = "Right", type = "bind", cmd = "movetoworkspace, +1" },
-    { mods = "Ctrl+Alt+Shift", key = "Left", type = "bind", cmd = "movetoworkspace, -1" },
-    { mods = "Ctrl+Alt+Shift", key = "mouse_down", type = "bind", cmd = "movetoworkspace, -1" },
-    { mods = "Ctrl+Alt+Shift", key = "mouse_up", type = "bind", cmd = "movetoworkspace, +1" },
+-- Active Window Resizing (Repeating)
+hl.bind(mainMod .. " + CTRL + left",  hl.dsp.exec_cmd("hyprctl dispatch resizeactive -50 0"), { repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + CTRL + right", hl.dsp.exec_cmd("hyprctl dispatch resizeactive 50 0"),  { repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + CTRL + H",     hl.dsp.exec_cmd("hyprctl dispatch resizeactive -50 0"), { repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + CTRL + L",     hl.dsp.exec_cmd("hyprctl dispatch resizeactive 50 0"),  { repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + CTRL + K",     hl.dsp.exec_cmd("hyprctl dispatch resizeactive 0 -50"), { repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + CTRL + J",     hl.dsp.exec_cmd("hyprctl dispatch resizeactive 0 50"),  { repeating = true, ["repeat"] = true })
 
-    -- Media, Volume & Brightness Controls
-    { mods = "", key = "XF86AudioNext", type = "bindl", cmd = "exec, playerctl next" },
-    { mods = "", key = "XF86AudioPrev", type = "bindl", cmd = "exec, playerctl previous" },
-    { mods = "", key = "XF86AudioPlay", type = "bindl", cmd = "exec, playerctl play-pause" },
-    { mods = "", key = "XF86AudioMute", type = "bindl", cmd = "exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
-    { mods = "Alt", key = "XF86AudioMute", type = "bindl", cmd = "exec, wpctl set-mute @DEFAULT_SOURCE@ toggle" },
-    { mods = "$mainMod", key = "XF86AudioMute", type = "bindl", cmd = "exec, wpctl set-mute @DEFAULT_SOURCE@ toggle" },
-    { mods = "$mainMod+Shift", key = "M", type = "bindl", cmd = "exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 0%" },
-    { mods = "", key = "XF86AudioRaiseVolume", type = "bindle", cmd = "exec, wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
-    { mods = "", key = "XF86AudioLowerVolume", type = "bindle", cmd = "exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
-    { mods = "Alt", key = "XF86AudioRaiseVolume", type = "bindle", cmd = "exec, wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+" },
-    { mods = "Alt", key = "XF86AudioLowerVolume", type = "bindle", cmd = "exec, wpctl set-volume @DEFAULT_SOURCE@ 5%-" },
-    { mods = "$mainMod", key = "XF86AudioRaiseVolume", type = "bindle", cmd = "exec, wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+" },
-    { mods = "$mainMod", key = "XF86AudioLowerVolume", type = "bindle", cmd = "exec, wpctl set-volume @DEFAULT_SOURCE@ 5%-" },
-    { mods = "", key = "XF86MonBrightnessUp", type = "bindle", cmd = "exec, brightnessctl set +5%" },
-    { mods = "", key = "XF86MonBrightnessDown", type = "bindle", cmd = "exec, brightnessctl set 5%-" },
-}
+-- Window Pinning & Groups & Cycling
+hl.bind(mainMod .. " + P", hl.dsp.exec_cmd("hyprctl dispatch pin"))
+hl.bind(mainMod .. " + G", hl.dsp.group.toggle())
+hl.bind(mainMod .. " + SHIFT + Tab", hl.dsp.group.next())
 
--- Workspace Navigation Binds (1..10)
+-- Cycle Window Focus (ALT + Tab / ALT + SHIFT + Tab)
+hl.bind("ALT + Tab", hl.dsp.window.cycle_next())
+hl.bind("ALT + SHIFT + Tab", hl.dsp.window.cycle_next({ prev = true }))
+
+-- Special Workspace
+hl.bind(mainMod .. " + U", hl.dsp.workspace.toggle_special())
+hl.bind(mainMod .. " + mouse:275", hl.dsp.workspace.toggle_special())
+hl.bind(mainMod .. " + SHIFT + U", hl.dsp.window.move({ workspace = "special", follow = false }))
+
+-- Workspaces Navigation & Window Movement (1..10)
 for i = 1, 10 do
-    local key = tostring(i % 10)
-    table.insert(keybinds, { mods = "$mainMod", key = key, type = "bind", cmd = "workspace, " .. i })
-    table.insert(keybinds, { mods = "$mainMod+Shift", key = key, type = "bind", cmd = "movetoworkspace, " .. i })
-    table.insert(keybinds, { mods = "$mainMod+Alt", key = key, type = "bind", cmd = "movetoworkspacesilent, " .. i })
+    local key = i % 10
+    hl.bind(mainMod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
+    hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+    hl.bind(mainMod .. " + ALT + " .. key,   hl.dsp.window.move({ workspace = i, follow = false }))
+    hl.bind("CTRL + " .. mainMod .. " + " .. key, hl.dsp.window.move({ workspace = i, follow = false }))
 end
 
-return keybinds
+-- Relative Workspace Switching
+hl.bind("CTRL + ALT + right", hl.dsp.focus({ workspace = "+1" }))
+hl.bind("CTRL + ALT + left",  hl.dsp.focus({ workspace = "-1" }))
+hl.bind("CTRL + ALT + L",      hl.dsp.focus({ workspace = "+1" }))
+hl.bind("CTRL + ALT + H",      hl.dsp.focus({ workspace = "-1" }))
+hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "+1" }))
+hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "-1" }))
+hl.bind("CTRL + ALT + mouse_down", hl.dsp.focus({ workspace = "+1" }))
+hl.bind("CTRL + ALT + mouse_up",   hl.dsp.focus({ workspace = "-1" }))
+hl.bind(mainMod .. " + Page_Down", hl.dsp.focus({ workspace = "+1" }))
+hl.bind(mainMod .. " + Page_Up",   hl.dsp.focus({ workspace = "-1" }))
+hl.bind("CTRL + ALT + Page_Down",  hl.dsp.focus({ workspace = "+1" }))
+hl.bind("CTRL + ALT + Page_Up",    hl.dsp.focus({ workspace = "+1" }))
+
+-- Move Window to Relative Workspace (Silent & Non-Silent)
+hl.bind(mainMod .. " + ALT + L",     hl.dsp.window.move({ workspace = "+1", follow = false }))
+hl.bind(mainMod .. " + ALT + H",     hl.dsp.window.move({ workspace = "-1", follow = false }))
+hl.bind(mainMod .. " + ALT + right", hl.dsp.window.move({ workspace = "+1", follow = false }))
+hl.bind(mainMod .. " + ALT + left",  hl.dsp.window.move({ workspace = "-1", follow = false }))
+
+hl.bind("CTRL + ALT + SHIFT + L",     hl.dsp.window.move({ workspace = "+1" }))
+hl.bind("CTRL + ALT + SHIFT + H",     hl.dsp.window.move({ workspace = "-1" }))
+hl.bind("CTRL + ALT + SHIFT + right", hl.dsp.window.move({ workspace = "+1" }))
+hl.bind("CTRL + ALT + SHIFT + left",  hl.dsp.window.move({ workspace = "-1" }))
+hl.bind("CTRL + ALT + SHIFT + mouse_down", hl.dsp.window.move({ workspace = "-1" }))
+hl.bind("CTRL + ALT + SHIFT + mouse_up",   hl.dsp.window.move({ workspace = "+1" }))
+
+-- Notifications & Debug Tests
+hl.bind(mainMod .. " + ALT + F12", hl.dsp.exec_cmd('notify-send "Test notification" "Here\'s a message to test truncation" -a "Shell" -t 5000'))
+hl.bind(mainMod .. " + ALT + Equal", hl.dsp.exec_cmd('notify-send "Urgent notification" "<b>Test notification</b>" -u critical'))
+
+-- Multimedia / Hardware Controls
+hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"),       { locked = true })
+hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
+hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind("ALT + XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind("ALT + XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind("ALT + XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_SOURCE@ 5%-"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind(mainMod .. " + XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_SOURCE@ 5%-"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind("XF86MonBrightnessUp",  hl.dsp.exec_cmd("qs ipc call brightness increment"), { locked = true, repeating = true, ["repeat"] = true })
+hl.bind("XF86MonBrightnessDown",hl.dsp.exec_cmd("qs ipc call brightness decrement"), { locked = true, repeating = true, ["repeat"] = true })
