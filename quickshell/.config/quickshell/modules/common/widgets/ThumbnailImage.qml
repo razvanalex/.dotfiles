@@ -14,7 +14,7 @@ StyledImage {
 
     property bool generateThumbnail: true
     required property string sourcePath
-    property string thumbnailSizeName: Images.thumbnailSizeNameForDimensions(sourceSize.width, sourceSize.height)
+    property string thumbnailSizeName: sourceSize.width > 0 ? Images.thumbnailSizeNameForDimensions(sourceSize.width, sourceSize.height) : "normal"
     property string thumbnailPath: {
         if (sourcePath.length == 0) return;
         const resolvedUrlWithoutFileProtocol = FileUtils.trimFileProtocol(`${Qt.resolvedUrl(sourcePath)}`);
@@ -33,10 +33,15 @@ StyledImage {
         animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
     }
 
-    onSourceSizeChanged: {
-        if (!root.generateThumbnail) return;
-        thumbnailGeneration.running = false;
-        thumbnailGeneration.running = true;
+    Component.onCompleted: {
+        if (root.generateThumbnail) {
+            thumbnailGeneration.running = true;
+        }
+    }
+    onStatusChanged: {
+        if (status === Image.Error && root.generateThumbnail) {
+            thumbnailGeneration.running = true;
+        }
     }
     Process {
         id: thumbnailGeneration
