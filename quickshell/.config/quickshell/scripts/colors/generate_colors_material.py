@@ -87,6 +87,17 @@ if args.path is not None:
 elif args.color is not None:
     argb = hex_to_argb(args.color)
     hct = Hct.from_int(argb)
+elif args.cache is not None and os.path.exists(args.cache):
+    with open(args.cache, 'r') as file:
+        color_hex = file.read().strip()
+        if color_hex.startswith('#'):
+            argb = hex_to_argb(color_hex)
+        else:
+            argb = int(color_hex, 16) if not color_hex.startswith('0x') else int(color_hex, 16)
+        hct = Hct.from_int(argb)
+else:
+    argb = hex_to_argb("#6750A4")
+    hct = Hct.from_int(argb)
 
 if args.scheme == 'scheme-fruit-salad':
     from materialyoucolor.scheme.scheme_fruit_salad import SchemeFruitSalad as Scheme

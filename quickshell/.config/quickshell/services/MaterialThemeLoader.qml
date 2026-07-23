@@ -30,7 +30,7 @@ Singleton {
             }
         }
         
-        Appearance.m3colors.darkmode = (Appearance.m3colors.m3background.hslLightness < 0.5)
+        Appearance.m3colors.darkmode = ColorUtils.isDark(Appearance.m3colors.m3background)
     }
 
     function resetFilePathNextTime() {
