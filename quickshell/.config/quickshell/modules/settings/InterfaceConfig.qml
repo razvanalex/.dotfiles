@@ -369,7 +369,7 @@ ContentPage {
     }
 
     ContentSection {
-        icon: "screenshot_frame_2"
+        icon: "crop_free"
         title: Translation.tr("Region selector (screen snipping/Google Lens)")
 
         ContentSubsection {
@@ -437,7 +437,7 @@ ContentPage {
             title: Translation.tr("Circle selection")
             
             ConfigSpinBox {
-                icon: "eraser_size_3"
+                icon: "line_weight"
                 text: Translation.tr("Stroke width")
                 value: Config.options.regionSelector.circle.strokeWidth
                 from: 1
@@ -449,7 +449,7 @@ ContentPage {
             }
 
             ConfigSpinBox {
-                icon: "screenshot_frame_2"
+                icon: "crop_free"
                 text: Translation.tr("Padding")
                 value: Config.options.regionSelector.circle.padding
                 from: 0
@@ -810,7 +810,7 @@ ContentPage {
         title: Translation.tr("Wallpaper selector")
 
         ConfigSwitch {
-            buttonIcon: "ad"
+            buttonIcon: "ads_click"
             text: Translation.tr('Use system file picker')
             checked: Config.options.wallpaperSelector.useSystemFileDialog
             onCheckedChanged: {

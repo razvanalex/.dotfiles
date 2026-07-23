@@ -73,7 +73,7 @@ WBorderlessButton {
                         FluentIcon {
                             Layout.alignment: Qt.AlignVCenter
                             implicitSize: 22
-                            icon: "corporation"
+                            icon: "domain"
                             monochrome: false
                         }
                         WText {

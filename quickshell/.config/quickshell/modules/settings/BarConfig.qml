@@ -103,7 +103,7 @@ ContentPage {
                         },
                         {
                             displayName: Translation.tr("Float"),
-                            icon: "page_header",
+                            icon: "web_asset",
                             value: 1
                         },
                         {
@@ -132,7 +132,7 @@ ContentPage {
                         },
                         {
                             displayName: Translation.tr("Line-separated"),
-                            icon: "split_scene",
+                            icon: "splitscreen",
                             value: true
                         }
                     ]
@@ -295,7 +295,7 @@ ContentPage {
         }
 
         ConfigSpinBox {
-            icon: "touch_long"
+            icon: "touch_app"
             text: Translation.tr("Number show delay when pressing Super (ms)")
             value: Config.options.bar.workspaces.showNumberDelay
             from: 0
@@ -322,7 +322,7 @@ ContentPage {
                     },
                     {
                         displayName: Translation.tr("Han chars"),
-                        icon: "square_dot",
+                        icon: "radio_button_checked",
                         value: '["一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十"]'
                     },
                     {

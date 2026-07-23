@@ -8,7 +8,7 @@ import QtQuick.Layouts
 Item {
     id: root
     property var tabButtonList: [
-        {"name": Translation.tr("Pomodoro"), "icon": "search_activity"},
+        {"name": Translation.tr("Pomodoro"), "icon": "laps"},
         {"name": Translation.tr("Stopwatch"), "icon": "timer"}
     ]
 

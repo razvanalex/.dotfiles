@@ -170,7 +170,7 @@ MouseArea {
                                 path: Directories.home
                             },
                             {
-                                icon: "docs",
+                                icon: "description",
                                 name: "Documents",
                                 path: Directories.documents
                             },

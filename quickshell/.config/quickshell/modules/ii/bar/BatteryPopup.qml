@@ -14,7 +14,7 @@ StyledPopup {
 
         // Header
         StyledPopupHeaderRow {
-            icon: "battery_android_full"
+            icon: "battery_full"
             label: Translation.tr("Battery")
         }
 

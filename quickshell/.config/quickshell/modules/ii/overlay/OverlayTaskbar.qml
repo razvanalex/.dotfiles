@@ -92,7 +92,7 @@ Rectangle {
             id: boltIcon
             anchors.verticalCenter: parent.verticalCenter
             fill: 1
-            text: Battery.isCharging ? "bolt" : "battery_android_full"
+            text: Battery.isCharging ? "bolt" : "battery_full"
             color: batteryWidget.colText
             iconSize: 24
             animateChange: true

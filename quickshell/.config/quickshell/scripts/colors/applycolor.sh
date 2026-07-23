@@ -90,4 +90,38 @@ else
   apply_term &
 fi
 
+# Apply dynamic border colors to Hyprland from material palette
+apply_hypr_borders() {
+  local scss_file="$STATE_DIR/user/generated/material_colors.scss"
+  if [ ! -s "$scss_file" ]; then
+    return
+  fi
+
+  # Extract primary and tertiary colors (primary for active, tertiary as gradient accent)
+  local primary tertiary
+  primary=$(grep -E '^\$primary:' "$scss_file" | awk '{print $2}' | tr -d ';')
+  tertiary=$(grep -E '^\$tertiary:' "$scss_file" | awk '{print $2}' | tr -d ';')
+  local inactive
+  inactive=$(grep -E '^\$surfaceContainer:' "$scss_file" | awk '{print $2}' | tr -d ';')
+
+  # Fall back if colors not found
+  [ -z "$primary" ] && primary="#A0C4FF"
+  [ -z "$tertiary" ] && tertiary="#BDB2FF"
+  [ -z "$inactive" ] && inactive="#3A3A3A"
+
+  # Convert #RRGGBB to 0xRRGGBBEE (Hyprland ARGB with 93% opacity)
+  hex_to_hypr() { echo "0x${1#\#}EE"; }
+
+  local primary_hypr tertiary_hypr inactive_hypr
+  primary_hypr=$(hex_to_hypr "$primary")
+  tertiary_hypr=$(hex_to_hypr "$tertiary")
+  inactive_hypr=$(hex_to_hypr "$inactive")
+
+  hyprctl keyword "general:col.active_border" "${primary_hypr} ${tertiary_hypr} 45deg" 2>/dev/null || true
+  hyprctl keyword "general:col.inactive_border" "${inactive_hypr}" 2>/dev/null || true
+  hyprctl keyword "group:col.border_active" "${primary_hypr}" 2>/dev/null || true
+  hyprctl keyword "group:groupbar:col.active" "${primary_hypr}" 2>/dev/null || true
+}
+apply_hypr_borders &
+
 # apply_qt & # Qt theming is already handled by kde-material-colors

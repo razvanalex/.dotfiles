@@ -11,7 +11,7 @@ QuickToggleModel {
     name: Translation.tr("Cloudflare WARP")
 
     toggled: false
-    icon: "cloud_lock"
+    icon: "cloud"
     
     mainAction: () => {
         if (toggled) {

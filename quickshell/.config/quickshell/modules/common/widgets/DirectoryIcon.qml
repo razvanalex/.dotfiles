@@ -3,39 +3,52 @@ import Quickshell
 import Quickshell.Io
 import qs.modules.common
 import qs.modules.common.functions
+import qs.modules.common.widgets
 
-// From https://github.com/caelestia-dots/shell with modifications.
-// License: GPLv3
-
-StyledImage {
+Item {
     id: root
     required property var fileModelData
-    asynchronous: true
-    fillMode: Image.PreserveAspectFit
 
-    source: {
-        if (!fileModelData.fileIsDir)
-            return Quickshell.iconPath("application-x-zerosize");
+    anchors.fill: parent
 
-        if ([Directories.documents, Directories.downloads, Directories.music, Directories.pictures, Directories.videos].some(dir => FileUtils.trimFileProtocol(dir) === fileModelData.filePath))
-            return Quickshell.iconPath(`folder-${fileModelData.fileName.toLowerCase()}`);
-
-        return Quickshell.iconPath("inode-directory");
-    }
-
-    onStatusChanged: {
-        if (status === Image.Error)
-            source = Quickshell.iconPath("error");
-    }
+    property string firstImagePath: ""
 
     Process {
-        running: !fileModelData.fileIsDir
-        command: ["file", "--mime", "-b", fileModelData.filePath]
+        running: fileModelData.fileIsDir
+        command: ["bash", "-c", "find \"" + fileModelData.filePath + "\" -maxdepth 1 -type f \\( -iname \"*.png\" -o -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.webp\" \\) | sort | head -n 1"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const mime = text.split(";")[0].replace("/", "-");
-                root.source = Images.validImageTypes.some(t => mime === `image-${t}`) ? fileModelData.fileUrl : Quickshell.iconPath(mime, "image-missing");
+                const img = text.trim()
+                if (img.length > 0) {
+                    root.firstImagePath = img
+                }
             }
+        }
+    }
+
+    Rectangle {
+        id: bgCard
+        anchors.fill: parent
+        color: Appearance.colors.colLayer1
+        radius: Appearance.rounding.small
+        clip: true
+
+        Image {
+            id: previewImg
+            anchors.fill: parent
+            visible: root.firstImagePath !== ""
+            source: root.firstImagePath !== "" ? ("file://" + root.firstImagePath) : ""
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: true
+        }
+
+        MaterialSymbol {
+            anchors.centerIn: parent
+            visible: root.firstImagePath === ""
+            text: fileModelData.fileIsDir ? "folder" : "image"
+            iconSize: 36
+            color: Appearance.colors.colPrimary
         }
     }
 }

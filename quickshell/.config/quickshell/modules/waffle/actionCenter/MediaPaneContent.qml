@@ -120,7 +120,7 @@ Rectangle {
         spacing: 26
 
         MediaControlButton {
-            iconName: "previous"
+            iconName: "skip_previous"
             enabled: root.activePlayer?.canGoPrevious ?? false
             onClicked: root.activePlayer?.previous()
         }
@@ -131,7 +131,7 @@ Rectangle {
             onClicked: root.activePlayer?.togglePlaying()
         }
         MediaControlButton {
-            iconName: "next"
+            iconName: "skip_next"
             enabled: root.activePlayer?.canGoNext ?? false
             onClicked: root.activePlayer?.next()
         }

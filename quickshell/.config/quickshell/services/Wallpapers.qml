@@ -198,11 +198,26 @@ Singleton {
         }
     }
 
+    property bool showHiddenFolders: false
+
+    function toggleHiddenFolders() {
+        root.showHiddenFolders = !root.showHiddenFolders;
+        folderModel.showHidden = root.showHiddenFolders;
+    }
+
     IpcHandler {
         target: "wallpapers"
 
         function apply(path: string): void {
             root.apply(path);
+        }
+
+        function toggleHidden(): void {
+            root.toggleHiddenFolders();
+        }
+
+        function random(): void {
+            root.randomFromCurrentFolder();
         }
     }
 }

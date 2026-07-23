@@ -329,7 +329,7 @@ ContentPage {
             title: Translation.tr("Cookie clock settings")
 
             ConfigSwitch {
-                buttonIcon: "wand_stars"
+                buttonIcon: "auto_awesome"
                 text: Translation.tr("Auto styling with Gemini")
                 checked: Config.options.background.widgets.clock.cookie.aiStyling
                 onCheckedChanged: {
@@ -434,7 +434,7 @@ ContentPage {
                     },
                     {
                         displayName: Translation.tr("Dots"),
-                        icon: "graph_6",
+                        icon: "grain",
                         value: "dots"
                     },
                     {
@@ -477,7 +477,7 @@ ContentPage {
                     },
                     {
                         displayName: Translation.tr("Fill"),
-                        icon: "eraser_size_5",
+                        icon: "line_weight",
                         value: "fill"
                     },
                 ]
@@ -511,12 +511,12 @@ ContentPage {
                     },
                     {
                         displayName: Translation.tr("Medium"),
-                        icon: "eraser_size_2",
+                        icon: "border_style",
                         value: "medium"
                     },
                     {
                         displayName: Translation.tr("Bold"),
-                        icon: "eraser_size_4",
+                        icon: "line_style",
                         value: "bold"
                     },
                 ]

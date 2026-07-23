@@ -42,7 +42,7 @@ Button {
     contentItem: FluentIcon {
         z: 2
         anchors.centerIn: parent
-        icon: "dismiss"
+        icon: "close"
         implicitSize: 10
     }
 }

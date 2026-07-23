@@ -22,14 +22,22 @@ Singleton {
     property real cpuUsage: 0
     property var previousCpuStats
 
+    property real gpuUsage: 0
+    property real gpuMemoryUsed: 0
+    property real gpuMemoryTotal: 1
+    property real gpuMemoryUsedPercentage: gpuMemoryTotal > 0 ? (gpuMemoryUsed / gpuMemoryTotal) : 0
+
     property string maxAvailableMemoryString: kbToGbString(ResourceUsage.memoryTotal)
     property string maxAvailableSwapString: kbToGbString(ResourceUsage.swapTotal)
     property string maxAvailableCpuString: "--"
+    property string maxAvailableGpuString: (gpuMemoryTotal / 1024).toFixed(1) + " GB"
 
     readonly property int historyLength: Config?.options.resources.historyLength ?? 60
     property list<real> cpuUsageHistory: []
     property list<real> memoryUsageHistory: []
     property list<real> swapUsageHistory: []
+    property list<real> gpuUsageHistory: []
+    property list<real> gpuMemoryUsageHistory: []
 
     function kbToGbString(kb) {
         return (kb / (1024 * 1024)).toFixed(1) + " GB";
@@ -112,6 +120,31 @@ Singleton {
             id: outputCollector
             onStreamFinished: {
                 root.maxAvailableCpuString = (parseFloat(outputCollector.text) / 1000).toFixed(0) + " GHz"
+            }
+        }
+    }
+
+    Timer {
+        interval: 2000
+        running: true
+        repeat: true
+        onTriggered: gpuPollProc.running = true
+    }
+
+    Process {
+        id: gpuPollProc
+        command: ["bash", "-c", "nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null || true"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const parts = text.trim().split(",")
+                if (parts.length >= 3) {
+                    root.gpuUsage = (parseFloat(parts[0]) || 0) / 100
+                    root.gpuMemoryUsed = parseFloat(parts[1]) || 0
+                    root.gpuMemoryTotal = parseFloat(parts[2]) || 1
+                    root.gpuUsageHistory = [...root.gpuUsageHistory, root.gpuUsage].slice(-root.historyLength)
+                    root.gpuMemoryUsageHistory = [...root.gpuMemoryUsageHistory, root.gpuMemoryUsedPercentage].slice(-root.historyLength)
+                }
             }
         }
     }

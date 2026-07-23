@@ -76,7 +76,7 @@ Item {
         ToggleItem {
             name: Translation.tr("Automatic")
             description: Translation.tr("Turn on from sunset to sunrise")
-            iconName: "auto"
+            iconName: "brightness_auto"
             checked: Config.options.light.night.automatic
             onCheckedChanged: {
                 Config.options.light.night.automatic = checked;
@@ -121,7 +121,7 @@ Item {
             Layout.topMargin: 4
             Layout.bottomMargin: 4
             Layout.alignment: Qt.AlignTop
-            icon: "temperature"
+            icon: "thermostat"
             implicitSize: 18
         }
         ColumnLayout {

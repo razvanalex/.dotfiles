@@ -77,7 +77,7 @@ ColumnLayout {
                     FluentIcon {
                         anchors.verticalCenter: parent.verticalCenter
                         implicitSize: 18
-                        icon: "options"
+                        icon: "tune"
                     }
                     FluentIcon {
                         anchors.verticalCenter: parent.verticalCenter

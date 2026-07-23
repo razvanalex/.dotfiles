@@ -45,6 +45,13 @@ MouseArea {
             warningThreshold: Config.options.bar.resources.cpuWarningThreshold
         }
 
+        Resource {
+            iconName: "videogame_asset"
+            percentage: ResourceUsage.gpuUsage
+            shown: true
+            Layout.leftMargin: 6
+            warningThreshold: 90
+        }
     }
 
     ResourcesPopup {

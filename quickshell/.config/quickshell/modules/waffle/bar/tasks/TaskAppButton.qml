@@ -126,7 +126,7 @@ AppButton {
                 }
             },
             ...(root.appEntry.toplevels.length > 0 ? [{
-                iconName: "dismiss",
+                iconName: "close",
                 text: root.multiple ? Translation.tr("Close all windows") : Translation.tr("Close window"),
                 action: () => {
                     for (let toplevel of root.appEntry.toplevels) {

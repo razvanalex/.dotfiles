@@ -20,17 +20,19 @@ MaterialShape { // App icon
     property real appIconSize: implicitSize * appIconScale
     property real smallAppIconSize: implicitSize * smallAppIconScale
 
+    property bool iconFailedToLoad: false
+
     implicitSize: 38 * scale
     property list<var> urgentShapes: [
         MaterialShape.Shape.VerySunny,
-        MaterialShape.Shape.SoftBurst,
+        MaterialShape.Shape.SoftBurst
     ]
     shape: isUrgent ? urgentShapes[Math.floor(Math.random() * urgentShapes.length)] : MaterialShape.Shape.Circle
 
     color: isUrgent ? Appearance.colors.colPrimaryContainer : Appearance.colors.colSecondaryContainer
     Loader {
         id: materialSymbolLoader
-        active: root.appIcon == "" && root.image == ""
+        active: (root.appIcon == "" && root.image == "") || root.iconFailedToLoad
         anchors.fill: parent
         sourceComponent: MaterialSymbol {
             text: {
@@ -48,18 +50,24 @@ MaterialShape { // App icon
     }
     Loader {
         id: appIconLoader
-        active: root.image == "" && root.appIcon != ""
+        active: root.image == "" && root.appIcon != "" && !root.iconFailedToLoad
         anchors.centerIn: parent
         sourceComponent: IconImage {
             id: appIconImage
             implicitSize: root.appIconSize
             asynchronous: true
-            source: Quickshell.iconPath(root.appIcon, "image-missing")
+            visible: status === Image.Ready
+            source: Quickshell.iconPath(root.appIcon, "")
+            onStatusChanged: {
+                if (status === Image.Error) {
+                    root.iconFailedToLoad = true;
+                }
+            }
         }
     }
     Loader {
         id: notifImageLoader
-        active: root.image != ""
+        active: root.image != "" && !root.iconFailedToLoad
         anchors.fill: parent
         sourceComponent: Item {
             anchors.fill: parent
@@ -73,6 +81,11 @@ MaterialShape { // App icon
                 cache: false
                 antialiasing: true
                 asynchronous: true
+                onStatusChanged: {
+                    if (status === Image.Error) {
+                        root.iconFailedToLoad = true;
+                    }
+                }
 
                 layer.enabled: true
                 layer.effect: OpacityMask {
@@ -85,13 +98,19 @@ MaterialShape { // App icon
             }
             Loader {
                 id: notifImageAppIconLoader
-                active: root.appIcon != ""
+                active: root.appIcon != "" && !root.iconFailedToLoad
                 anchors.bottom: parent.bottom
                 anchors.right: parent.right
                 sourceComponent: IconImage {
                     implicitSize: root.smallAppIconSize
                     asynchronous: true
-                    source: Quickshell.iconPath(root.appIcon, "image-missing")
+                    visible: status === Image.Ready
+                    source: Quickshell.iconPath(root.appIcon, "")
+                    onStatusChanged: {
+                        if (status === Image.Error) {
+                            root.iconFailedToLoad = true;
+                        }
+                    }
                 }
             }
         }

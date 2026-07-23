@@ -154,7 +154,7 @@ Scope {
                     }
                     SessionActionButton {
                         id: sessionTaskManager
-                        buttonIcon: "browse_activity"
+                        buttonIcon: "analytics"
                         buttonText: Translation.tr("Task Manager")
                         onClicked: {
                             Session.launchTaskManager();

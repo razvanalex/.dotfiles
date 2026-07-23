@@ -18,9 +18,12 @@ Image {
     property int currentFallbackIndex: 0
 
     onStatusChanged: {
-        if (status === Image.Error && currentFallbackIndex < fallbacks.length) {
-            source = fallbacks[currentFallbackIndex];
-            currentFallbackIndex += 1;
+        if (status === Image.Error) {
+            console.warn("[IconLogger] Image/Icon failed to load: " + source);
+            if (currentFallbackIndex < fallbacks.length) {
+                source = fallbacks[currentFallbackIndex];
+                currentFallbackIndex += 1;
+            }
         }
     }
 

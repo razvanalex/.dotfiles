@@ -59,7 +59,7 @@ ContentPage {
     }
 
     ContentSection {
-        icon: "battery_android_full"
+        icon: "battery_full"
         title: Translation.tr("Battery")
 
         ConfigRow {
@@ -263,12 +263,12 @@ ContentPage {
     }
 
     ContentSection {
-        icon: "notification_sound"
+        icon: "notifications_active"
         title: Translation.tr("Sounds")
         ConfigRow {
             uniform: true
             ConfigSwitch {
-                buttonIcon: "battery_android_full"
+                buttonIcon: "battery_full"
                 text: Translation.tr("Battery")
                 checked: Config.options.sounds.battery
                 onCheckedChanged: {

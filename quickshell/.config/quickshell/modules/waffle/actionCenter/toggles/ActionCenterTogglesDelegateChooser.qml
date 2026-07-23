@@ -44,14 +44,14 @@ DelegateChooser {
         roleValue: "cloudflareWarp"
         ActionCenterToggleButton {
             toggleModel: CloudflareWarpToggle {}
-            icon: "cloudflare"
+            icon: "cloud"
         }
     }
     DelegateChoice {
         roleValue: "colorPicker"
         ActionCenterToggleButton {
             toggleModel: ColorPickerToggle {}
-            icon: "eyedropper"
+            icon: "colorize"
         }
     }
     DelegateChoice {
@@ -72,7 +72,7 @@ DelegateChooser {
         roleValue: "gameMode"
         ActionCenterToggleButton {
             toggleModel: GameModeToggle {}
-            icon: "games"
+            icon: "videogame_asset"
         }
     }
     DelegateChoice {
