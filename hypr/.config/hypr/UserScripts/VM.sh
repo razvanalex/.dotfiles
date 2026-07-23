@@ -37,6 +37,7 @@ if ! pgrep -x "virt-viewer" > /dev/null; then
 fi
 
 # 3. Toggle
+TARGET="vm"
 IS_VISIBLE=$(hyprctl monitors -j | jq -r '.[] | .specialWorkspace.name' | grep "special:$TARGET")
 
 if [ -z "$IS_VISIBLE" ]; then
