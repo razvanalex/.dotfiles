@@ -126,5 +126,15 @@ apply_hypr_borders() {
 }
 apply_hypr_borders &
 
+reload_gtk() {
+  local theme
+  theme=$(gsettings get org.gnome.desktop.interface gtk-theme | tr -d "'")
+  if [ -n "$theme" ]; then
+    gsettings set org.gnome.desktop.interface gtk-theme ''
+    gsettings set org.gnome.desktop.interface gtk-theme "$theme"
+  fi
+}
+reload_gtk &
+
 qs ipc call theme reload 2>/dev/null || true
 
