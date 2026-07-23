@@ -315,7 +315,7 @@ ButtonMouseArea {
     /////////////////// Super key press handling ///////////////////
     Timer {
         id: superPressAndHeldTimer
-        interval: (Config?.options.bar.autoHide.showWhenPressingSuper.delay ?? 100)
+        interval: Config?.options.bar.workspaces.showNumberDelay ?? 300
         repeat: false
         onTriggered: {
             root.superPressAndHeld = true;
@@ -324,8 +324,6 @@ ButtonMouseArea {
     Connections {
         target: GlobalStates
         function onSuperDownChanged() {
-            if (!Config?.options.bar.autoHide.showWhenPressingSuper.enable)
-                return;
             if (GlobalStates.superDown)
                 superPressAndHeldTimer.restart();
             else {

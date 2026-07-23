@@ -95,6 +95,15 @@ ContentPage {
                 Config.options.background.autoChange.intervalMinutes = value;
             }
         }
+
+        ConfigSwitch {
+            buttonIcon: "aspect_ratio"
+            text: Translation.tr("Prompt to Upscale Low-Res Wallpapers")
+            checked: Config.options.background.promptUpscale ?? false
+            onCheckedChanged: {
+                Config.options.background.promptUpscale = checked;
+            }
+        }
     }
 
     ContentSection {

@@ -213,6 +213,7 @@ Singleton {
                 property string wallpaperPath: ""
                 property string thumbnailPath: ""
                 property bool hideWhenFullscreen: true
+                property bool promptUpscale: false
                 property JsonObject autoChange: JsonObject {
                     property bool enable: false
                     property int intervalMinutes: 30

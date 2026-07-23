@@ -57,10 +57,35 @@ post_process() {
 
     handle_kde_material_you_colors &
     "$SCRIPT_DIR/code/material-code-set-color.sh" &
+
+    # Generate hyprlock colors from active Material theme
+    if [ -f "$STATE_DIR/user/generated/colors.json" ]; then
+        local primary on_primary bg on_bg
+        primary=$(jq -r '.primary // "#B3C7ED"' "$STATE_DIR/user/generated/colors.json" | sed 's/#//')
+        on_primary=$(jq -r '.on_primary // "#2D4160"' "$STATE_DIR/user/generated/colors.json" | sed 's/#//')
+        bg=$(jq -r '.background // "#0C0E12"' "$STATE_DIR/user/generated/colors.json" | sed 's/#//')
+        on_bg=$(jq -r '.on_background // "#E2E5EF"' "$STATE_DIR/user/generated/colors.json" | sed 's/#//')
+        cat << EOF > "$XDG_CONFIG_HOME/hypr/hyprlock_colors.conf"
+\$primary = rgb($primary)
+\$onPrimary = rgb($on_primary)
+\$background = rgb($bg)
+\$onBackground = rgb($on_bg)
+EOF
+    fi
+
+    pkill -USR2 hyprlock 2>/dev/null || true
 }
 
 check_and_prompt_upscale() {
     local img="$1"
+    if [ -f "$SHELL_CONFIG_FILE" ]; then
+        local prompt_upscale
+        prompt_upscale=$(jq -r '.background.promptUpscale // false' "$SHELL_CONFIG_FILE" 2>/dev/null)
+        if [ "$prompt_upscale" == "false" ]; then
+            return 0
+        fi
+    fi
+
     min_width_desired="$(hyprctl monitors -j | jq '([.[].width] | max)' | xargs)" # max monitor width
     min_height_desired="$(hyprctl monitors -j | jq '([.[].height] | max)' | xargs)" # max monitor height
 
