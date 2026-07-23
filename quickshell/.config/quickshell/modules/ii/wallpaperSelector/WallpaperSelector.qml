@@ -68,7 +68,7 @@ Scope {
             return;
         }
         if (!GlobalStates.wallpaperSelectorOpen) {
-            Wallpapers.openThemeDirectory();
+            Wallpapers.openCurrentWallpaperDirectory();
         }
         GlobalStates.wallpaperSelectorOpen = !GlobalStates.wallpaperSelectorOpen
     }

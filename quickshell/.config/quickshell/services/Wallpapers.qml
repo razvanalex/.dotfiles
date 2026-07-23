@@ -141,10 +141,10 @@ Singleton {
         }
     }
 
-    function openThemeDirectory() {
-        const themePath = crtThemeFile.text().trim();
-        if (themePath.length > 0) {
-            root.setDirectory(themePath);
+    function openCurrentWallpaperDirectory() {
+        const currentWallpaper = Config.options.background.wallpaperPath;
+        if (currentWallpaper && currentWallpaper.length > 0) {
+            root.setDirectory(FileUtils.parentDirectory(currentWallpaper));
         } else {
             root.setDirectory(`${Directories.pictures}/Wallpapers`);
         }
