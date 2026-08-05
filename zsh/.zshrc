@@ -118,10 +118,21 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 #
+# Load the widget
+autoload -U edit-command-line
+zle -N edit-command-line
+
+edit-command-line-and-execute() {
+    zle edit-command-line
+    # CURSOR=$#BUFFER # To move the cursor to the end of the line after editing
+    zle accept-line # To execute the command after editing
+}
+zle -N edit-command-line-and-execute
 
 bindkey '^A' vi-beginning-of-line
 bindkey '^E' vi-end-of-line
 bindkey '^R' history-incremental-search-backward
+bindkey "^X^E" edit-command-line-and-execute
 
 # some more ls aliases
 alias ll='ls -alF'

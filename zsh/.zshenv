@@ -19,6 +19,7 @@ export GPG_TTY=$(tty)
 
 # FZF
 export FZF_DEFAULT_COMMAND="rg --hidden --no-ignore --follow --files --no-messages"
+export FZF_DEFAULT_OPTS="--color=bg+:#313244,fg+:#cdd6f4,hl+:#f38ba8,border:#b4befe"
 
 # Neovim
 export TRANSPARENT=true
