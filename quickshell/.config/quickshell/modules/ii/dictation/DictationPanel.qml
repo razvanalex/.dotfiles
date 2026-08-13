@@ -55,8 +55,8 @@ PanelWindow {
 
     function loadDeviceChoice() {
         // sync the dropdown with the persisted config (the sidecar reads it,
-        // so the picker must SHOW what's actually capturing). The declarative
-        // Process below reads the file; onRead parses it.
+        // so the picker must SHOW what's actually capturing). Called AFTER
+        // deviceList is populated (from devicesProc.onRead) so find() works.
         choiceProc.running = true
     }
 
@@ -96,7 +96,6 @@ PanelWindow {
             root.displayState = "Listening"
             errorTimer.stop()
             root.loadDevices()
-            root.loadDeviceChoice()
         }
     }
     property string voiceState: "Listening"
@@ -171,7 +170,11 @@ PanelWindow {
             onRead: data => {
                 try {
                     const arr = JSON.parse(data)
-                    if (Array.isArray(arr) && arr.length > 0) root.deviceList = arr
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        root.deviceList = arr
+                        // NOW the list exists: apply the persisted choice
+                        root.loadDeviceChoice()
+                    }
                 } catch (e) {}
             }
         }
