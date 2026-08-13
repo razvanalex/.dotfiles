@@ -77,17 +77,20 @@ PanelWindow {
         const val = id >= 0 ? (dev?.name ?? String(id)) : "None"
         const pw = dev?.pw_source ?? "@DEFAULT_SOURCE@"
         const cfg = `/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/cava/mic_input_config.txt`
-        Quickshell.execDetached(["python3", "-c",
-            `import sys
-val, pw, cfg = sys.argv[1:4]
-open('/home/razvan/.local/share/tts-read/mic_device.conf', 'w').write(val)
-with open(cfg) as f:
-    lines = f.readlines()
-with open(cfg, 'w') as f:
-    for l in lines:
-        f.write(f'source = {pw}\n' if l.startswith('source =') else l)
-`, val, pw, cfg])
-        Quickshell.execDetached(["bash", "-c", "pkill -f 'cava -p' 2>/dev/null; true"])
+        // ONE-LINE python -c (multi-line -c strings no-op in quickshell
+        // execDetached, same quirk as long bash). All values via argv -- no
+        // shell interpolation, injection-safe.
+        // SCRIPT-FILE transport: long inline bash no-ops in execDetached (the
+        // same quirk that broke the paste). Write the 3 values base64-encoded
+        // to a file, then execDetach the SCRIPT PATH -- the script decodes
+        // and applies them. Arbitrary device names are injection-safe (b64).
+        function utf8_b64(str) {
+            return Qt.btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+                (m, p1) => String.fromCharCode('0x' + p1)))
+        }
+        const payload = utf8_b64(val) + "\n" + utf8_b64(pw) + "\n" + utf8_b64(cfg)
+        Quickshell.execDetached(["bash", "-c",
+            `printf '%b' '${payload}\n' > /tmp/dict_device_payload.txt && /home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/set_device.sh`])
         // cava restarts via the declarative restartTimer below
         cavaProc.running = false
         cavaRestartTimer.restart()
