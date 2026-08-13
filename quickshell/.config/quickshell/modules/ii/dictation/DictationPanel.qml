@@ -232,7 +232,6 @@ PanelWindow {
         color: Appearance.m3colors.m3surfaceContainer
         border.color: Qt.rgba(Appearance.m3colors.m3outlineVariant.r, Appearance.m3colors.m3outlineVariant.g, Appearance.m3colors.m3outlineVariant.b, 0.5)
         border.width: 1
-        clip: true
 
         // bottom-center when opened. Use screen dims, NOT root.width/height —
         // those are 0 before the window maps (Component.onCompleted fires too
@@ -251,14 +250,20 @@ PanelWindow {
                 resetPosition.call(this)
             }
         }
-        // when the device list expands, shift the bar UP so the growth stays
-        // on screen instead of pushing the transcript off the bottom edge.
+        // device-list expand/collapse: growing the bar shifts it UP to stay on
+        // screen; collapsing returns it to the position it had before expand.
+        property real savedY: -1
         onHeightChanged: {
-            if (visible) {
-                const sh = root.screen?.height ?? 1080
+            if (!visible) return
+            const sh = root.screen?.height ?? 1080
+            if (root.deviceListOpen) {
                 if (y + height > sh) {
+                    if (savedY < 0) savedY = y
                     y = sh - height - 40
                 }
+            } else if (savedY >= 0) {
+                y = savedY
+                savedY = -1
             }
         }
 
@@ -330,11 +335,11 @@ PanelWindow {
                     id: devicePicker
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 190
-                    implicitHeight: 30
+                    implicitHeight: 26            // match the badge's height
                     radius: Appearance.rounding.small
                     color: devicePickerHover.hovered
-                           ? Appearance.colors.colLayer2Hover
-                           : Qt.rgba(Appearance.m3colors.m3primary.r, Appearance.m3colors.m3primary.g, Appearance.m3colors.m3primary.b, 0.15)
+                           ? Qt.rgba(Appearance.m3colors.m3primary.r, Appearance.m3colors.m3primary.g, Appearance.m3colors.m3primary.b, 0.3)
+                           : Qt.rgba(Appearance.m3colors.m3primary.r, Appearance.m3colors.m3primary.g, Appearance.m3colors.m3primary.b, 0.25)   // same alpha as the badge
 
                     RowLayout {
                         anchors.fill: parent
@@ -396,13 +401,12 @@ PanelWindow {
                     }
                 }
             }   // end top row RowLayout
-
-            // inline device list: a COLUMN child (below the top row), inside
-            // the bar's mask so clicks reach it. Expands on picker click.
+            // device list: grows the bar like a real dropdown. The bar shifts
+            // up when it grows and returns when collapsed (see onHeightChanged).
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.deviceListOpen ? Math.min(root.deviceList.length * 26 + 8, 200) : 0
-                Layout.maximumHeight: root.deviceListOpen ? Math.min(root.deviceList.length * 26 + 8, 200) : 0
+                Layout.preferredHeight: root.deviceListOpen ? Math.min(root.deviceList.length * 26 + 8, 220) : 0
+                Layout.maximumHeight: root.deviceListOpen ? Math.min(root.deviceList.length * 26 + 8, 220) : 0
                 radius: Appearance.rounding.small
                 color: Appearance.m3colors.m3surfaceContainerHigh
                 clip: true
@@ -419,7 +423,7 @@ PanelWindow {
                         width: ListView.view.width
                         height: 24
                         radius: Appearance.rounding.small
-                        color: deviceItemMouse.hovered
+                        color: devItemMouse.hovered
                                ? Qt.rgba(Appearance.m3colors.m3primary.r, Appearance.m3colors.m3primary.g, Appearance.m3colors.m3primary.b, 0.2)
                                : "transparent"
                         StyledText {
@@ -433,7 +437,7 @@ PanelWindow {
                             font.pixelSize: Appearance.font.pixelSize.small
                         }
                         MouseArea {
-                            id: deviceItemMouse
+                            id: devItemMouse
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
@@ -444,6 +448,9 @@ PanelWindow {
                     }
                 }
             }
+
+
+
 
             // Scrollable transcript: StyledFlickable (styled scrollbar + wheel
             // support) + StyledText sized by its own implicitHeight. The
@@ -500,6 +507,9 @@ PanelWindow {
                     }
                 }
             }
-        }
+        
+
+
+}
     }
 }
