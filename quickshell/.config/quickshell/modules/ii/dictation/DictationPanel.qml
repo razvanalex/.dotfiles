@@ -153,7 +153,13 @@ PanelWindow {
                     let id = -2   // default mic
                     if (v && v !== "None" && v !== "none") {
                         const n = parseInt(v, 10)
-                        if (!isNaN(n)) id = n
+                        if (!isNaN(n)) {
+                            id = n   // legacy numeric config
+                        } else {
+                            // name config: find the device by its stable name
+                            const dev = root.deviceList.find(d => d.name === v)
+                            if (dev) id = dev.id
+                        }
                     }
                     root.deviceChoice = id
                     root.deviceChoiceLabel = root.deviceList.find(d => d.id === id)?.label ?? "Default (mic)"
