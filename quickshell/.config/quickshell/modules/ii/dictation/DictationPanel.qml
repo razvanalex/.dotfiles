@@ -260,7 +260,9 @@ PanelWindow {
             if (GlobalStates.dictationOpen && !root.hasError && !root.deviceRestarting) {
                 GlobalStates.dictationOpen = false
             }
-            root.deviceRestarting = false
+            // NOTE: deviceRestarting is NOT reset here. It resets in
+            // respawnTimer.onTriggered (after the fresh sidecar spawns). A
+            // reset here races a second device change in the respawn window.
         }
     }
 
@@ -274,7 +276,10 @@ PanelWindow {
     Timer {
         id: respawnTimer
         interval: 500
-        onTriggered: sidecarProc.running = GlobalStates.dictationOpen
+        onTriggered: {
+            sidecarProc.running = GlobalStates.dictationOpen
+            root.deviceRestarting = false   // respawn done: clear the flag
+        }
     }
 
     // Same component, real data instead of the synthetic sine animation.
