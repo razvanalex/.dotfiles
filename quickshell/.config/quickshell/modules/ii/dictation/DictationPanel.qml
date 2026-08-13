@@ -94,6 +94,8 @@ PanelWindow {
     property list<real> voicePoints: []
     property string voiceTranscript: ""
 
+    property bool deviceRestarting: false   // sidecar exited to respawn on a new device
+
     // reset stale transcript when a new dictation session opens
     onVisibleChanged: {
         if (visible) {
@@ -234,6 +236,7 @@ PanelWindow {
                             // respawn it WITHOUT closing the panel. The fresh
                             // sidecar reads mic_device.conf and starts on the
                             // newly chosen device.
+                            root.deviceRestarting = true
                             root.voiceState = "Listening"
                             root.displayState = "Listening"
                             sidecarProc.running = false
@@ -252,9 +255,12 @@ PanelWindow {
         onExited: (code, status) => {
             // if we're showing an error, let the timer close the panel so the
             // user actually sees it; otherwise close immediately.
-            if (GlobalStates.dictationOpen && !root.hasError) {
+            // EXCEPT for a device_restart exit (the sidecar respawns on the
+            // new device) -- that must NOT close the panel.
+            if (GlobalStates.dictationOpen && !root.hasError && !root.deviceRestarting) {
                 GlobalStates.dictationOpen = false
             }
+            root.deviceRestarting = false
         }
     }
 
