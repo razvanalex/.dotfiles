@@ -163,11 +163,10 @@ PanelWindow {
     }
 
     function commitText(text: string) {
-        // PASTE-BASED commit: wl-copy --paste-once (transient clipboard) + one
-        // paste keypress. Instant (no letter-by-letter typing), and a held
-        // Super can't turn every letter into Super+<letter>. The clipboard is
-        // owned only for the ~50ms between copy and paste; TTS uses its own
-        // snapshot/restore flow with negligible collision risk.
+        // PASTE-BASED commit: persistent clipboard + app-aware paste key.
+        // We save the old clipboard, set the dictation text, paste, then
+        // restore -- so the user's clipboard (e.g. TTS's) is untouched and
+        // flatpak apps (Vivaldi) can read it through the sandbox portal.
         // APP-AWARE paste: terminals use ctrl+alt+v (kitty.conf maps it to
         // paste_from_clipboard -- PROVEN KITTY-ALT-V-*), GUI apps use ctrl+v
         // (native). NEVER ctrl+shift+v: wtype+Hyprland sends Escape (65307)
