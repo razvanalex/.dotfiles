@@ -39,6 +39,7 @@ hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("qs ipc call search workspacesToggle"
 hl.bind(mainMod .. " + Slash", hl.dsp.exec_cmd("qs ipc call cheatsheet toggle"))
 hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("qs ipc call search clipboardToggle"))
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("qs ipc call search clipboardToggle"))
+hl.bind(mainMod .. " + ALT + V", hl.dsp.exec_cmd("/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py voice start"))
 hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("qs ipc call wallpaperSelector toggle"))
 hl.bind("CTRL + " .. mainMod .. " + W", hl.dsp.exec_cmd("qs ipc call wallpaperSelector openRoot"))
 hl.bind(mainMod .. " + ALT + W", hl.dsp.exec_cmd("qs ipc call wallpapers toggleHidden"))

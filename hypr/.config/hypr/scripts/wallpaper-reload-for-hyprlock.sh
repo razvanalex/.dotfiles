@@ -12,6 +12,20 @@ WALLPAPER_PATH=""
 
 if [ -f "$CONFIG_FILE" ]; then
     WALLPAPER_PATH=$(jq -r '.background.wallpaperPath // empty' "$CONFIG_FILE" 2>/dev/null)
+    # If wallpaper is a video, use static thumbnail for hyprlock
+    if [[ "$WALLPAPER_PATH" =~ \.(mp4|webm|mkv|avi|mov|gif)$ ]]; then
+        THUMB_PATH=$(jq -r '.background.thumbnailPath // empty' "$CONFIG_FILE" 2>/dev/null)
+        if [ -n "$THUMB_PATH" ] && [ -f "$THUMB_PATH" ]; then
+            WALLPAPER_PATH="$THUMB_PATH"
+        elif [[ "$WALLPAPER_PATH" =~ \.gif$ ]]; then
+            THUMB_PATH="$HOME/.config/hypr/custom/scripts/mpvpaper_thumbnails/$(basename "$WALLPAPER_PATH").jpg"
+            mkdir -p "$(dirname "$THUMB_PATH")"
+            ffmpeg -y -i "$WALLPAPER_PATH" -vframes 1 "$THUMB_PATH" 2>/dev/null
+            if [ -f "$THUMB_PATH" ]; then
+                WALLPAPER_PATH="$THUMB_PATH"
+            fi
+        fi
+    fi
 fi
 
 # Fallback check for current wallpaper symlink

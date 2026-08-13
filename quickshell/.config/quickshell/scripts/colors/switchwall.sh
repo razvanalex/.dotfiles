@@ -300,6 +300,14 @@ switch() {
             generate_colors_material_args=(--path "$imgpath")
             # Update wallpaper path in config
             set_wallpaper_path "$imgpath"
+            if [[ "$imgpath" =~ \.gif$ ]]; then
+                mkdir -p "$THUMBNAIL_DIR"
+                thumbnail="$THUMBNAIL_DIR/$(basename "$imgpath").jpg"
+                ffmpeg -y -i "$imgpath" -vframes 1 "$thumbnail" 2>/dev/null
+                set_thumbnail_path "$thumbnail"
+            else
+                set_thumbnail_path "$imgpath"
+            fi
             remove_restore
         fi
     fi

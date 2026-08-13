@@ -19,6 +19,8 @@ Item {
 
     property var suggestionQuery: ""
     property var suggestionList: []
+    property bool voiceActive: false
+    property list<real> micPoints: []
 
     onFocusChanged: focus => {
         if (focus) {
@@ -43,6 +45,22 @@ Item {
     }
 
     property var allCommands: [
+        {
+            name: "voice",
+            description: Translation.tr("Toggle voice call (start / stop) using CosyVoice3 & Hermes Agent"),
+            execute: args => {
+                const action = (args[0] ?? "start").toLowerCase();
+                if (action === "stop") {
+                    root.voiceActive = false;
+                    Quickshell.execDetached(["/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py", "voice", "stop"]);
+                    Ai.addMessage(Translation.tr("Voice Call ended."), Ai.interfaceRole);
+                } else {
+                    root.voiceActive = true;
+                    Quickshell.execDetached(["/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py", "voice", "start"]);
+                    Ai.addMessage(Translation.tr("Voice Call started. Speak into your microphone!"), Ai.interfaceRole);
+                }
+            }
+        },
         {
             name: "attach",
             description: Translation.tr("Attach a file. Only works with Gemini."),
@@ -214,6 +232,22 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 
         // Always scroll to bottom when user sends a message
         messageListView.positionViewAtEnd();
+    }
+
+    Process {
+        id: micCavaProc
+        running: root.voiceActive
+        onRunningChanged: {
+            if (!micCavaProc.running)
+                root.micPoints = [];
+        }
+        command: ["cava", "-p", `${FileUtils.trimFileProtocol(Directories.scriptPath)}/cava/mic_input_config.txt`]
+        stdout: SplitParser {
+            onRead: data => {
+                let pts = data.split(";").map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
+                root.micPoints = pts;
+            }
+        }
     }
 
     Process {
@@ -469,13 +503,124 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             }
         }
 
-        Rectangle { // Input area
+        Item { // Input area wrapper (text input OR voice waveform)
+            id: inputAreaWrapper
+            Layout.fillWidth: true
+            implicitHeight: root.voiceActive ? voiceOverlay.implicitHeight : inputWrapper.implicitHeight
+            Behavior on implicitHeight {
+                animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
+            }
+
+            // ── Voice waveform overlay ───────────────────────────────────
+            Rectangle {
+                id: voiceOverlay
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                implicitHeight: 80
+                radius: Appearance.rounding.normal - root.padding
+                color: Appearance.colors.colLayer2
+                opacity: root.voiceActive ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                clip: true
+
+                // Animated gradient background
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "transparent"
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.parent.radius
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: Qt.rgba(Appearance.colors.colPrimary.r, Appearance.colors.colPrimary.g, Appearance.colors.colPrimary.b, 0.06) }
+                            GradientStop { position: 0.5; color: Qt.rgba(Appearance.colors.colPrimary.r, Appearance.colors.colPrimary.g, Appearance.colors.colPrimary.b, 0.12) }
+                            GradientStop { position: 1.0; color: Qt.rgba(Appearance.colors.colPrimary.r, Appearance.colors.colPrimary.g, Appearance.colors.colPrimary.b, 0.06) }
+                        }
+                    }
+                }
+
+                // Waveform canvas (reuses existing WaveVisualizer widget)
+                WaveVisualizer {
+                    id: micWaveVisualizer
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    live: root.voiceActive
+                    points: root.micPoints
+                    maxVisualizerValue: 1000
+                    smoothing: 3
+                    color: Appearance.colors.colPrimary
+                }
+
+                // Mic icon + label
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    opacity: root.micPoints.length === 0 ? 1 : 0.3
+                    Behavior on opacity {
+                        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    }
+                    MaterialSymbol {
+                        text: "mic"
+                        iconSize: Appearance.font.pixelSize.huge
+                        color: Appearance.colors.colPrimary
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    StyledText {
+                        text: Translation.tr("Listening…")
+                        color: Appearance.colors.colPrimary
+                        font.pixelSize: Appearance.font.pixelSize.normal
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                // Stop button
+                RippleButton {
+                    id: voiceStopButton
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 6
+                    implicitWidth: 32
+                    implicitHeight: 32
+                    buttonRadius: Appearance.rounding.small
+                    colBackgroundToggled: Appearance.colors.colPrimary
+                    toggled: true
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.voiceActive = false;
+                            Quickshell.execDetached(["/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py", "voice", "stop"]);
+                            Ai.addMessage(Translation.tr("Voice Call ended."), Ai.interfaceRole);
+                        }
+                    }
+                    contentItem: MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: "stop"
+                        iconSize: 18
+                        color: Appearance.m3colors.m3onPrimary
+                    }
+                }
+            }
+
+            Rectangle { // Input area
             id: inputWrapper
             property real spacing: 5
-            Layout.fillWidth: true
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
             radius: Appearance.rounding.normal - root.padding
             color: Appearance.colors.colLayer2
             implicitHeight: Math.max(inputFieldRowLayout.implicitHeight + inputFieldRowLayout.anchors.topMargin + commandButtonsRow.implicitHeight + commandButtonsRow.anchors.bottomMargin + spacing, 45) + (attachedFileIndicator.implicitHeight + spacing + attachedFileIndicator.anchors.topMargin)
+            opacity: root.voiceActive ? 0 : 1
+            visible: opacity > 0
+            Behavior on opacity {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
             clip: true
 
             Behavior on implicitHeight {
@@ -790,6 +935,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                     }
                 }
             }
-        }
+        } // end inputWrapper Rectangle
+        } // end inputAreaWrapper Item
     }
 }

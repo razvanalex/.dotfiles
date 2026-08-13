@@ -78,12 +78,17 @@ Rectangle {
         spacing: root.contentSpacing
 
         Rectangle {
+            id: headerRect
             Layout.fillWidth: true
             implicitWidth: headerRowLayout.implicitWidth + 4 * 2
             implicitHeight: headerRowLayout.implicitHeight + 4 * 2
             color: Appearance.colors.colSecondaryContainer
             radius: Appearance.rounding.small
-        
+
+            HoverHandler {
+                id: headerHoverHandler
+            }
+
             RowLayout { // Header
                 id: headerRowLayout
                 anchors {
@@ -176,6 +181,11 @@ Rectangle {
 
                 ButtonGroup {
                     spacing: 5
+                    opacity: headerHoverHandler.hovered ? 1 : 0
+                    enabled: opacity > 0.1
+                    Behavior on opacity {
+                        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    }
 
                     AiMessageControlButton {
                         id: regenButton

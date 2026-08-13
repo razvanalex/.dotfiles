@@ -34,8 +34,177 @@ MouseArea {
     onPressed: mouse => {
         forceFieldFocus();
     }
-    onPositionChanged: mouse => {
-        forceFieldFocus();
+    // Background Wallpaper Image with multi-pass FastBlur and extraZoom
+    Item {
+        id: lockBgContainer
+        anchors.fill: parent
+        scale: Config.options?.lock?.blur?.enable ? (Config.options?.lock?.blur?.extraZoom ?? 1.1) : 1.0
+
+        Image {
+            id: lockBgImage
+            anchors.fill: parent
+            property bool wallpaperIsVideo: Config.options?.background?.wallpaperPath?.endsWith(".gif") || Config.options?.background?.wallpaperPath?.endsWith(".mp4") || Config.options?.background?.wallpaperPath?.endsWith(".webm") || Config.options?.background?.wallpaperPath?.endsWith(".mkv") || Config.options?.background?.wallpaperPath?.endsWith(".avi") || Config.options?.background?.wallpaperPath?.endsWith(".mov")
+            property string wallpaperPath: {
+                const rawPath = Config.options?.background?.wallpaperPath ?? "";
+                const thumbPath = Config.options?.background?.thumbnailPath ?? "";
+                if (wallpaperIsVideo) {
+                    return thumbPath !== "" ? thumbPath : rawPath;
+                }
+                return rawPath;
+            }
+            source: wallpaperPath ? Qt.resolvedUrl(wallpaperPath) : ""
+            fillMode: Image.PreserveAspectCrop
+            visible: false
+        }
+
+        FastBlur {
+            id: lockBlur
+            anchors.fill: parent
+            source: lockBgImage
+            radius: Config.options?.lock?.blur?.enable ? (Config.options?.lock?.blur?.radius ?? 40) : 0
+            visible: false
+        }
+
+        HueSaturation {
+            id: lockVibrancy
+            anchors.fill: parent
+            source: lockBlur
+            saturation: Config.options?.lock?.blur?.saturation ?? 0.2
+            visible: false
+        }
+
+        BrightnessContrast {
+            id: lockFinalEffect
+            anchors.fill: parent
+            source: lockVibrancy
+            brightness: Config.options?.lock?.blur?.brightness ?? 0.0
+            contrast: Config.options?.lock?.blur?.contrast ?? 0.1
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, Config.options?.lock?.blur?.darken ?? 0.3)
+        }
+    }
+
+    // Center Clock (1:1 Hyprlock Position Matching)
+    Loader {
+        anchors.fill: parent
+        active: Config.options?.lock?.centerClock ?? true
+        visible: active
+
+        sourceComponent: Item {
+            id: clockRoot
+            anchors.fill: parent
+
+            property var now: new Date()
+            property bool use12h: Config.options?.lock?.use12Hour ?? false
+            property bool showSec: Config.options?.lock?.showSeconds ?? true
+            property string styleType: Config.options?.lock?.clockStyle ?? "stacked"
+
+            Timer {
+                interval: 1000
+                running: true
+                repeat: true
+                onTriggered: clockRoot.now = new Date()
+            }
+
+            // Stacked Style (Hyprlock Positions: 100, 200, 460, 500)
+            Item {
+                anchors.fill: parent
+                visible: clockRoot.styleType === "stacked"
+
+                // Date (position = 0, -100, font_size = 34)
+                StyledText {
+                    anchors {
+                        horizontalCenter: parent.horizontalCenter
+                        top: parent.top
+                        topMargin: 90
+                    }
+                    text: Qt.formatDateTime(clockRoot.now, "dddd, d MMMM yyyy")
+                    font.pixelSize: 38
+                    font.weight: Font.Black
+                    font.family: "JetBrainsMono Nerd Font Mono"
+                    color: Appearance.colors.colPrimary
+                }
+
+                // Hour-Time (position = 0, -200, font_size = 200)
+                StyledText {
+                    anchors {
+                        horizontalCenter: parent.horizontalCenter
+                        top: parent.top
+                        topMargin: 140
+                    }
+                    text: Qt.formatDateTime(clockRoot.now, clockRoot.use12h ? "hh" : "HH")
+                    font.pixelSize: 260
+                    font.weight: Font.Black
+                    font.family: "JetBrainsMono Nerd Font Mono"
+                    color: Appearance.colors.colPrimary
+                }
+
+                // Seconds-Time (position = 0, -480, font_size = 40)
+                StyledText {
+                    visible: clockRoot.showSec
+                    anchors {
+                        horizontalCenter: parent.horizontalCenter
+                        top: parent.top
+                        topMargin: 465
+                    }
+                    text: Qt.formatDateTime(clockRoot.now, clockRoot.use12h ? "ss AP" : "ss")
+                    font.pixelSize: 48
+                    font.weight: Font.Black
+                    font.family: "JetBrainsMono Nerd Font Mono"
+                    color: Appearance.colors.colPrimary
+                    z: 2
+                }
+
+                // Minute-Time (position = 0, -500, font_size = 200)
+                StyledText {
+                    anchors {
+                        horizontalCenter: parent.horizontalCenter
+                        top: parent.top
+                        topMargin: 490
+                    }
+                    text: Qt.formatDateTime(clockRoot.now, "mm")
+                    font.pixelSize: 260
+                    font.weight: Font.Black
+                    font.family: "JetBrainsMono Nerd Font Mono"
+                    color: Appearance.colors.colOnLayer0
+                    z: 1
+                }
+            }
+
+            // Horizontal Style (Single Row Time)
+            Column {
+                visible: clockRoot.styleType !== "stacked"
+                spacing: 10
+                anchors {
+                    horizontalCenter: parent.horizontalCenter
+                    top: parent.top
+                    topMargin: 120
+                }
+
+                // Date Header
+                StyledText {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: Qt.formatDateTime(clockRoot.now, "dddd, d MMMM yyyy")
+                    font.pixelSize: 34
+                    font.weight: Font.Black
+                    font.family: "JetBrainsMono Nerd Font Mono"
+                    color: Appearance.colors.colPrimary
+                }
+
+                // Time (with optional seconds inline)
+                StyledText {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: Qt.formatDateTime(clockRoot.now, clockRoot.use12h ? (clockRoot.showSec ? "hh:mm:ss AP" : "hh:mm AP") : (clockRoot.showSec ? "HH:mm:ss" : "HH:mm"))
+                    font.pixelSize: 140
+                    font.weight: Font.Black
+                    font.family: "JetBrainsMono Nerd Font Mono"
+                    color: Appearance.colors.colPrimary
+                }
+            }
+        }
     }
 
     // Toolbar appearing animation

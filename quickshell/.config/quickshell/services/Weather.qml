@@ -94,7 +94,7 @@ Singleton {
         command += " | ";
         // only take the current weather, location, asytronmy data
         command += "jq '{current: .current_condition[0], location: .nearest_area[0], astronomy: .weather[0].astronomy[0]}'";
-        fetcher.command[2] = command;
+        fetcher.command = ["bash", "-c", command];
         fetcher.running = true;
     }
 
@@ -103,9 +103,11 @@ Singleton {
     }
 
     Component.onCompleted: {
-        if (!root.gpsActive) return;
-        console.info("[WeatherService] Starting the GPS service.");
-        positionSource.start();
+        root.getData();
+        if (root.gpsActive) {
+            console.info("[WeatherService] Starting the GPS service.");
+            positionSource.start();
+        }
     }
 
     Process {

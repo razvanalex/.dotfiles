@@ -33,7 +33,24 @@ Singleton {
     signal thumbnailGenerated(directory: string)
     signal thumbnailGeneratedFile(filePath: string)
 
-    function load () {} // For forcing initialization
+    function load() {
+        initWallpaperTimer.restart();
+    }
+
+    Timer {
+        id: initWallpaperTimer
+        interval: 300
+        repeat: false
+        onTriggered: {
+            const currentWall = Config.options?.background?.wallpaperPath;
+            if (!currentWall || currentWall.length === 0) return;
+
+            const isVideo = currentWall.endsWith(".gif") || currentWall.endsWith(".mp4") || currentWall.endsWith(".webm") || currentWall.endsWith(".mkv") || currentWall.endsWith(".avi") || currentWall.endsWith(".mov");
+            const targetDaemon = isVideo ? "mpvpaper" : "awww-daemon";
+
+            Quickshell.execDetached(["bash", "-c", `pgrep -x "${targetDaemon}" >/dev/null || ${Directories.wallpaperSwitchScriptPath} --noswitch`]);
+        }
+    }
     
     function openFallbackPicker(darkMode = Appearance.m3colors.darkmode) {
         Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", darkMode ? "dark" : "light"]);
@@ -135,8 +152,8 @@ Singleton {
         id: crtThemeFile
         path: `${Directories.pictures}/Wallpapers/.crt_theme`
         onLoadedChanged: {
-            if (loaded) {
-                root.openThemeDirectory();
+            if (loaded && text().trim().length > 0) {
+                root.setDirectory(text().trim());
             }
         }
     }

@@ -207,6 +207,24 @@ ContentPage {
             }
 
             ConfigSwitch {
+                buttonIcon: "timer"
+                text: Translation.tr('Show seconds on lock clock')
+                checked: Config.options.lock.showSeconds ?? true
+                onCheckedChanged: {
+                    Config.options.lock.showSeconds = checked;
+                }
+            }
+
+            ConfigSwitch {
+                buttonIcon: "schedule"
+                text: Translation.tr('Use 12-hour format (AM/PM)')
+                checked: Config.options.lock.use12Hour ?? false
+                onCheckedChanged: {
+                    Config.options.lock.use12Hour = checked;
+                }
+            }
+
+            ConfigSwitch {
                 buttonIcon: "info"
                 text: Translation.tr('Show "Locked" text')
                 checked: Config.options.lock.showLockedText
@@ -237,14 +255,50 @@ ContentPage {
             }
 
             ConfigSpinBox {
+                icon: "blur_on"
+                text: Translation.tr("Blur radius (px)")
+                value: Config.options.lock.blur.radius ?? 40
+                from: 0
+                to: 100
+                stepSize: 2
+                onValueChanged: {
+                    Config.options.lock.blur.radius = value;
+                }
+            }
+
+            ConfigSpinBox {
                 icon: "loupe"
                 text: Translation.tr("Extra wallpaper zoom (%)")
-                value: Config.options.lock.blur.extraZoom * 100
-                from: 1
+                value: (Config.options.lock.blur.extraZoom ?? 1.1) * 100
+                from: 100
                 to: 150
                 stepSize: 2
                 onValueChanged: {
                     Config.options.lock.blur.extraZoom = value / 100;
+                }
+            }
+
+            ConfigSpinBox {
+                icon: "dark_mode"
+                text: Translation.tr("Background dimming (%)")
+                value: (Config.options.lock.blur.darken ?? 0.3) * 100
+                from: 0
+                to: 100
+                stepSize: 5
+                onValueChanged: {
+                    Config.options.lock.blur.darken = value / 100;
+                }
+            }
+
+            ConfigSpinBox {
+                icon: "palette"
+                text: Translation.tr("Vibrancy / Saturation (%)")
+                value: (Config.options.lock.blur.saturation ?? 0.2) * 100
+                from: 0
+                to: 100
+                stepSize: 5
+                onValueChanged: {
+                    Config.options.lock.blur.saturation = value / 100;
                 }
             }
         }
