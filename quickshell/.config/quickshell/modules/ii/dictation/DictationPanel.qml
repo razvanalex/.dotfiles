@@ -53,6 +53,31 @@ PanelWindow {
         devicesProc.running = true
     }
 
+    function loadDeviceChoice() {
+        // sync the dropdown with the persisted config (the sidecar reads it,
+        // so the picker must SHOW what's actually capturing)
+        Quickshell.execDetached(["bash", "-c",
+            `cat /home/razvan/.local/share/tts-read/mic_device.conf 2>/dev/null`])
+        Quickshell.timer.createSingleShot(200, () => {
+            // read the file via a second process -- simpler than FileIO
+            const p = Quickshell.Process.create({
+                command: ["cat", "/home/razvan/.local/share/tts-read/mic_device.conf"],
+            })
+            p.stdout.onRead = data => {
+                const v = String(data).trim()
+                let id = -2   // default mic
+                if (v && v !== "None" && v !== "none") {
+                    const n = parseInt(v, 10)
+                    if (!isNaN(n)) id = n
+                }
+                root.deviceChoice = id
+                root.deviceChoiceLabel = root.deviceList.find(d => d.id === id)?.label ?? "Default (mic)"
+                p.destroy()
+            }
+            p.start()
+        })
+    }
+
     function applyDeviceChoice(id: int) {
         root.deviceChoice = id
         const dev = root.deviceList.find(d => d.id === id)
@@ -89,6 +114,7 @@ PanelWindow {
             root.displayState = "Listening"
             errorTimer.stop()
             root.loadDevices()
+            root.loadDeviceChoice()
         }
     }
     property string voiceState: "Listening"
