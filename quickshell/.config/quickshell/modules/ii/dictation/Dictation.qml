@@ -40,9 +40,19 @@ Scope {
         GlobalStates.dictationOpen = false
     }
 
+    // DEBUG: deterministic dummy commit -- bypasses the ASR pipeline entirely.
+    // Pasts fixed text via the same paste_commit.sh. Used to isolate whether
+    // the Super+T failure is in the ASR/finalize path or the paste trigger.
+    function dummyCommit() {
+        Quickshell.execDetached(["bash", "-c",
+            `printf '%s' "DUMMY COMMIT $(date +%H%M%S)" > /tmp/dict_commit.txt && /home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/paste_commit.sh`])
+    }
+
     IpcHandler {
         target: "dictation"
         function toggle() { root.toggle() }
         function dismiss() { root.dismiss() }
+        function dummycommit() { root.dummyCommit() }
+
     }
 }

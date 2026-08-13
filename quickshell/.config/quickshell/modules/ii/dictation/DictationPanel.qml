@@ -3,6 +3,7 @@ import qs
 import qs.services
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -38,6 +39,39 @@ PanelWindow {
 
     readonly property real barWidth: Math.max(500, Math.min(1200, (screen?.width ?? 1920) * 0.85))
 
+    // ---- input device selection: dropdown next to the badge ----
+    property var deviceList: []            // [{id, label, monitor}] from list_devices.py
+    property int deviceChoice: -2          // -2 = default (None), -1 = unset, >=0 = device id
+    property string deviceChoiceLabel: "Default (mic)"
+
+    function loadDevices() {
+        // query once per panel open; the helper lists capture-capable devices
+        Quickshell.execDetached(["bash", "-c",
+            `/home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/list_devices.py > /tmp/dict_devices.json`])
+        // read it shortly after (small race is fine -- the list is static)
+        const timer = Quickshell.timer.createSingleShot(300, () => {
+            try {
+                const fs = Quickshell.FileIO.new()
+                fs.readFile("/tmp/dict_devices.json")
+                const raw = fs.data
+                const arr = JSON.parse(raw)
+                if (Array.isArray(arr)) root.deviceList = arr
+            } catch (e) {}
+            // default entry first
+            root.deviceList = [{id: -2, label: "Default (mic)", monitor: false}].concat(root.deviceList)
+        })
+    }
+
+    function applyDeviceChoice(id: int) {
+        root.deviceChoice = id
+        const label = root.deviceList.find(d => d.id === id)?.label ?? "Default (mic)"
+        root.deviceChoiceLabel = label
+        // persist for the sidecar ('' = default mic)
+        const val = id >= 0 ? String(id) : "None"
+        Quickshell.execDetached(["bash", "-c",
+            `printf '%s' '${val}' > /home/razvan/.local/share/tts-read/mic_device.conf`])
+    }
+
     // ---- sidecar process: JSON events -> panel state ----
     property real voiceRms: 0.0
     property list<real> voicePoints: []
@@ -52,6 +86,7 @@ PanelWindow {
             root.errorMessage = ""
             root.displayState = "Listening"
             errorTimer.stop()
+            root.loadDevices()
         }
     }
     property string voiceState: "Listening"
@@ -270,6 +305,21 @@ PanelWindow {
                                : Appearance.m3colors.m3primary
                         font.pixelSize: Appearance.font.pixelSize.small
                     }
+                }
+
+                // input device dropdown (mic / monitors) -- the sidecar swaps
+                // live via mic_device.conf; applies when idle / at next pause
+                StyledComboBox {
+                    id: deviceCombo
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: 210
+                    implicitHeight: 34
+                    buttonIcon: "mic"
+                    model: root.deviceList
+                    valueRole: "id"
+                    textRole: "label"
+                    currentValue: root.deviceChoice
+                    onCurrentValueChanged: if (currentValue !== root.deviceChoice) root.applyDeviceChoice(currentValue)
                 }
 
                 Item {
