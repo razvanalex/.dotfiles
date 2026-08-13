@@ -1,8 +1,10 @@
 #!/bin/bash
 # dictation commit paste v4: logging + longer restore delay
-export HYPRLAND_INSTANCE_SIGNATURE=efb50993780079460b0cbed1363e2166a2de1d9f_1786321502_1019612100
-export XDG_RUNTIME_DIR=/run/user/1000
-export WAYLAND_DISPLAY=wayland-1
+# Inherit env from the caller (quickshell has these). NOT hardcoded: the
+# Hyprland instance signature changes on every compositor restart, and a stale
+# one breaks hyprctl/wtype below.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
 LOG=/tmp/paste_script.log
 echo "=== $(date +%H:%M:%S) start" >> $LOG
 if [ ! -s /tmp/dict_commit.txt ]; then echo "no text" >> $LOG; exit 0; fi

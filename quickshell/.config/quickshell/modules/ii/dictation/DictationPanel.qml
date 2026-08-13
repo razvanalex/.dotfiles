@@ -57,6 +57,7 @@ PanelWindow {
         // sync the dropdown with the persisted config (the sidecar reads it,
         // so the picker must SHOW what's actually capturing). Called AFTER
         // deviceList is populated (from devicesProc.onRead) so find() works.
+        if (choiceProc.running) return
         choiceProc.running = true
     }
 
@@ -68,16 +69,17 @@ PanelWindow {
         // persist for the sidecar: store the DEVICE NAME (stable). Numeric
         // sounddevice indices shift between enumerations; names don't. The
         // sidecar resolves the name to the current index at runtime.
+        // ONE atomic execDetached updates BOTH the sidecar config AND the
+        // cava source, so the two can never diverge (crash between two
+        // separate calls would leave them inconsistent).
         const val = id >= 0 ? (dev?.name ?? String(id)) : "None"
-        Quickshell.execDetached(["bash", "-c",
-            `printf '%s' '${val}' > /home/razvan/.local/share/tts-read/mic_device.conf`])
-        // ALSO switch cava's source so the waveform follows the device.
-        // Write a cava config with the chosen PipeWire source and restart cava.
         const pw = dev?.pw_source ?? "@DEFAULT_SOURCE@"
         const cfg = `/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/cava/mic_input_config.txt`
         const tmp = `/tmp/cava_dictation_config.txt`
         Quickshell.execDetached(["bash", "-c",
-            `sed 's|^source = .*|source = ${pw}|' '${cfg}' > '${tmp}' && cp '${tmp}' '${cfg}' && pkill -f 'cava -p' 2>/dev/null; true`])
+            `printf '%s' '${val}' > /home/razvan/.local/share/tts-read/mic_device.conf && ` +
+            `sed 's|^source = .*|source = ${pw}|' '${cfg}' > '${tmp}' && cp '${tmp}' '${cfg}' && ` +
+            `pkill -f 'cava -p' 2>/dev/null; true`])
         // cava restarts via the declarative restartTimer below
         cavaProc.running = false
         cavaRestartTimer.restart()
@@ -277,14 +279,15 @@ PanelWindow {
         // paste_from_clipboard -- PROVEN KITTY-ALT-V-*), GUI apps use ctrl+v
         // (native). NEVER ctrl+shift+v: wtype+Hyprland sends Escape (65307)
         // for ctrl+shift+ANY-key -> gnome-system-monitor bug.
-        const esc = text.replace(/"/g, '\\"').replace(/`/g, '\\`')
         // PASTE VIA SCRIPT FILE: Quickshell.execDetached silently no-ops on
         // long inline bash strings (known quickshell issue). Write the text
         // to a file, then execDetach a SHORT command that runs the paste
         // script -- the script does clipboard save/set/paste/restore.
-        // The script polls wl-paste until the clipboard is READY before
-        // sending the paste key (kills the intermittent race).
-        Quickshell.execDetached(["bash", "-c", `printf '%s' "${esc}" > /tmp/dict_commit.txt && /home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/paste_commit.sh`])
+        // BASE64 transport: the dictation text can contain $, quotes, newlines
+        // -- any shell metacharacter -- so we encode it in QML and decode in
+        // bash. No escaping of the payload is ever interpreted.
+        const b64 = Qt.btoa(text)
+        Quickshell.execDetached(["bash", "-c", `echo '${b64}' | base64 -d > /tmp/dict_commit.txt && /home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/paste_commit.sh`])
     }
 
     // ---- the bar: an ITEM inside the full-screen window ----
