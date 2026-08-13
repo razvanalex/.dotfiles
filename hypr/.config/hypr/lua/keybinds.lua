@@ -32,8 +32,11 @@ hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd(vars.scriptsDir .. "/SwitchKeyboa
 hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { locked = true })
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"))
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("qs ipc call dictation toggle"))
--- Escape closes the dictation panel WITHOUT committing (cancel, like the close button)
-hl.bind("Escape", hl.dsp.exec_cmd("qs ipc call dictation dismiss"))
+-- Escape closes the dictation panel WITHOUT committing (cancel, like the
+-- close button). NON-CONSUMING: the key still reaches the focused app
+-- (neovim's normal mode, etc.) -- the dismiss only happens if the panel
+-- is open, and neovim keeps receiving Escape either way.
+hl.bind("Escape", hl.dsp.exec_cmd("qs ipc call dictation dismiss"), { non_consuming = true })
 hl.bind("CTRL + " .. mainMod .. " + C", hl.dsp.exec_cmd(vars.userScripts .. "/VSCode.sh"))
 
 -- Launchers & Quickshell Controls
