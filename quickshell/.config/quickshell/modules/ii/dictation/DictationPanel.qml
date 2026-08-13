@@ -172,24 +172,13 @@ PanelWindow {
         // (native). NEVER ctrl+shift+v: wtype+Hyprland sends Escape (65307)
         // for ctrl+shift+ANY-key -> gnome-system-monitor bug.
         const esc = text.replace(/"/g, '\\"').replace(/`/g, '\\`')
-        Quickshell.execDetached([
-            "bash", "-c",
-            // Persistent clipboard (NOT --paste-once): flatpak apps (Vivaldi)
-            // can't read paste-once through the sandbox portal. We save the
-            // old clipboard, set ours, paste, then restore -- so the user's
-            // clipboard (e.g. TTS's) is untouched after the commit.
-            `old=$(timeout 2 wl-paste 2>/dev/null); ` +
-            `printf '%s' "${esc}" | wl-copy --type text/plain; ` +
-            `cls=$(hyprctl -j activewindow 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('class',''))" 2>/dev/null); ` +
-            `case "$cls" in ` +
-            `kitty|foot|alacritty|wezterm|ghostty|konsole|gnome-terminal|xfce4-terminal) ` +
-            `sleep 0.1 && wtype -M ctrl -M alt -k v -m ctrl -m alt ;; ` +
-            `*) sleep 0.1 && wtype -M ctrl -k v -m ctrl ;; ` +
-            `esac; ` +
-            `sleep 0.15; ` +
-            `if [ -n "$old" ]; then printf '%s' "$old" | wl-copy --type text/plain 2>/dev/null; else wl-copy -c 2>/dev/null || true; fi; ` +
-            `true 2>/dev/null || true`
-        ])
+        // PASTE VIA SCRIPT FILE: Quickshell.execDetached silently no-ops on
+        // long inline bash strings (known quickshell issue). Write the text
+        // to a file, then execDetach a SHORT command that runs the paste
+        // script -- the script does clipboard save/set/paste/restore.
+        // The script polls wl-paste until the clipboard is READY before
+        // sending the paste key (kills the intermittent race).
+        Quickshell.execDetached(["bash", "-c", `printf '%s' "${esc}" > /tmp/dict_commit.txt && /home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/paste_commit.sh`])
     }
 
     // ---- the bar: an ITEM inside the full-screen window ----
