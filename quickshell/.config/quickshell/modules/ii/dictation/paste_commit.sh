@@ -6,6 +6,11 @@
 # forever behind a stale holder.
 exec 9>/tmp/paste_commit.lock
 flock -w 8 9 || { echo "paste lock timeout after 8s" >> /tmp/paste_script.log; exit 1; }
+# CRITICAL: wl-copy is a long-lived clipboard daemon that INHERITS fd 9 -> the
+# flock would never release. Release the lock AFTER the paste key (serializes
+# the clipboard set + paste), before the restore sleep. The restore reads only
+# our own $esc/$old vars, so it needs no lock.
+release_lock() { exec 9>&-; }
 # Inherit env from the caller (quickshell has these). NOT hardcoded: the
 # Hyprland instance signature changes on every compositor restart, and a stale
 # one breaks hyprctl/wtype below.
@@ -54,6 +59,7 @@ esac
 # after the paste key (esp. TUIs and flatpaks). Restoring too early wipes the
 # text before the app reads it -> intermittent "nothing pasted". 3s is
 # invisible to the user but covers slow readers.
+release_lock    # BEFORE the restore's wl-copy (it would inherit the lock fd)
 sleep 3
 if [ $paste_ok -ne 1 ]; then
     echo "paste FAILED -- leaving text on clipboard" >> $LOG
