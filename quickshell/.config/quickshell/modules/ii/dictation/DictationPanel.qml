@@ -178,7 +178,7 @@ PanelWindow {
             `cls=$(hyprctl -j activewindow 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('class',''))" 2>/dev/null) && ` +
             `case "$cls" in ` +
             `kitty|foot|alacritty|wezterm|ghostty|konsole|gnome-terminal|xfce4-terminal) ` +
-            `wtype -M ctrl shift -k v -m ctrl shift ;; ` +
+            `wtype -M ctrl -M shift -k v -m ctrl -m shift ;; ` +
             `*) wtype -M ctrl -k v -m ctrl ;; ` +
             `esac 2>/dev/null || true`
         ])
