@@ -41,6 +41,7 @@ PanelWindow {
 
     // ---- input device selection: dropdown next to the badge ----
     property var deviceList: []            // [{id, label, monitor}] from list_devices.py
+    property bool deviceListOpen: false    // inline device list expanded
     property int deviceChoice: -2          // -2 = default (None), -1 = unset, >=0 = device id
     property string deviceChoiceLabel: "Default (mic)"
 
@@ -250,6 +251,16 @@ PanelWindow {
                 resetPosition.call(this)
             }
         }
+        // when the device list expands, shift the bar UP so the growth stays
+        // on screen instead of pushing the transcript off the bottom edge.
+        onHeightChanged: {
+            if (visible) {
+                const sh = root.screen?.height ?? 1080
+                if (y + height > sh) {
+                    y = sh - height - 40
+                }
+            }
+        }
 
         // drag handle: the bar's background (lowest z — content above still
         // gets its own clicks: close button, transcript selection)
@@ -311,19 +322,56 @@ PanelWindow {
                     }
                 }
 
-                // input device dropdown (mic / monitors) -- the sidecar swaps
-                // live via mic_device.conf; applies when idle / at next pause
-                StyledComboBox {
-                    id: deviceCombo
+                // input device picker (mic / monitors) -- the sidecar swaps
+                // live via mic_device.conf; applies when idle / at next pause.
+                // Inline expandable list (NOT a Qt popup: layer-shell popups
+                // escape the window mask and clicks pass through).
+                Rectangle {
+                    id: devicePicker
                     Layout.alignment: Qt.AlignVCenter
-                    Layout.preferredWidth: 210
-                    implicitHeight: 34
-                    buttonIcon: "mic"
-                    model: root.deviceList
-                    valueRole: "id"
-                    textRole: "label"
-                    currentValue: root.deviceChoice
-                    onCurrentValueChanged: if (currentValue !== root.deviceChoice) root.applyDeviceChoice(currentValue)
+                    Layout.preferredWidth: 190
+                    implicitHeight: 30
+                    radius: Appearance.rounding.small
+                    color: devicePickerHover.hovered
+                           ? Appearance.colors.colLayer2Hover
+                           : Qt.rgba(Appearance.m3colors.m3primary.r, Appearance.m3colors.m3primary.g, Appearance.m3colors.m3primary.b, 0.15)
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 8
+                        spacing: 6
+                        MaterialSymbol {
+                            text: "mic"
+                            iconSize: 14
+                            color: Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: root.deviceChoiceLabel
+                            elide: Text.ElideRight
+                            color: Appearance.m3colors.m3onSurface
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
+                        MaterialSymbol {
+                            text: "keyboard_arrow_down"
+                            iconSize: 14
+                            color: Appearance.m3colors.m3onSurfaceVariant
+                            rotation: root.deviceListOpen ? 180 : 0
+                            Behavior on rotation { NumberAnimation { duration: 150 } }
+                        }
+                    }
+
+                    MouseArea {
+                        id: devicePickerHover
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            console.log("devicePicker CLICKED, was open:", root.deviceListOpen)
+                            root.deviceListOpen = !root.deviceListOpen
+                            console.log("devicePicker now open:", root.deviceListOpen)
+                        }
+                    }
                 }
 
                 Item {
@@ -345,6 +393,54 @@ PanelWindow {
                         text: "close"
                         color: Appearance.m3colors.m3onSurfaceVariant
                         iconSize: 20
+                    }
+                }
+            }   // end top row RowLayout
+
+            // inline device list: a COLUMN child (below the top row), inside
+            // the bar's mask so clicks reach it. Expands on picker click.
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: root.deviceListOpen ? Math.min(root.deviceList.length * 26 + 8, 200) : 0
+                Layout.maximumHeight: root.deviceListOpen ? Math.min(root.deviceList.length * 26 + 8, 200) : 0
+                radius: Appearance.rounding.small
+                color: Appearance.m3colors.m3surfaceContainerHigh
+                clip: true
+                visible: root.deviceListOpen
+
+                ListView {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    clip: true
+                    model: root.deviceList
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property var dev: typeof modelData === 'object' ? modelData : ({id: -2, label: String(modelData)})
+                        width: ListView.view.width
+                        height: 24
+                        radius: Appearance.rounding.small
+                        color: deviceItemMouse.hovered
+                               ? Qt.rgba(Appearance.m3colors.m3primary.r, Appearance.m3colors.m3primary.g, Appearance.m3colors.m3primary.b, 0.2)
+                               : "transparent"
+                        StyledText {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: dev.label
+                            color: dev.id === root.deviceChoice
+                                   ? Appearance.m3colors.m3primary
+                                   : Appearance.m3colors.m3onSurface
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
+                        MouseArea {
+                            id: deviceItemMouse
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                root.applyDeviceChoice(dev.id)
+                                root.deviceListOpen = false
+                            }
+                        }
                     }
                 }
             }
