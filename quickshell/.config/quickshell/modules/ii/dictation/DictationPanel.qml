@@ -70,16 +70,24 @@ PanelWindow {
         // sounddevice indices shift between enumerations; names don't. The
         // sidecar resolves the name to the current index at runtime.
         // ONE atomic execDetached updates BOTH the sidecar config AND the
-        // cava source, so the two can never diverge (crash between two
-        // separate calls would leave them inconsistent).
+        // cava source, so the two can never diverge. Via python3 with ARGS
+        // (no shell interpolation): device names can contain quotes and the
+        // PipeWire source can contain | & \ -- inline bash would break or
+        // inject.
         const val = id >= 0 ? (dev?.name ?? String(id)) : "None"
         const pw = dev?.pw_source ?? "@DEFAULT_SOURCE@"
         const cfg = `/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/cava/mic_input_config.txt`
-        const tmp = `/tmp/cava_dictation_config.txt`
-        Quickshell.execDetached(["bash", "-c",
-            `printf '%s' '${val}' > /home/razvan/.local/share/tts-read/mic_device.conf && ` +
-            `sed 's|^source = .*|source = ${pw}|' '${cfg}' > '${tmp}' && cp '${tmp}' '${cfg}' && ` +
-            `pkill -f 'cava -p' 2>/dev/null; true`])
+        Quickshell.execDetached(["python3", "-c",
+            `import sys
+val, pw, cfg = sys.argv[1:4]
+open('/home/razvan/.local/share/tts-read/mic_device.conf', 'w').write(val)
+with open(cfg) as f:
+    lines = f.readlines()
+with open(cfg, 'w') as f:
+    for l in lines:
+        f.write(f'source = {pw}\n' if l.startswith('source =') else l)
+`, val, pw, cfg])
+        Quickshell.execDetached(["bash", "-c", "pkill -f 'cava -p' 2>/dev/null; true"])
         // cava restarts via the declarative restartTimer below
         cavaProc.running = false
         cavaRestartTimer.restart()
@@ -232,15 +240,12 @@ PanelWindow {
                             GlobalStates.dictationOpen = false
                             break
                         case "device_restart":
-                            // sidecar exited to pick up a new input device:
-                            // respawn it WITHOUT closing the panel. The fresh
+                            // sidecar exited to pick up a new input device.
+                            // Set the flag; onExited sees it and respawns the
+                            // Process WITHOUT closing the panel. The fresh
                             // sidecar reads mic_device.conf and starts on the
                             // newly chosen device.
                             root.deviceRestarting = true
-                            root.voiceState = "Listening"
-                            root.displayState = "Listening"
-                            sidecarProc.running = false
-                            respawnTimer.restart()
                             break
                         case "error":
                             root.errorMessage = msg.message ?? "Unknown error"
@@ -255,14 +260,19 @@ PanelWindow {
         onExited: (code, status) => {
             // if we're showing an error, let the timer close the panel so the
             // user actually sees it; otherwise close immediately.
-            // EXCEPT for a device_restart exit (the sidecar respawns on the
-            // new device) -- that must NOT close the panel.
-            if (GlobalStates.dictationOpen && !root.hasError && !root.deviceRestarting) {
+            // device_restart exit: respawn DIRECTLY here (the old process may
+            // take >500ms to die; a timer would reset the flag too early and
+            // this onExited would close the panel instead).
+            if (root.deviceRestarting) {
+                root.deviceRestarting = false
+                if (GlobalStates.dictationOpen) {
+                    root.voiceState = "Listening"
+                    root.displayState = "Listening"
+                    sidecarProc.running = true
+                }
+            } else if (GlobalStates.dictationOpen && !root.hasError) {
                 GlobalStates.dictationOpen = false
             }
-            // NOTE: deviceRestarting is NOT reset here. It resets in
-            // respawnTimer.onTriggered (after the fresh sidecar spawns). A
-            // reset here races a second device change in the respawn window.
         }
     }
 
@@ -272,14 +282,6 @@ PanelWindow {
         id: cavaRestartTimer
         interval: 300
         onTriggered: cavaProc.running = GlobalStates.dictationOpen
-    }
-    Timer {
-        id: respawnTimer
-        interval: 500
-        onTriggered: {
-            sidecarProc.running = GlobalStates.dictationOpen
-            root.deviceRestarting = false   // respawn done: clear the flag
-        }
     }
 
     // Same component, real data instead of the synthetic sine animation.
@@ -316,7 +318,13 @@ PanelWindow {
         // BASE64 transport: the dictation text can contain $, quotes, newlines
         // -- any shell metacharacter -- so we encode it in QML and decode in
         // bash. No escaping of the payload is ever interpreted.
-        const b64 = Qt.btoa(text)
+        // UTF-8-safe: Qt.btoa() only accepts Latin-1 (throws on smart quotes,
+        // em-dashes, accented chars) -- encodeURIComponent first.
+        function utf8_to_b64(str) {
+            return Qt.btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+                (m, p1) => String.fromCharCode('0x' + p1)))
+        }
+        const b64 = utf8_to_b64(text)
         Quickshell.execDetached(["bash", "-c", `echo '${b64}' | base64 -d > /tmp/dict_commit.txt && /home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/paste_commit.sh`])
     }
 

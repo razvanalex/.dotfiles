@@ -41,6 +41,14 @@ esac
 # text before the app reads it -> intermittent "nothing pasted". 3s is
 # invisible to the user but covers slow readers.
 sleep 3
-if [ -n "$old" ]; then printf '%s' "$old" | wl-copy --type text/plain 2>/dev/null; echo "restored" >> $LOG; else wl-copy -c 2>/dev/null || true; echo "cleared" >> $LOG; fi
+cur=$(timeout 1 wl-paste 2>/dev/null)
+if [ "$cur" = "$esc" ]; then
+    # clipboard still holds OUR text -> safe to restore the old one
+    if [ -n "$old" ]; then printf '%s' "$old" | wl-copy --type text/plain 2>/dev/null; echo "restored" >> $LOG
+    else wl-copy -c 2>/dev/null || true; echo "cleared" >> $LOG; fi
+else
+    # the user copied something else during the 3s window: leave it alone
+    echo "clipboard changed by user, NOT restoring" >> $LOG
+fi
 echo "done" >> $LOG
 exit 0
