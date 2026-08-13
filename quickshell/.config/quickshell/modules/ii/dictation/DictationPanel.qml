@@ -229,6 +229,16 @@ PanelWindow {
                         case "cancelled":
                             GlobalStates.dictationOpen = false
                             break
+                        case "device_restart":
+                            // sidecar exited to pick up a new input device:
+                            // respawn it WITHOUT closing the panel. The fresh
+                            // sidecar reads mic_device.conf and starts on the
+                            // newly chosen device.
+                            root.voiceState = "Listening"
+                            root.displayState = "Listening"
+                            sidecarProc.running = false
+                            respawnTimer.restart()
+                            break
                         case "error":
                             root.errorMessage = msg.message ?? "Unknown error"
                             root.hasError = true
@@ -254,6 +264,11 @@ PanelWindow {
         id: cavaRestartTimer
         interval: 300
         onTriggered: cavaProc.running = GlobalStates.dictationOpen
+    }
+    Timer {
+        id: respawnTimer
+        interval: 500
+        onTriggered: sidecarProc.running = GlobalStates.dictationOpen
     }
 
     // Same component, real data instead of the synthetic sine animation.
