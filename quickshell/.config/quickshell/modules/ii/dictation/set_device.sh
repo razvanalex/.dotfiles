@@ -6,7 +6,10 @@
 # script exits, so the config is always in place first.
 PAYLOAD=/tmp/dict_device_payload.txt
 [ -s "$PAYLOAD" ] || exit 0
-IFS=$'\n' read -r V64 P64 C64 < "$PAYLOAD"
+# read THREE lines (read reads ONE line; extra vars only word-split it)
+V64=$(sed -n '1p' "$PAYLOAD")
+P64=$(sed -n '2p' "$PAYLOAD")
+C64=$(sed -n '3p' "$PAYLOAD")
 val=$(echo "$V64" | base64 -d 2>/dev/null)
 pw=$(echo "$P64" | base64 -d 2>/dev/null)
 cfg=$(echo "$C64" | base64 -d 2>/dev/null)
