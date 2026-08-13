@@ -184,16 +184,9 @@ PanelWindow {
                     }
                     root.deviceChoice = id
                     root.deviceChoiceLabel = root.deviceList.find(d => d.id === id)?.label ?? "Default (mic)"
-                    // ALSO sync cava's source so the waveform matches the
-                    // sidecar (which follows the same config).
-                    const dev2 = root.deviceList.find(d => d.id === id)
-                    const pw = dev2?.pw_source ?? "@DEFAULT_SOURCE@"
-                    const cfg = `/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/cava/mic_input_config.txt`
-                    const tmp = `/tmp/cava_dictation_config.txt`
-                    Quickshell.execDetached(["bash", "-c",
-                        `sed 's|^source = .*|source = ${pw}|' '${cfg}' > '${tmp}' && cp '${tmp}' '${cfg}' && pkill -f 'cava -p' 2>/dev/null; true`])
-                    cavaProc.running = false
-                    cavaRestartTimer.restart()
+                    // cava's source is ALREADY correct: set_device.sh writes it
+                    // on every device pick, and cava starts fresh on panel open
+                    // reading that config. No write/restart needed here.
                 } catch (e) {}
             }
         }
@@ -283,7 +276,10 @@ PanelWindow {
     // frequency-band amplitudes, exactly like the media player's visualizer.
     Timer {
         id: cavaRestartTimer
-        interval: 300
+        // 900ms: must fire AFTER set_device.sh finishes its config write
+        // (the execDetached script runs async; 300ms raced it and cava
+        // respawned with the OLD source).
+        interval: 900
         onTriggered: cavaProc.running = GlobalStates.dictationOpen
     }
 
