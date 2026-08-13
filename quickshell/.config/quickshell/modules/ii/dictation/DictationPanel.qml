@@ -55,12 +55,23 @@ PanelWindow {
 
     function applyDeviceChoice(id: int) {
         root.deviceChoice = id
-        const label = root.deviceList.find(d => d.id === id)?.label ?? "Default (mic)"
+        const dev = root.deviceList.find(d => d.id === id)
+        const label = dev?.label ?? "Default (mic)"
         root.deviceChoiceLabel = label
         // persist for the sidecar ('' = default mic)
         const val = id >= 0 ? String(id) : "None"
         Quickshell.execDetached(["bash", "-c",
             `printf '%s' '${val}' > /home/razvan/.local/share/tts-read/mic_device.conf`])
+        // ALSO switch cava's source so the waveform follows the device.
+        // Write a cava config with the chosen PipeWire source and restart cava.
+        const pw = dev?.pw_source ?? "@DEFAULT_SOURCE@"
+        const cfg = `/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/cava/mic_input_config.txt`
+        const tmp = `/tmp/cava_dictation_config.txt`
+        Quickshell.execDetached(["bash", "-c",
+            `sed 's|^source = .*|source = ${pw}|' '${cfg}' > '${tmp}' && cp '${tmp}' '${cfg}' && pkill -f 'cava -p' 2>/dev/null; true`])
+        // cava restarts via cavaProc.running toggle below
+        cavaProc.running = false
+        Quickshell.timer.createSingleShot(300, () => { cavaProc.running = GlobalStates.dictationOpen })
     }
 
     // ---- sidecar process: JSON events -> panel state ----

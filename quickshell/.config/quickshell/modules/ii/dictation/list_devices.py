@@ -14,6 +14,14 @@ def friendly(name: str) -> str:
     n = n.replace("__", " ").replace("_", " ")
     return n.strip()
 
+def pipewire_source_name(name: str) -> str:
+    """Map a sounddevice device name to the PipeWire source node name.
+    cava needs a Pulse/PipeWire source; the sounddevice name IS the
+    PipeWire node name for these (alsa_output...sink.monitor etc)."""
+    if "monitor" in name.lower() or name.startswith("alsa_"):
+        return name
+    return "@DEFAULT_SOURCE@"
+
 try:
     import sounddevice as sd
     devices = []
@@ -29,6 +37,7 @@ try:
                 "id": i,
                 "label": friendly(name),
                 "monitor": "monitor" in name.lower(),
+                "pw_source": pipewire_source_name(name),
             })
     # default entry first
     print(json.dumps([{"id": -2, "label": "Default (mic)", "monitor": False}] + devices))
