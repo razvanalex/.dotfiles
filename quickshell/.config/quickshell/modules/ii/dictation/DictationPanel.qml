@@ -48,9 +48,22 @@ PanelWindow {
         if (visible) {
             root.voiceTranscript = ""
             root.voiceState = "Listening"
+            root.hasError = false
+            root.errorMessage = ""
+            root.displayState = "Listening"
+            errorTimer.stop()
         }
     }
     property string voiceState: "Listening"
+    property string errorMessage: ""
+    property bool hasError: false
+
+    // show an error for a few seconds, then close instead of vanishing
+    Timer {
+        id: errorTimer
+        interval: 4000
+        onTriggered: GlobalStates.dictationOpen = false
+    }
     // debounced display state: sidecar flips Transcribing/Listening per chunk
     // (~1s cadence) which flickers; only show Transcribing once it persists.
     property string displayState: "Listening"
@@ -111,14 +124,21 @@ PanelWindow {
                             GlobalStates.dictationOpen = false
                             break
                         case "error":
-                            GlobalStates.dictationOpen = false
+                            root.errorMessage = msg.message ?? "Unknown error"
+                            root.hasError = true
+                            root.displayState = "Error"
+                            errorTimer.restart()
                             break
                     }
                 } catch(e) {}
             }
         }
         onExited: (code, status) => {
-            if (GlobalStates.dictationOpen) GlobalStates.dictationOpen = false
+            // if we're showing an error, let the timer close the panel so the
+            // user actually sees it; otherwise close immediately.
+            if (GlobalStates.dictationOpen && !root.hasError) {
+                GlobalStates.dictationOpen = false
+            }
         }
     }
 
@@ -231,8 +251,11 @@ PanelWindow {
                             "Transcribing": "⚙ Transcribing",
                             "Committed":    "✓ Sent",
                             "Cancelled":    "✕ Cancelled",
+                            "Error":       "⚠ Error: " + root.errorMessage
                         })[root.displayState] ?? root.displayState
-                        color: Appearance.m3colors.m3primary
+                        color: root.hasError
+                               ? Qt.rgba(0.85, 0.35, 0.35, 1.0)
+                               : Appearance.m3colors.m3primary
                         font.pixelSize: Appearance.font.pixelSize.small
                     }
                 }
