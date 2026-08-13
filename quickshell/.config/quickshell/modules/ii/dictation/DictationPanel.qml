@@ -83,13 +83,10 @@ PanelWindow {
         // cava restarts via the declarative restartTimer below
         cavaProc.running = false
         cavaRestartTimer.restart()
-
-        // RESTART the sidecar: a fresh process reads the new config cleanly
-        // (the in-process device swap is fragile -- channel/PortAudio quirks,
-        // index shifts). The sidecar starts on the newly written device.
-        // It commits/cancels cleanly on SIGTERM (no in-flight commit -> exit).
-        sidecarProc.running = false
-        sidecarRestartTimer.restart()
+        // NOTE: the SIDECAR is NOT restarted here -- its in-process watcher
+        // detects the config change and swaps the InputStream (close + reopen
+        // with the new device). Restarting the Process would fire onExited and
+        // close the whole panel.
     }
 
     // ---- sidecar process: JSON events -> panel state ----
@@ -257,11 +254,6 @@ PanelWindow {
         id: cavaRestartTimer
         interval: 300
         onTriggered: cavaProc.running = GlobalStates.dictationOpen
-    }
-    Timer {
-        id: sidecarRestartTimer
-        interval: 400
-        onTriggered: sidecarProc.running = GlobalStates.dictationOpen
     }
 
     // Same component, real data instead of the synthetic sine animation.
