@@ -168,20 +168,15 @@ PanelWindow {
         // Super can't turn every letter into Super+<letter>. The clipboard is
         // owned only for the ~50ms between copy and paste; TTS uses its own
         // snapshot/restore flow with negligible collision risk.
-        // GUI apps paste with ctrl+v (PROVEN working). Terminals need
-        // ctrl+shift+v, but wtype+Hyprland maps ctrl+shift+ANY-key to Escape
-        // (opens gnome-system-monitor) -- so terminals are excluded until the
-        // wtype bug or kitty send-text/AT-SPI lands.
+        // UNIFIED ctrl+v paste: PROVEN in GUI apps AND kitty (empirical test
+        // KITTY-CTRLV-* pasted correctly). wtype ctrl+shift+ANY-key is broken
+        // with Hyprland (sends Escape -> gnome-system-monitor), so we never
+        // use ctrl+shift+v. One path for every app.
         const esc = text.replace(/"/g, '\\"').replace(/`/g, '\\`')
         Quickshell.execDetached([
             "bash", "-c",
-            `cls=$(hyprctl -j activewindow 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('class',''))" 2>/dev/null) && ` +
-            `case "$cls" in ` +
-            `kitty|foot|alacritty|wezterm|ghostty|konsole|gnome-terminal|xfce4-terminal) ` +
-            `echo "dictation: terminal paste blocked (wtype ctrl+shift bug)" >&2 ;; ` +
-            `*) wl-copy --paste-once --type text/plain "${esc}" && ` +
-            `sleep 0.08 && wtype -M ctrl -k v -m ctrl ;; ` +
-            `esac 2>/dev/null || true`
+            `wl-copy --paste-once --type text/plain "${esc}" && ` +
+            `sleep 0.08 && wtype -M ctrl -k v -m ctrl 2>/dev/null || true`
         ])
     }
 
