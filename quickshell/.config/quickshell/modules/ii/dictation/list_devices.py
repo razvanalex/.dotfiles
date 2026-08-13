@@ -35,6 +35,7 @@ try:
                 continue
             devices.append({
                 "id": i,
+                "name": name,
                 "label": friendly(name),
                 "monitor": "monitor" in name.lower(),
                 "pw_source": pipewire_source_name(name),
