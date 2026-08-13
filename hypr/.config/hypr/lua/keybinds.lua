@@ -31,6 +31,8 @@ end)
 hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd(vars.scriptsDir .. "/SwitchKeyboardLayout.sh"), { non_consuming = true })
 hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { locked = true })
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"))
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("qs ipc call dictation toggle"))
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("qs ipc call dictation release"), { release = true })
 hl.bind("CTRL + " .. mainMod .. " + C", hl.dsp.exec_cmd(vars.userScripts .. "/VSCode.sh"))
 
 -- Launchers & Quickshell Controls
