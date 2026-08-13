@@ -46,20 +46,10 @@ PanelWindow {
 
     function loadDevices() {
         // query once per panel open; the helper lists capture-capable devices
-        Quickshell.execDetached(["bash", "-c",
-            `/home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/list_devices.py > /tmp/dict_devices.json`])
-        // read it shortly after (small race is fine -- the list is static)
-        const timer = Quickshell.timer.createSingleShot(300, () => {
-            try {
-                const fs = Quickshell.FileIO.new()
-                fs.readFile("/tmp/dict_devices.json")
-                const raw = fs.data
-                const arr = JSON.parse(raw)
-                if (Array.isArray(arr)) root.deviceList = arr
-            } catch (e) {}
-            // default entry first
-            root.deviceList = [{id: -2, label: "Default (mic)", monitor: false}].concat(root.deviceList)
-        })
+        // (incl. the "Default (mic)" entry). Use a declarative Process reading
+        // stdout directly -- simplest reliable path in quickshell.
+        if (devicesProc.running) return
+        devicesProc.running = true
     }
 
     function applyDeviceChoice(id: int) {
@@ -129,6 +119,20 @@ PanelWindow {
         onTriggered: {
             if (!root.transcribingCandidate) {
                 root.displayState = root.voiceState
+            }
+        }
+    }
+
+    Process {
+        id: devicesProc
+        command: ["/home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/list_devices.py"]
+        running: false
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    const arr = JSON.parse(data)
+                    if (Array.isArray(arr) && arr.length > 0) root.deviceList = arr
+                } catch (e) {}
             }
         }
     }
