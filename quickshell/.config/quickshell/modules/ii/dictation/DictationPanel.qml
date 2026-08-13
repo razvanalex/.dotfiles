@@ -371,11 +371,7 @@ PanelWindow {
                         id: devicePickerHover
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            console.log("devicePicker CLICKED, was open:", root.deviceListOpen)
-                            root.deviceListOpen = !root.deviceListOpen
-                            console.log("devicePicker now open:", root.deviceListOpen)
-                        }
+                        onClicked: root.deviceListOpen = !root.deviceListOpen
                     }
                 }
 
