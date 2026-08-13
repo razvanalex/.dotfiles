@@ -1,5 +1,10 @@
 #!/bin/bash
 # dictation commit paste v4: logging + longer restore delay
+# M7: serialize with the whole script via flock -- two commits <3s apart must
+# not race the clipboard restore (script A's restore would wipe script B's
+# clipboard before the app reads it).
+exec 9>/tmp/paste_commit.lock
+flock -n 9 || { echo "another paste in progress, skipping" >> /tmp/paste_script.log; exit 0; }
 # Inherit env from the caller (quickshell has these). NOT hardcoded: the
 # Hyprland instance signature changes on every compositor restart, and a stale
 # one breaks hyprctl/wtype below.
@@ -28,19 +33,31 @@ echo "final clip: [${cur:0:30}] match=$([ "$cur" = "$esc" ] && echo YES || echo 
 
 cls=$(hyprctl -j activewindow 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('class',''))" 2>/dev/null)
 echo "cls: [$cls]" >> $LOG
+paste_ok=0
 case "$cls" in
   kitty|foot|alacritty|wezterm|ghostty|konsole|gnome-terminal|xfce4-terminal)
     echo "branch TERMINAL" >> $LOG
-    timeout 5 wtype -M ctrl -M alt -k v -m ctrl -m alt; echo "wtype rc=$? (timeout would be 124)" >> $LOG ;;
+    timeout 5 wtype -M ctrl -M alt -k v -m ctrl -m alt; rc=$?
+    # M6: retry once on failure (focus race / input grab)
+    if [ $rc -ne 0 ]; then sleep 0.3; timeout 5 wtype -M ctrl -M alt -k v -m ctrl -m alt; rc=$?; fi
+    echo "wtype rc=$rc (timeout would be 124)" >> $LOG
+    [ $rc -eq 0 ] && paste_ok=1 ;;
   *)
     echo "branch GUI" >> $LOG
-    timeout 5 wtype -M ctrl -k v -m ctrl; echo "wtype rc=$? (timeout would be 124)" >> $LOG ;;
+    timeout 5 wtype -M ctrl -k v -m ctrl; rc=$?
+    if [ $rc -ne 0 ]; then sleep 0.3; timeout 5 wtype -M ctrl -k v -m ctrl; rc=$?; fi
+    echo "wtype rc=$rc (timeout would be 124)" >> $LOG
+    [ $rc -eq 0 ] && paste_ok=1 ;;
 esac
 # LONG restore delay: the focused app reads the clipboard ASYNCHRONOUSLY
 # after the paste key (esp. TUIs and flatpaks). Restoring too early wipes the
 # text before the app reads it -> intermittent "nothing pasted". 3s is
 # invisible to the user but covers slow readers.
 sleep 3
+if [ $paste_ok -ne 1 ]; then
+    echo "paste FAILED -- leaving text on clipboard" >> $LOG
+    exit 1
+fi
 cur=$(timeout 1 wl-paste 2>/dev/null)
 if [ "$cur" = "$esc" ]; then
     # clipboard still holds OUR text -> safe to restore the old one
