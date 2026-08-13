@@ -55,27 +55,9 @@ PanelWindow {
 
     function loadDeviceChoice() {
         // sync the dropdown with the persisted config (the sidecar reads it,
-        // so the picker must SHOW what's actually capturing)
-        Quickshell.execDetached(["bash", "-c",
-            `cat /home/razvan/.local/share/tts-read/mic_device.conf 2>/dev/null`])
-        Quickshell.timer.createSingleShot(200, () => {
-            // read the file via a second process -- simpler than FileIO
-            const p = Quickshell.Process.create({
-                command: ["cat", "/home/razvan/.local/share/tts-read/mic_device.conf"],
-            })
-            p.stdout.onRead = data => {
-                const v = String(data).trim()
-                let id = -2   // default mic
-                if (v && v !== "None" && v !== "none") {
-                    const n = parseInt(v, 10)
-                    if (!isNaN(n)) id = n
-                }
-                root.deviceChoice = id
-                root.deviceChoiceLabel = root.deviceList.find(d => d.id === id)?.label ?? "Default (mic)"
-                p.destroy()
-            }
-            p.start()
-        })
+        // so the picker must SHOW what's actually capturing). The declarative
+        // Process below reads the file; onRead parses it.
+        choiceProc.running = true
     }
 
     function applyDeviceChoice(id: int) {
@@ -94,9 +76,9 @@ PanelWindow {
         const tmp = `/tmp/cava_dictation_config.txt`
         Quickshell.execDetached(["bash", "-c",
             `sed 's|^source = .*|source = ${pw}|' '${cfg}' > '${tmp}' && cp '${tmp}' '${cfg}' && pkill -f 'cava -p' 2>/dev/null; true`])
-        // cava restarts via cavaProc.running toggle below
+        // cava restarts via the declarative restartTimer below
         cavaProc.running = false
-        Quickshell.timer.createSingleShot(300, () => { cavaProc.running = GlobalStates.dictationOpen })
+        cavaRestartTimer.restart()
     }
 
     // ---- sidecar process: JSON events -> panel state ----
@@ -162,6 +144,26 @@ PanelWindow {
     }
 
     Process {
+        id: choiceProc
+        command: ["cat", "/home/razvan/.local/share/tts-read/mic_device.conf"]
+        running: false
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    const v = String(data).trim()
+                    let id = -2   // default mic
+                    if (v && v !== "None" && v !== "none") {
+                        const n = parseInt(v, 10)
+                        if (!isNaN(n)) id = n
+                    }
+                    root.deviceChoice = id
+                    root.deviceChoiceLabel = root.deviceList.find(d => d.id === id)?.label ?? "Default (mic)"
+                } catch (e) {}
+            }
+        }
+    }
+
+    Process {
         id: devicesProc
         command: ["/home/razvan/.dotfiles/quickshell/.config/quickshell/modules/ii/dictation/list_devices.py"]
         running: false
@@ -221,6 +223,12 @@ PanelWindow {
 
     // REAL audio waveform: cava captures the mic (BT headset) and emits
     // frequency-band amplitudes, exactly like the media player's visualizer.
+    Timer {
+        id: cavaRestartTimer
+        interval: 300
+        onTriggered: cavaProc.running = GlobalStates.dictationOpen
+    }
+
     // Same component, real data instead of the synthetic sine animation.
     Process {
         id: cavaProc
