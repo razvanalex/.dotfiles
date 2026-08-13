@@ -6,6 +6,10 @@
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
 LOG=/tmp/paste_script.log
+# bounded log: keep the last 200 lines (grows with every commit otherwise)
+if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt 200 ]; then
+    tail -n 100 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+fi
 echo "=== $(date +%H:%M:%S) start" >> $LOG
 if [ ! -s /tmp/dict_commit.txt ]; then echo "no text" >> $LOG; exit 0; fi
 esc=$(cat /tmp/dict_commit.txt)
