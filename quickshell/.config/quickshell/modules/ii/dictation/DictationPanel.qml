@@ -163,9 +163,24 @@ PanelWindow {
     }
 
     function commitText(text: string) {
+        // PASTE-BASED commit: wl-copy --paste-once (transient clipboard) + one
+        // paste keypress. Instant (no letter-by-letter typing), and a held
+        // Super can't turn every letter into Super+<letter>. The clipboard is
+        // owned only for the ~50ms between copy and paste; TTS uses its own
+        // snapshot/restore flow with negligible collision risk.
+        // The paste key depends on the focused app: terminals want ctrl+shift+v,
+        // GUI apps want ctrl+v (detected via hyprctl activewindow class).
+        const esc = text.replace(/"/g, '\\"').replace(/`/g, '\\`')
         Quickshell.execDetached([
             "bash", "-c",
-            `wtype "${text.replace(/"/g, '\\"').replace(/`/g, '\\`')}" 2>/dev/null || true`
+            `wl-copy --paste-once --type text/plain "${esc}" && ` +
+            `sleep 0.08 && ` +
+            `cls=$(hyprctl -j activewindow 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('class',''))" 2>/dev/null) && ` +
+            `case "$cls" in ` +
+            `kitty|foot|alacritty|wezterm|ghostty|konsole|gnome-terminal|xfce4-terminal) ` +
+            `wtype -M ctrl shift -k v -m ctrl shift ;; ` +
+            `*) wtype -M ctrl -k v -m ctrl ;; ` +
+            `esac 2>/dev/null || true`
         ])
     }
 
@@ -294,6 +309,25 @@ PanelWindow {
                 Layout.maximumHeight: 6 * 18 + 8
                 clip: true
                 contentHeight: transcriptLabel.height
+                // Drags must NOT scroll the text (they move the whole panel):
+                // disable flick interaction. Wheel scrolling is handled by the
+                // dedicated wheel MouseArea below (always visible), so it keeps
+                // working with interactive:false.
+                interactive: false
+
+                // wheel-only scroll (drag passes through to the window drag)
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.NoButton
+                    onWheel: function(wheelEvent) {
+                        const dy = wheelEvent.angleDelta.y
+                        if (dy !== 0) {
+                            transcriptFlick.contentY = Math.max(0, Math.min(
+                                transcriptFlick.contentY - dy * 0.5,
+                                transcriptFlick.contentHeight - transcriptFlick.height))
+                        }
+                    }
+                }
                 StyledText {
                     id: transcriptLabel
                     width: transcriptFlick.width
