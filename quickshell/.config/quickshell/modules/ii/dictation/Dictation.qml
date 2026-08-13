@@ -14,7 +14,13 @@ Scope {
         sourceComponent: DictationPanel {}
     }
 
+    property real lastToggleTime: 0
+
     function toggle() {
+        // debounce: hold/repeat of Super+T fires the bind multiple times
+        const now = Date.now()
+        if (now - root.lastToggleTime < 400) return
+        root.lastToggleTime = now
         if (GlobalStates.dictationOpen) {
             // Super+T while recording = COMMIT (mode A): signal the sidecar,
             // which transcribes the final audio, emits "commit", and exits.
