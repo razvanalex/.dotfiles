@@ -32,11 +32,8 @@ hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd(vars.scriptsDir .. "/SwitchKeyboa
 hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { locked = true })
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"))
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("qs ipc call dictation toggle"))
--- dictation commit fires on SUPER release (not T release): the user may
--- hold Super after releasing T, and the paste key must wait until Super
--- is fully up (Super+ctrl+v would fire pavucontrol). The handler checks
--- commitArmed, so this only commits when dictation is open + armed.
-hl.bind("SUPER + SUPER_L", hl.dsp.exec_cmd("qs ipc call dictation release"), { release = true })
+-- Escape closes the dictation panel WITHOUT committing (cancel, like the close button)
+hl.bind("Escape", hl.dsp.exec_cmd("qs ipc call dictation dismiss"))
 hl.bind("CTRL + " .. mainMod .. " + C", hl.dsp.exec_cmd(vars.userScripts .. "/VSCode.sh"))
 
 -- Launchers & Quickshell Controls

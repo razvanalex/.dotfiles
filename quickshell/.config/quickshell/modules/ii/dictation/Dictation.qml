@@ -43,5 +43,6 @@ Scope {
     IpcHandler {
         target: "dictation"
         function toggle() { root.toggle() }
+        function dismiss() { root.dismiss() }
     }
 }
