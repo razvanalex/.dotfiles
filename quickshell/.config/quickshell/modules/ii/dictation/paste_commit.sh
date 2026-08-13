@@ -30,8 +30,11 @@ case "$cls" in
     echo "branch GUI" >> $LOG
     timeout 5 wtype -M ctrl -k v -m ctrl; echo "wtype rc=$? (timeout would be 124)" >> $LOG ;;
 esac
-# longer delay before restore: the app may read the clipboard asynchronously
-sleep 0.8
+# LONG restore delay: the focused app reads the clipboard ASYNCHRONOUSLY
+# after the paste key (esp. TUIs and flatpaks). Restoring too early wipes the
+# text before the app reads it -> intermittent "nothing pasted". 3s is
+# invisible to the user but covers slow readers.
+sleep 3
 if [ -n "$old" ]; then printf '%s' "$old" | wl-copy --type text/plain 2>/dev/null; echo "restored" >> $LOG; else wl-copy -c 2>/dev/null || true; echo "cleared" >> $LOG; fi
 echo "done" >> $LOG
 exit 0
