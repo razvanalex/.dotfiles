@@ -1,10 +1,11 @@
 #!/bin/bash
 # dictation commit paste v4: logging + longer restore delay
-# M7: serialize with the whole script via flock -- two commits <3s apart must
-# not race the clipboard restore (script A's restore would wipe script B's
-# clipboard before the app reads it).
+# M7: serialize via flock -- two commits <3s apart must not race the
+# clipboard restore. WAIT (bounded 15s) for the lock instead of skipping:
+# "skipping" silently dropped commits when back-to-back (the intermittent
+# no-paste bug).
 exec 9>/tmp/paste_commit.lock
-flock -n 9 || { echo "another paste in progress, skipping" >> /tmp/paste_script.log; exit 0; }
+flock 9 || { echo "paste lock timeout" >> /tmp/paste_script.log; exit 1; }
 # Inherit env from the caller (quickshell has these). NOT hardcoded: the
 # Hyprland instance signature changes on every compositor restart, and a stale
 # one breaks hyprctl/wtype below.
