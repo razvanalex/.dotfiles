@@ -21,7 +21,9 @@ try:
         if d["max_input_channels"] > 0:
             name = d["name"]
             # skip raw ALSA hw: entries (bypass PipeWire, mostly silence/dup)
-            if "(hw:" in name or name.strip() in ("pipewire",):
+            # and the ambiguous PipeWire aliases that confuse the picker
+            # ("default"/"Default Source" all mean the same mic).
+            if "(hw:" in name or name.strip() in ("pipewire", "default", "Default Source"):
                 continue
             devices.append({
                 "id": i,
