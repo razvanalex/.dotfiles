@@ -62,10 +62,18 @@ case "$cls" in
 esac
 # LONG restore delay: the focused app reads the clipboard ASYNCHRONOUSLY
 # after the paste key (esp. TUIs and flatpaks). Restoring too early wipes the
-# text before the app reads it -> intermittent "nothing pasted". 3s is
-# invisible to the user but covers slow readers.
+# text before the app reads it -> intermittent "nothing pasted". GTK apps
+# (TextEditor) read LARGE payloads lazily: 4500+ chars need >3s, so scale the
+# delay with the size: 3s base + 1s per 1500 chars (capped at 12s).
 release_lock    # BEFORE the restore's wl-copy (it would inherit the lock fd)
-sleep 3
+len_esc=${#esc}
+delay=3
+if [ "$len_esc" -gt 2000 ]; then
+    delay=$((3 + len_esc / 1500))
+    [ "$delay" -gt 12 ] && delay=12
+fi
+echo "restore delay: ${delay}s (text ${len_esc} chars)" >> $LOG
+sleep "$delay"
 if [ $paste_ok -ne 1 ]; then
     echo "paste FAILED -- leaving text on clipboard" >> $LOG
     exit 1
