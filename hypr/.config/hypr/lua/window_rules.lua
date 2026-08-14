@@ -81,6 +81,18 @@ hl.window_rule({ name = "float-thunar-progress", match = { class = "([Tt]hunar)"
 hl.window_rule({ name = "float-thunar-confirm", match = { class = "([Tt]hunar)", title = "(Confirm to replace files)" }, float = true })
 hl.window_rule({ name = "float-portal-gtk", match = { class = "(xdg-desktop-portal-gtk)" }, float = true })
 hl.window_rule({ name = "float-calculator", match = { class = "(org.gnome.Calculator)", title = "(Calculator)" }, float = true })
+
+-- STT dictate mic indicator: floating, never takes focus (layershell panel;
+-- position is handled by the PanelWindow's own anchors/margins)
+hl.window_rule({
+    name = "stt-dictate-indicator",
+    match = { title = "^(stt_dictate)$" },
+    float = true,
+    no_initial_focus = true,
+    no_focus = true,
+    no_follow_mouse = true,
+    no_shadow = true,
+})
 hl.window_rule({ name = "float-code-add-folder", match = { class = "(code|codium|codium-url-handler|VSCodium)", title = "(Add Folder to Workspace)" }, float = true })
 hl.window_rule({ name = "float-code-download", match = { class = "(code|codium|codium-url-handler|VSCodium)", title = "(Choose Where to Download)" }, float = true })
 hl.window_rule({ name = "float-rofi", match = { class = "^([Rr]ofi)$" }, float = true })
