@@ -162,7 +162,12 @@ Scope {
         description: "Toggles search on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            if (GlobalStates.overviewOpen && GlobalStates.overviewMode === "search") {
+                GlobalStates.overviewOpen = false;
+            } else {
+                GlobalStates.overviewMode = "search";
+                GlobalStates.overviewOpen = true;
+            }
         }
     }
     GlobalShortcut {
@@ -170,7 +175,9 @@ Scope {
         description: "Closes overview on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = false;
+            if (GlobalStates.overviewOpen && GlobalStates.overviewMode === "workspaces") {
+                GlobalStates.overviewOpen = false;
+            }
         }
     }
     GlobalShortcut {
@@ -178,7 +185,12 @@ Scope {
         description: "Toggles overview on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            if (GlobalStates.overviewOpen && GlobalStates.overviewMode === "workspaces") {
+                GlobalStates.overviewOpen = false;
+            } else {
+                GlobalStates.overviewMode = "workspaces";
+                GlobalStates.overviewOpen = true;
+            }
         }
     }
     GlobalShortcut {
