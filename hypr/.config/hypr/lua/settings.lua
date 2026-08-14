@@ -4,8 +4,9 @@
 hl.config({
     general = {
         border_size = 2,
-        gaps_in = 2,
+        gaps_in = 4,
         gaps_out = 5,
+        gaps_workspaces = 50,
         resize_on_border = true,
         col = {
             active_border = { colors = { "rgba(a0a0a0ee)", "rgba(606060ee)" }, angle = 45 },
@@ -13,6 +14,12 @@ hl.config({
         },
         layout = "dwindle",
         allow_tearing = false,
+        snap = {
+            enabled = true,
+            window_gap = 4,
+            monitor_gap = 5,
+            respect_gaps = true,
+        },
     },
     master = {
         new_status = "master",
@@ -20,7 +27,8 @@ hl.config({
         mfact = 0.5,
     },
     decoration = {
-        rounding = 10,
+        rounding = 18,
+        rounding_power = 2.5,
         active_opacity = 1.0,
         inactive_opacity = 0.9,
         fullscreen_opacity = 1.0,
@@ -60,6 +68,14 @@ hl.config({
         touchdevice = { enabled = true },
         tablet = { transform = 0, left_handed = 0 },
     },
+    gestures = {
+        workspace_swipe_distance = 300,
+        workspace_swipe_cancel_ratio = 0.5,
+        workspace_swipe_min_speed_to_force = 30,
+        workspace_swipe_direction_lock = true,
+        workspace_swipe_direction_lock_threshold = 10,
+        workspace_swipe_create_new = true,
+    },
     group = {
         col = {
             border_active = "rgba(a0a0a0ee)",
@@ -84,6 +100,8 @@ hl.config({
         workspace_back_and_forth = true,
         allow_workspace_cycles = true,
         pass_mouse_when_bound = false,
+        scroll_event_delay = 0,
+        hide_special_on_workspace_change = true,
     },
     xwayland = { force_zero_scaling = true },
     cursor = {
@@ -138,4 +156,18 @@ hl.gesture({
     direction = "down",
     mods = "SUPER",
     action = "fullscreen",
+})
+hl.gesture({
+    fingers = 3,
+    direction = "up",
+    action = function()
+        hl.dispatch(hl.dsp.global("quickshell:overviewWorkspacesToggle"))
+    end,
+})
+hl.gesture({
+    fingers = 3,
+    direction = "down",
+    action = function()
+        hl.dispatch(hl.dsp.global("quickshell:overviewWorkspacesToggle"))
+    end,
 })
