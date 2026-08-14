@@ -4,19 +4,27 @@
 
 -- Primary Monitor
 hl.monitor({
-    output   = "",
-    mode     = "preferred",
+    output = "",
+    mode = "preferred",
     position = "auto",
-    scale    = 1,
-    vrr      = 1,
+    scale = 1,
+    vrr = 1,
     bitdepth = 10,
-    cm       = "srgb",
+    cm = "srgb",
 })
 
 -- Headless Monitor / Display Output
 hl.monitor({
-    output   = "HEADLESS-2",
-    mode     = "2560x1600@60",
+    output = "HEADLESS-2",
+    mode = "2560x1600@60",
     position = "auto",
-    scale    = 1.25,
+    scale = 1.25,
+})
+
+-- Sunshine Headless Monitor
+hl.monitor({
+    output = "sunshine_mon",
+    mode = "2560x1440@144",
+    position = "auto",
+    scale = 1,
 })
