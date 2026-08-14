@@ -310,7 +310,7 @@ ContentPage {
 
         ConfigSwitch {
             buttonIcon: "assignment"
-            text: Translation.tr("Hide clipboard images copied from sussy sources")
+            text: Translation.tr("Blur clipboard images from suspicious sources")
             checked: Config.options.workSafety.enable.clipboard
             onCheckedChanged: {
                 Config.options.workSafety.enable.clipboard = checked;
@@ -318,7 +318,7 @@ ContentPage {
         }
         ConfigSwitch {
             buttonIcon: "wallpaper"
-            text: Translation.tr("Hide sussy/anime wallpapers")
+            text: Translation.tr("Blur suspicious wallpapers")
             checked: Config.options.workSafety.enable.wallpaper
             onCheckedChanged: {
                 Config.options.workSafety.enable.wallpaper = checked;
