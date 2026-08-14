@@ -74,10 +74,6 @@ Singleton {
                 }
             }
 
-            property JsonObject booru: JsonObject {
-                property string provider: "yandere"
-            }
-
             property JsonObject idle: JsonObject {
                 property bool inhibit: false
             }
