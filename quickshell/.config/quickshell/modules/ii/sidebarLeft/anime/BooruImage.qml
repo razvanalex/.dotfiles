@@ -19,7 +19,6 @@ Button {
     property bool manualDownload: false
     property string previewDownloadPath
     property string downloadPath
-    property string nsfwPath
     property string fileName: decodeURIComponent((imageData.file_url).substring((imageData.file_url).lastIndexOf('/') + 1))
     property string filePath: `${root.previewDownloadPath}/${root.fileName}`
     property int maxTagStringLineLength: 50
@@ -171,7 +170,7 @@ Button {
                             buttonText: Translation.tr("Download")
                             onClicked: {
                                 root.showActions = false;
-                                const targetPath = root.imageData.is_nsfw ? root.nsfwPath : root.downloadPath;
+                                const targetPath = root.downloadPath;
                                 const userAgent = Config.options?.networking?.userAgent ?? ""
                                 const userAgentHeader = userAgent ? ` -H 'User-Agent: ${StringUtils.shellSingleQuoteEscape(userAgent)}'` : ""
                                 Quickshell.execDetached(["bash", "-c", 

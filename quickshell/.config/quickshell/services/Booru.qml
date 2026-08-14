@@ -16,7 +16,7 @@ Singleton {
     signal tagSuggestion(string query, var suggestions)
     signal responseFinished()
 
-    property string failMessage: Translation.tr("That didn't work. Tips:\n- Check your tags and NSFW settings\n- If you don't have a tag in mind, type a page number")
+    property string failMessage: Translation.tr("That didn't work. Tips:\n- Check your tags\n- If you don't have a tag in mind, type a page number")
     property var responses: []
     property int runningRequests: 0
     property var defaultUserAgent: Config.options?.networking?.userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
@@ -152,41 +152,6 @@ Singleton {
                 })
             }
         },
-        "gelbooru": {
-            "name": "Gelbooru",
-            "url": "https://gelbooru.com",
-            "api": "https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1",
-            "description": Translation.tr("The hentai one | Great quantity, a lot of NSFW, quality varies wildly"),
-            "mapFunc": (response) => {
-                response = response.post
-                return response.map(item => {
-                    return {
-                        "id": item.id,
-                        "width": item.width,
-                        "height": item.height,
-                        "aspect_ratio": item.width / item.height,
-                        "tags": item.tags,
-                        "rating": item.rating.replace('general', 's').charAt(0),
-                        "is_nsfw": (item.rating != 's'),
-                        "md5": item.md5,
-                        "preview_url": item.preview_url,
-                        "sample_url": item.sample_url ?? item.file_url,
-                        "file_url": item.file_url,
-                        "file_ext": item.file_url.split('.').pop(),
-                        "source": getWorkingImageSource(item.source) ?? item.file_url,
-                    }
-                })
-            },
-            "tagSearchTemplate": "https://gelbooru.com/index.php?page=dapi&s=tag&q=index&json=1&orderby=count&limit=10&name_pattern={{query}}%",
-            "tagMapFunc": (response) => {
-                return response.tag.map(item => {
-                    return {
-                        "name": item.name,
-                        "count": item.count
-                    }
-                })
-            }
-        },
         "waifu.im": {
             "name": "waifu.im",
             "url": "https://waifu.im",
@@ -306,16 +271,14 @@ Singleton {
         })]
     }
 
-    function constructRequestUrl(tags, nsfw=true, limit=20, page=1) {
+    function constructRequestUrl(tags, limit=20, page=1) {
         var provider = providers[currentProvider]
         var baseUrl = provider.api
         var url = baseUrl
         var tagString = tags.join(" ")
-        if (!nsfw && !(["zerochan", "waifu.im", "t.alcy.cc"].includes(currentProvider))) {
-            if (currentProvider == "gelbooru") 
-                tagString += " rating:general";
-            else 
-                tagString += " rating:safe";
+        // Always safe-only: force the safe rating on providers that support it
+        if (!["zerochan", "waifu.im", "t.alcy.cc"].includes(currentProvider)) {
+            tagString += " rating:safe";
         }
         var params = []
         // Tags & limit
@@ -332,7 +295,7 @@ Singleton {
                 params.push("IncludedTags=" + encodeURIComponent(tag.toLowerCase()));
             });
             params.push("PageSize=" + Math.min(limit, 30)) // Only admin can do > 30
-            params.push("IsNsfw=" + (nsfw ? "All" : "False")) // null is random
+            params.push("IsNsfw=False")
         }
         else if (currentProvider === "t.alcy.cc") {
             url += tagString
@@ -342,12 +305,7 @@ Singleton {
         else {
             params.push("tags=" + encodeURIComponent(tagString))
             params.push("limit=" + limit)
-            if (currentProvider == "gelbooru") {
-                params.push("pid=" + page)
-            }
-            else {
-                params.push("page=" + page)
-            }
+            params.push("page=" + page)
         }
         if (baseUrl.indexOf("?") === -1) {
             url += "?" + params.join("&")
@@ -357,8 +315,8 @@ Singleton {
         return url
     }
 
-    function makeRequest(tags, nsfw=false, limit=20, page=1) {
-        var url = constructRequestUrl(tags, nsfw, limit, page)
+    function makeRequest(tags, limit=20, page=1) {
+        var url = constructRequestUrl(tags, limit, page)
         console.log("[Booru] Making request to " + url)
 
         const newResponse = root.booruResponseDataComponent.createObject(null, {
