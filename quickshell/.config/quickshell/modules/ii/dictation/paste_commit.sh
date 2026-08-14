@@ -27,7 +27,12 @@ esc=$(cat /tmp/dict_commit.txt)
 echo "text: [$esc]" >> $LOG
 old=$(timeout 2 wl-paste 2>/dev/null)
 echo "old: [${old:0:30}]" >> $LOG
-printf '%s' "$esc" | wl-copy --type text/plain
+# Set the clipboard from a FILE, not a pipe: wl-copy forks a background
+# daemon that must read the full stdin; large payloads (thousands of chars)
+# over a pipe can stall/drop -> "long text never pastes". A file read is
+# fully buffered before forking, so any size is reliable.
+printf '%s' "$esc" > /tmp/dict_clip_payload.txt
+wl-copy --type text/plain < /tmp/dict_clip_payload.txt
 
 for i in 1 2 3 4 5 6 7 8 9 10; do
   cur=$(timeout 1 wl-paste 2>/dev/null)
