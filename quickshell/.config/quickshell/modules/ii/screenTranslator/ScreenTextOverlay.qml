@@ -208,7 +208,7 @@ Item {
         }
     }
 
-    // I no longer need these but they were a fucking pain in the ass to figure out so they're staying
+    // I no longer need these but they were a pain to figure out so they're staying
     // GaussianBlur {
     //     id: blurredImage
     //     z: 3

@@ -20,7 +20,12 @@ Item {
     property var suggestionQuery: ""
     property var suggestionList: []
     property bool voiceActive: false
-    property list<real> micPoints: []
+    property bool voiceMuted: false
+    property real voiceRms: 0.0
+    property list<real> voicePoints: []
+    property string voiceTranscript: ""
+    property string voiceAgentOutput: ""
+    property string voiceAgentState: "Idle"
 
     onFocusChanged: focus => {
         if (focus) {
@@ -47,17 +52,15 @@ Item {
     property var allCommands: [
         {
             name: "voice",
-            description: Translation.tr("Toggle voice call (start / stop) using CosyVoice3 & Hermes Agent"),
+            description: Translation.tr("Toggle voice call (start / stop) using Hermes Voice Agent"),
             execute: args => {
-                const action = (args[0] ?? "start").toLowerCase();
-                if (action === "stop") {
+                const action = (args[0] ?? (root.voiceActive ? "stop" : "start")).toLowerCase();
+                if (action === "stop" || root.voiceActive) {
                     root.voiceActive = false;
-                    Quickshell.execDetached(["/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py", "voice", "stop"]);
                     Ai.addMessage(Translation.tr("Voice Call ended."), Ai.interfaceRole);
                 } else {
                     root.voiceActive = true;
-                    Quickshell.execDetached(["/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py", "voice", "start"]);
-                    Ai.addMessage(Translation.tr("Voice Call started. Speak into your microphone!"), Ai.interfaceRole);
+                    Ai.addMessage(Translation.tr("Voice Call started — connecting to Hermes…"), Ai.interfaceRole);
                 }
             }
         },
@@ -227,25 +230,89 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 Ai.addMessage(Translation.tr("Unknown command: ") + command, Ai.interfaceRole);
             }
         } else {
-            Ai.sendUserMessage(inputText);
+            if (root.voiceActive) {
+                voiceClientProc.write(`text ${inputText}\n`);
+            } else {
+                Ai.sendUserMessage(inputText);
+            }
         }
 
         // Always scroll to bottom when user sends a message
         messageListView.positionViewAtEnd();
     }
 
-    Process {
-        id: micCavaProc
+    // Waveform animation timer: synthesises bar values from voiceRms
+    Timer {
+        id: waveformTimer
         running: root.voiceActive
-        onRunningChanged: {
-            if (!micCavaProc.running)
-                root.micPoints = [];
+        interval: 50
+        repeat: true
+        property real phase: 0
+        onTriggered: {
+            phase += 0.25
+            const n = 40
+            // Waveform amplitude is strictly driven by live microphone input (root.voiceRms)
+            const minAmp = 12
+            const amp = Math.max(minAmp, root.voiceRms * 500)
+            const pts = []
+            for (let i = 0; i < n; i++) {
+                const x = (i / n) * Math.PI * 6
+                const v = amp * (0.45 + 0.55 * Math.abs(Math.sin(x + phase)))
+                             * (0.5  + 0.5  * Math.abs(Math.sin(x * 1.9 + phase * 0.7)))
+                pts.push(v)
+            }
+            root.voicePoints = pts
         }
-        command: ["cava", "-p", `${FileUtils.trimFileProtocol(Directories.scriptPath)}/cava/mic_input_config.txt`]
+    }
+
+    Process {
+        id: voiceClientProc
+        running: root.voiceActive
+        command: ["/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_voice_client.py"]
         stdout: SplitParser {
             onRead: data => {
-                let pts = data.split(";").map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-                root.micPoints = pts;
+                try {
+                    const msg = JSON.parse(data)
+                    switch (msg.type) {
+                        case "update_audio":
+                            root.voiceRms = msg.rms ?? 0
+                            break
+                        case "update_transcript":
+                            root.voiceTranscript = msg.text ?? ""
+                            break
+                        case "update_agent_output":
+                            root.voiceAgentOutput = msg.text ?? ""
+                            break
+                        case "update_agent_state":
+                            root.voiceAgentState = msg.state ?? "Idle"
+                            if (msg.state === "Idle" || msg.state === "Listening") {
+                                root.voiceAgentOutput = ""
+                            }
+                            break
+                        case "update_mic_status":
+                            root.voiceMuted = msg.muted ?? false
+                            break
+                        case "add_message":
+                            if (msg.text && msg.text.trim().length > 0) {
+                                const targetRole = msg.sender === "Agent" ? "assistant" :
+                                                 msg.sender === "User" ? "user" : Ai.interfaceRole;
+                                Ai.addMessage(msg.text, targetRole);
+                                if (msg.sender === "User") root.voiceTranscript = "";
+                            }
+                            break
+                        case "error":
+                            Ai.addMessage("🎙️ " + (msg.message ?? "Voice error"), Ai.interfaceRole)
+                            root.voiceActive = false
+                            break
+                        case "disconnected":
+                            root.voiceRms = 0
+                            root.voiceTranscript = ""
+                            root.voiceAgentOutput = ""
+                            root.voiceAgentState = "Idle"
+                            root.voiceMuted = false
+                            break
+                    }
+                } catch(e) {}
             }
         }
     }
@@ -398,15 +465,16 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 mouseScrollFactor: Config.options.interactions.scrolling.mouseScrollFactor * 1.4
 
                 property int lastResponseLength: 0
-                // onContentHeightChanged: {
-                //     if (atYEnd)
-                //         Qt.callLater(positionViewAtEnd);
-                // }
-                // onCountChanged: {
-                //     // Auto-scroll when new messages are added
-                //     if (atYEnd)
-                //         Qt.callLater(positionViewAtEnd);
-                // }
+                property bool userNearBottom: atYEnd || (contentHeight - contentY - height < 150)
+
+                onContentHeightChanged: {
+                    if (userNearBottom)
+                        Qt.callLater(positionViewAtEnd);
+                }
+                onCountChanged: {
+                    if (userNearBottom)
+                        Qt.callLater(positionViewAtEnd);
+                }
 
                 add: null // Prevent function calls from being janky
 
@@ -544,65 +612,122 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                     }
                 }
 
-                // Waveform canvas (reuses existing WaveVisualizer widget)
+                // Waveform (animated bars driven by voiceRms from the pipeline)
                 WaveVisualizer {
                     id: micWaveVisualizer
                     anchors.fill: parent
                     anchors.margins: 4
                     live: root.voiceActive
-                    points: root.micPoints
-                    maxVisualizerValue: 1000
-                    smoothing: 3
+                    points: root.voicePoints
+                    maxVisualizerValue: 100
+                    smoothing: 2
                     color: Appearance.colors.colPrimary
                 }
 
-                // Mic icon + label
+                // Top-left Status Badges Row
                 Row {
-                    anchors.centerIn: parent
-                    spacing: 8
-                    opacity: root.micPoints.length === 0 ? 1 : 0.3
-                    Behavior on opacity {
-                        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.margins: 8
+                    spacing: 6
+
+                    Rectangle {
+                        radius: Appearance.rounding.small
+                        color: Qt.rgba(Appearance.colors.colPrimary.r, Appearance.colors.colPrimary.g, Appearance.colors.colPrimary.b, 0.25)
+                        implicitWidth: agentStateLabel.implicitWidth + 12
+                        implicitHeight: agentStateLabel.implicitHeight + 6
+                        StyledText {
+                            id: agentStateLabel
+                            anchors.centerIn: parent
+                            text: ({
+                                    "Idle":         Translation.tr("Listening"),
+                                    "Listening":    Translation.tr("Listening"),
+                                    "Transcribing": Translation.tr("Transcribing…"),
+                                    "Processing":   Translation.tr("Thinking…"),
+                                    "Thinking":     Translation.tr("Thinking…"),
+                                    "Speaking":     Translation.tr("Speaking"),
+                                })[root.voiceAgentState] ?? root.voiceAgentState
+                            color: Appearance.colors.colPrimary
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            Behavior on text {
+                                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                            }
+                        }
                     }
-                    MaterialSymbol {
-                        text: "mic"
-                        iconSize: Appearance.font.pixelSize.huge
-                        color: Appearance.colors.colPrimary
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    StyledText {
-                        text: Translation.tr("Listening…")
-                        color: Appearance.colors.colPrimary
-                        font.pixelSize: Appearance.font.pixelSize.normal
-                        anchors.verticalCenter: parent.verticalCenter
+
+                    Rectangle {
+                        radius: Appearance.rounding.small
+                        color: root.voiceMuted ? Qt.rgba(1.0, 0.3, 0.3, 0.3) : "transparent"
+                        visible: root.voiceMuted
+                        implicitWidth: micMutedLabel.implicitWidth + 10
+                        implicitHeight: micMutedLabel.implicitHeight + 6
+                        StyledText {
+                            id: micMutedLabel
+                            anchors.centerIn: parent
+                            text: Translation.tr("Muted")
+                            color: Appearance.colors.colError
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
                     }
                 }
 
-                // Stop button
-                RippleButton {
-                    id: voiceStopButton
+
+
+                // Top-right Control Action Buttons Row
+                Row {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.margins: 6
-                    implicitWidth: 32
-                    implicitHeight: 32
-                    buttonRadius: Appearance.rounding.small
-                    colBackgroundToggled: Appearance.colors.colPrimary
-                    toggled: true
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            root.voiceActive = false;
-                            Quickshell.execDetached(["/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py", "voice", "stop"]);
-                            Ai.addMessage(Translation.tr("Voice Call ended."), Ai.interfaceRole);
+                    spacing: 6
+
+                    // Mute / Unmute Button
+                    RippleButton {
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        buttonRadius: Appearance.rounding.small
+                        colBackgroundToggled: root.voiceMuted ? Appearance.colors.colError : Appearance.colors.colSecondaryContainer
+                        toggled: true
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root.voiceMuted) {
+                                    voiceClientProc.write("unmute\n");
+                                } else {
+                                    voiceClientProc.write("mute\n");
+                                }
+                            }
+                        }
+                        contentItem: MaterialSymbol {
+                            anchors.centerIn: parent
+                            text: root.voiceMuted ? "mic_off" : "mic"
+                            iconSize: 18
+                            color: root.voiceMuted ? Appearance.m3colors.m3onError : Appearance.m3colors.m3onSurface
                         }
                     }
-                    contentItem: MaterialSymbol {
-                        anchors.centerIn: parent
-                        text: "stop"
-                        iconSize: 18
-                        color: Appearance.m3colors.m3onPrimary
+
+                    // Stop / End Call Button
+                    RippleButton {
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        buttonRadius: Appearance.rounding.small
+                        colBackgroundToggled: Appearance.colors.colPrimary
+                        toggled: true
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                voiceClientProc.write("stop\n");
+                                root.voiceActive = false;
+                                Ai.addMessage(Translation.tr("Voice Call ended."), Ai.interfaceRole);
+                            }
+                        }
+                        contentItem: MaterialSymbol {
+                            anchors.centerIn: parent
+                            text: "call_end"
+                            iconSize: 18
+                            color: Appearance.m3colors.m3onPrimary
+                        }
                     }
                 }
             }

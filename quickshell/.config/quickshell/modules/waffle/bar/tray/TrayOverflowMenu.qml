@@ -97,7 +97,7 @@ BarPopup {
                                 trayButton.click();
                             } else {
                                 if (!unpinDropArea.containsDrag && unpinDropArea.willUnpin) {
-                                    // Quickshell would crash if we don't hide this item first. Took me fucking 3 hours to figure out...
+                                    // Quickshell would crash if we don't hide this item first. Took me 3 hours to figure out...
                                     trayButton.visible = false;
                                     TrayService.togglePin(trayButton.item.id);
                                     unpinDropArea.willUnpin = false;

@@ -471,6 +471,7 @@ Singleton {
         if (message.length === 0) return;
         const aiMessage = aiMessageComponent.createObject(root, {
             "role": role,
+            "model": root.currentModel,
             "content": message,
             "rawContent": message,
             "thinking": false,

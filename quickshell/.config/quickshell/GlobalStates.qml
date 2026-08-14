@@ -18,6 +18,7 @@ Singleton {
     property bool osdVolumeOpen: false
     property bool oskOpen: false
     property bool clipboardOpen: false
+    property bool dictationOpen: false
     property bool overlayOpen: false
     property bool overviewOpen: false
     property string overviewMode: "full"

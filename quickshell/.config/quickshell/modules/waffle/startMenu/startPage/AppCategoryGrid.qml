@@ -74,7 +74,7 @@ Rectangle {
 
     Popup {
         id: categoryFolderPopup
-        // I don't even know what the fuck is going on at this point
+        // I don't even know what is going on at this point
         // I hate point mapping
         property point originPoint: categoryOpenButtonLoader.mapToItem(root, categoryOpenButtonLoader.width / 2, categoryOpenButtonLoader.height / 2)
         property point windowCenterPoint: {

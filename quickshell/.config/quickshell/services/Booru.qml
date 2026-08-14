@@ -204,7 +204,7 @@ Singleton {
                         "rating": item.isNsfw ? "e" : "s",
                         "is_nsfw": item.isNsfw,
                         "md5": item.md5,
-                        "preview_url": item.sample_url ?? item.url, // preview_url just says access denied (maybe i fucked up and sent too many requests idk)
+                        "preview_url": item.sample_url ?? item.url, // preview_url just says access denied (maybe i messed up and sent too many requests idk)
                         "sample_url": item.url,
                         "file_url": item.url,
                         "file_ext": item.extension,

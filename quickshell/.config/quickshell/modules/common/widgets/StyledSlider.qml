@@ -9,7 +9,7 @@ import Quickshell.Widgets
 
 /**
  * Material 3 slider. See https://m3.material.io/components/sliders/overview
- * It doesn't exactly match the spec because it does not make sense to have stuff on a computer that fucking huge.
+ * It doesn't exactly match the spec because it does not make sense to have stuff on a computer that huge.
  * Should be at 3/4 scale...
  */
 
