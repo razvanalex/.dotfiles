@@ -31,7 +31,7 @@ end)
 hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd(vars.scriptsDir .. "/SwitchKeyboardLayout.sh"), { non_consuming = true })
 hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { locked = true })
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"))
-hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("qs ipc call dictation toggle"))
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("qs ipc call dictation toggle"), { release = true })
 -- Escape closes the dictation panel WITHOUT committing (cancel, like the
 -- close button). NON-CONSUMING: the key still reaches the focused app
 -- (neovim's normal mode, etc.) -- the dismiss only happens if the panel
