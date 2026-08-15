@@ -13,14 +13,6 @@ hl.monitor({
     cm = "srgb",
 })
 
--- Headless Monitor / Display Output
-hl.monitor({
-    output = "HEADLESS-2",
-    mode = "2560x1600@60",
-    position = "auto",
-    scale = 1.25,
-})
-
 -- Sunshine Headless Monitor
 hl.monitor({
     output = "sunshine_mon",
