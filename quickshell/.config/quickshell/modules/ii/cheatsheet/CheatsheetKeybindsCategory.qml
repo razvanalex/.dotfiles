@@ -10,68 +10,76 @@ import Quickshell
 
 // Notes:
 // We deal with keybinds being numbered 1, 2, etc by discarding 2+, keeping 1 and replacing it with a generic "<Number>"
+// Binds that share the same display description are merged into one row, with each key combo
+// rendered side by side separated by "/" (e.g. SUPER+left / SUPER+H / SUPER+[ -> Focus window left).
 Column {
     id: root
     required property string categoryName
     readonly property bool isCategorized: categoryName?.length > 0
-    property int maxBindWidth: 0
-    property real columnSpacing: 40
     property real titleSpacing: 7
 
     // Excellent symbol explaination and source :
     // http://xahlee.info/comp/unicode_computing_symbols.html
     // https://www.nerdfonts.com/cheat-sheet
     property var macSymbolMap: ({
-        "Ctrl": "󰘴",
-        "Alt": "󰘵",
-        "Shift": "󰘶",
-        "Space": "󱁐",
-        "Tab": "↹",
-        "Equal": "󰇼",
-        "Minus": "",
-        "Print": "",
-        "BackSpace": "󰭜",
-        "Delete": "⌦",
-        "Return": "󰌑",
+        "Ctrl": "\udb81\ude34",
+        "Alt": "\udb81\ude35",
+        "Shift": "\udb81\ude36",
+        "Space": "\udb84\udc50",
+        "Tab": "\u21b9",
+        "Equal": "\udb80\uddfc",
+        "Minus": "\uf068",
+        "Print": "\uf125",
+        "BackSpace": "\udb82\udf5c",
+        "Delete": "\u2326",
+        "Return": "\udb80\udf11",
         "Period": ".",
-        "Escape": "⎋"
+        "Escape": "\u238b"
       })
     property var functionSymbolMap: ({
-        "F1":  "󱊫",
-        "F2":  "󱊬",
-        "F3":  "󱊭",
-        "F4":  "󱊮",
-        "F5":  "󱊯",
-        "F6":  "󱊰",
-        "F7":  "󱊱",
-        "F8":  "󱊲",
-        "F9":  "󱊳",
-        "F10": "󱊴",
-        "F11": "󱊵",
-        "F12": "󱊶",
+        "F1":  "\udb84\udeab",
+        "F2":  "\udb84\udeac",
+        "F3":  "\udb84\udead",
+        "F4":  "\udb84\udeae",
+        "F5":  "\udb84\udeaf",
+        "F6":  "\udb84\udeb0",
+        "F7":  "\udb84\udeb1",
+        "F8":  "\udb84\udeb2",
+        "F9":  "\udb84\udeb3",
+        "F10": "\udb84\udeb4",
+        "F11": "\udb84\udeb5",
+        "F12": "\udb84\udeb6",
     })
 
     property var mouseSymbolMap: ({
-        "mouse_up": "󱕐",
-        "mouse_down": "󱕑",
-        "mouse:272": "L󰍽",
-        "mouse:273": "R󰍽",
-        "Scroll ↑/↓": "󱕒",
-        "Page_↑/↓": "⇞/⇟",
+        "mouse_up": "\udb85\udd50",
+        "mouse_down": "\udb85\udd51",
+        "mouse:272": "L\udb80\udf7d",
+        "mouse:273": "R\udb80\udf7d",
+        "Scroll \u2191/\u2193": "\udb85\udd52",
+        "Page_\u2191/\u2193": "\u21de/\u21df",
     })
 
     property var keyBlacklist: ["SUPER_L", "SUPER_R"]
     property var keySubstitutions: Object.assign({
-        "Super": "",
-        "mouse_up": "Scroll ↓",    // ikr, weird
-        "mouse_down": "Scroll ↑",  // trust me bro
+        "Super": "\ue8e5",
+        "mouse_up": "Scroll \u2193",    // ikr, weird
+        "mouse_down": "Scroll \u2191",  // trust me bro
         "mouse:272": "LMB",
         "mouse:273": "RMB",
         "mouse:275": "MouseBack",
         "Slash": "/",
         "Hash": "#",
         "Return": "Enter",
-        // "Shift": "",
+        "left": "\u2190",
+        "right": "\u2192",
+        "up": "\u2191",
+        "down": "\u2193",
+        "BracketLeft": "[",
+        "BracketRight": "]",
+        "Page_Down": "PgDn",
+        "Page_Up": "PgUp",
+        // "Shift": "\uf062",
       },
       !!Config.options.cheatsheet.superKey ? {
           "Super": Config.options.cheatsheet.superKey,
@@ -119,15 +127,13 @@ Column {
         const key = bind.key;
         if (key.includes("mouse") || key.includes("page")) return false;
         // Contains non-1 number
-        if (/\d/.test(key) && !key.includes("1")) return true;
-        // Contains non-left direction
-        if (/^(right|up|down)\b/i.test(key)) return true;
+        if (/^\d+$/.test(key) && !key.includes("1")) return true;
         return false;
     }
 
     function containsFirstRepetitive(bind) {
         const key = bind.key;
-        return key.includes("1") || /left/i.test(key);
+        return key.includes("1");
     }
 
     function transformKey(key) {
@@ -147,76 +153,92 @@ Column {
         return dedirectioned;
     }
 
+    // Group the category's binds by their final display description.
+    // Each group becomes one row: all key combos side by side, then the description once.
+    function groupBinds() {
+        const binds = HyprlandKeybinds.keybinds.filter(bind => root.hasDescription(bind) && (root.isCategorized ? root.isCategory(bind, root.categoryName) : root.isUncategorized(bind)) && !root.containsNonFirstRepetitive(bind));
+        const groups = [];
+        const byText = {};
+        for (const b of binds) {
+            const t = root.transformDescription(b, root.categoryName);
+            if (!byText[t]) {
+                byText[t] = [];
+                groups.push({ text: t, binds: byText[t] });
+            }
+            byText[t].push(b);
+        }
+        return groups;
+    }
+
     Column {
         spacing: 4
         Repeater {
             id: repeater
-            model: {
-                if (!root.isCategorized) {
-                    return HyprlandKeybinds.keybinds.filter(bind => root.hasDescription(bind) && root.isUncategorized(bind) && !root.containsNonFirstRepetitive(bind));
-                }
-                return HyprlandKeybinds.keybinds.filter(bind => root.hasDescription(bind) && root.isCategory(bind, root.categoryName) && !root.containsNonFirstRepetitive(bind));
-            }
-            delegate: BindLine {
+            model: root.groupBinds()
+            delegate: BindGroup {
                 required property var modelData
-                keyData: modelData
-                categoryName: root.categoryName
+                groupText: modelData.text
+                binds: modelData.binds
             }
         }
     }
 
-    component BindLine: Row {
-        id: bindLine
-        required property var keyData
-        property string categoryName: ""
+    component BindGroup: Row {
+        id: group
+        required property var binds
+        required property string groupText
+        spacing: 12
 
         Row {
-            spacing: 16
-            Row {
-                id: modRow
-                Component.onCompleted: root.maxBindWidth = Math.max(root.maxBindWidth, implicitWidth)
-                width: root.maxBindWidth
-                spacing: 4
-                Repeater {
-                    model: {
-                        const modList = root.modMaskToStringList(bindLine.keyData.modmask).map(mod => root.keySubstitutions[mod] || mod)
-                        if (modList.length == 0) return []
-                        if (Config.options.cheatsheet.splitButtons) return modList;
-                        return [modList.join(" ")]
+            spacing: 6
+            Repeater {
+                model: group.binds
+                delegate: Row {
+                    required property var modelData
+                    required property int index
+                    readonly property var b: modelData
+                    spacing: 4
+
+                    StyledText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: index > 0
+                        text: "/"
                     }
-                    delegate: KeyboardKey {
-                        required property var modelData
-                        key: root.transformKey(modelData)
+                    Row {
+                        spacing: 4
+                        Repeater {
+                            model: {
+                                const modList = root.modMaskToStringList(b.modmask).map(mod => root.keySubstitutions[mod] || mod)
+                                if (modList.length == 0) return []
+                                if (Config.options.cheatsheet.splitButtons) return modList;
+                                return [modList.join(" ")]
+                            }
+                            delegate: KeyboardKey {
+                                required property var modelData
+                                key: root.transformKey(modelData)
+                                pixelSize: Config.options.cheatsheet.fontSize.key
+                            }
+                        }
+                    }
+                    StyledText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: !root.keyBlacklist.includes(b.key) && b.modmask > 0
+                        text: "+"
+                    }
+                    KeyboardKey {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: !root.keyBlacklist.includes(b.key)
+                        key: root.transformKey(b.key)
                         pixelSize: Config.options.cheatsheet.fontSize.key
+                        color: Appearance.colors.colOnLayer0
                     }
                 }
-                StyledText {
-                    id: keybindPlus
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: !keyBlacklist.includes(bindLine.keyData.key) && bindLine.keyData.modmask > 0
-                    text: "+"
-                }
-                KeyboardKey {
-                    id: keybindKey
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: !keyBlacklist.includes(bindLine.keyData.key)
-                    key: root.transformKey(bindLine.keyData.key)
-                    pixelSize: Config.options.cheatsheet.fontSize.key
-                    color: Appearance.colors.colOnLayer0
-                }
             }
-            Item {
-                anchors.verticalCenter: parent.verticalCenter
-                implicitWidth: commentText.implicitWidth + root.columnSpacing
-                implicitHeight: commentText.implicitHeight
-                StyledText {
-                    id: commentText
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    font.pixelSize: Config.options.cheatsheet.fontSize.comment || Appearance.font.pixelSize.smaller
-                    text: root.transformDescription(bindLine.keyData, bindLine.categoryName)
-                }
-            }
+        }
+        StyledText {
+            anchors.verticalCenter: parent.verticalCenter
+            font.pixelSize: Config.options.cheatsheet.fontSize.comment || Appearance.font.pixelSize.smaller
+            text: group.groupText
         }
     }
 }
