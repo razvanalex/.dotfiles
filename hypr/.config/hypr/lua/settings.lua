@@ -95,6 +95,7 @@ hl.config({
         focus_on_activate = true,
         initial_workspace_tracking = 0,
         middle_click_paste = false,
+        allow_session_lock_restore = true,
     },
     binds = {
         workspace_back_and_forth = true,
