@@ -123,6 +123,7 @@ hl.animation({ leaf = "border", enabled = true, speed = 5, bezier = "default" })
 hl.animation({ leaf = "borderangle", enabled = true, speed = 5, bezier = "default" })
 hl.animation({ leaf = "fade", enabled = true, speed = 5, bezier = "default" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 3, bezier = "default" })
+hl.animation({ leaf = "zoomFactor", enabled = true, speed = 1.5, bezier = "quick" })
 
 -- Touchpad & Screen Gestures (Official Hyprland v0.55+ API using `mods` field)
 hl.gesture({

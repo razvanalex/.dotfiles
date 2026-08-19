@@ -58,11 +58,7 @@ hl.bind("SUPER_R", hl.dsp.global("quickshell:workspaceNumber"), { transparent = 
 -- Native Hyprland Desktop Zoom Toggle (SUPER + Z)
 local currentZoom = 1.0
 hl.bind(mainMod .. " + Z", function()
-    if currentZoom == 1.0 then
-        currentZoom = 2.0
-    else
-        currentZoom = 1.0
-    end
+    currentZoom = (currentZoom == 1.0) and 2.0 or 1.0
     hl.config({ cursor = { zoom_factor = currentZoom } })
 end, { description = "Accessibility: Toggle desktop zoom" })
 hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd(vars.scriptsDir .. "/SwitchKeyboardLayout.sh"), { description = "Accessibility: Switch keyboard layout", non_consuming = true })
