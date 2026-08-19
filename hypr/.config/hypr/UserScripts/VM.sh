@@ -20,7 +20,7 @@ fi
 if ! pgrep -x "virt-viewer" > /dev/null; then
     echo "Starting Viewer..."
     # notify-send "VM" "Connecting..."
-    virt-viewer -v --attach --full-screen --hotkeys=release-cursor=ctrl+alt "$VM_NAME" >> "$LOG_FILE" 2>&1 &
+    virt-viewer -v --attach --full-screen --cursor=auto --hotkeys=release-cursor=ctrl+alt "$VM_NAME" >> "$LOG_FILE" 2>&1 &
     
     # Wait for window to map
     for i in {1..20}; do
@@ -31,8 +31,7 @@ if ! pgrep -x "virt-viewer" > /dev/null; then
         sleep 0.2
     done
 
-    hyprctl dispatch submap vm
-    hyprctl keywords cursor:invisible 1
+    hyprctl dispatch 'hl.dsp.submap("vm")'
     IS_STARTUP=true
 fi
 
@@ -42,14 +41,12 @@ IS_VISIBLE=$(hyprctl monitors -j | jq -r '.[] | .specialWorkspace.name' | grep "
 
 if [ -z "$IS_VISIBLE" ]; then
     echo "VM hidden."
-    hyprctl keywords cursor:invisible 1
-    hyprctl dispatch submap vm
-    hyprctl dispatch togglespecialworkspace vm
+    hyprctl dispatch 'hl.dsp.submap("vm")'
+    hyprctl dispatch 'hl.dsp.workspace.toggle_special("vm")'
 elif [ "$IS_STARTUP" = false ]; then
     echo "VM already visible."
-    hyprctl keywords cursor:invisible 0
-    hyprctl dispatch submap reset
-    hyprctl dispatch togglespecialworkspace vm
+    hyprctl dispatch 'hl.dsp.submap("reset")'
+    hyprctl dispatch 'hl.dsp.workspace.toggle_special("vm")'
 fi
 
 echo "--- Done ---"

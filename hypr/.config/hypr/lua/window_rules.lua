@@ -72,6 +72,7 @@ hl.window_rule({
     workspace = "special:vm",
     border_size = 0,
     rounding = 0,
+    no_shortcuts_inhibit = true,
 })
 
 -- Floating Windows

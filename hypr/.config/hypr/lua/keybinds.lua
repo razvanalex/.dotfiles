@@ -20,9 +20,14 @@ hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("gnome-system-monitor"), { desc
 hl.bind("CTRL + " .. mainMod .. " + C", hl.dsp.exec_cmd(vars.userScripts .. "/VSCode.sh"), { description = "Apps: VS Code" })
 hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { description = "Apps: Toggle VM", locked = true })
 
+-- VM Passthrough Submap (disables host binds so Super and shortcuts pass to guest VM)
+hl.define_submap("vm", function()
+    hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { description = "Apps: Toggle VM", locked = true })
+end)
+
 -- AI (dictation, TTS, voice)
-hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"), { description = "AI: Read text aloud (TTS)" })
-hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("qs ipc call dictation toggle"), { description = "AI: Start dictation", release = true })
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"), { description = "AI: Read text aloud (TTS)" })
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("qs ipc call dictation toggle"), { description = "AI: Start dictation", release = true })
 -- Escape closes the dictation panel WITHOUT committing (cancel, like the
 -- close button). NON-CONSUMING: the key still reaches the focused app
 -- (neovim's normal mode, etc.) -- the dismiss only happens if the panel
@@ -159,10 +164,22 @@ hl.bind("ALT + XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ 
 hl.bind(mainMod .. " + XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"), { description = "Media: Mute microphone", locked = true, repeating = true, ["repeat"] = true })
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { description = "Media: Raise volume", locked = true, repeating = true, ["repeat"] = true })
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { description = "Media: Lower volume", locked = true, repeating = true, ["repeat"] = true })
-hl.bind("ALT + XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+"), { description = "Media: Raise microphone volume", locked = true, repeating = true, ["repeat"] = true })
+hl.bind(
+    "ALT + XF86AudioRaiseVolume",
+    hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+"),
+    { description = "Media: Raise microphone volume", locked = true, repeating = true, ["repeat"] = true }
+)
 hl.bind("ALT + XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_SOURCE@ 5%-"), { description = "Media: Lower microphone volume", locked = true, repeating = true, ["repeat"] = true })
-hl.bind(mainMod .. " + XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+"), { description = "Media: Raise microphone volume", locked = true, repeating = true, ["repeat"] = true })
-hl.bind(mainMod .. " + XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_SOURCE@ 5%-"), { description = "Media: Lower microphone volume", locked = true, repeating = true, ["repeat"] = true })
+hl.bind(
+    mainMod .. " + XF86AudioRaiseVolume",
+    hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_SOURCE@ 5%+"),
+    { description = "Media: Raise microphone volume", locked = true, repeating = true, ["repeat"] = true }
+)
+hl.bind(
+    mainMod .. " + XF86AudioLowerVolume",
+    hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_SOURCE@ 5%-"),
+    { description = "Media: Lower microphone volume", locked = true, repeating = true, ["repeat"] = true }
+)
 
 -- Hardware (brightness)
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("qs ipc call brightness increment"), { description = "Hardware: Increase brightness", locked = true, repeating = true, ["repeat"] = true })
