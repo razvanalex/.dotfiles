@@ -24,6 +24,7 @@ Singleton {
     property string overviewMode: "full"
     property bool regionSelectorOpen: false
     property bool searchOpen: false
+    property bool localsendOpen: false
     property bool screenLocked: false
     property bool screenLockContainsCharacters: false
     property bool screenUnlockFailed: false

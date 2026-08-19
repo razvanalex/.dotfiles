@@ -122,6 +122,11 @@ Singleton {
         sendProc.running = true;
     }
 
+    function sendText(ip, port, protocol, text) {
+        sendProc.command = [root.script, "--send", ip, "--text", text];
+        sendProc.running = true;
+    }
+
     // ---- control-server calls (accept / decline) ----
     Process {
         id: ctlProc

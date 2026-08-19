@@ -1,5 +1,6 @@
 pragma Singleton
 
+import qs
 import qs.modules.common
 import qs.modules.common.models
 import qs.modules.common.functions
@@ -104,6 +105,12 @@ Singleton {
             action: "wallpaper",
             execute: () => {
                 Hyprland.dispatch(`hl.dsp.global("quickshell:wallpaperSelectorToggle")`)
+            }
+        },
+        {
+            action: "localsend",
+            execute: () => {
+                GlobalStates.localsendOpen = !GlobalStates.localsendOpen;
             }
         },
         {
