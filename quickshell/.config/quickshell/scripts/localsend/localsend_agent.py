@@ -581,7 +581,7 @@ def send_to(peer, paths=(), text=None):
         req = urllib.request.Request(base + '/api/localsend/v2/prepare-upload',
                                      data=json.dumps(payload).encode(), method='POST',
                                      headers={'Content-Type': 'application/json'})
-        with urllib.request.urlopen(req, context=ctx, timeout=10) as r:
+        with urllib.request.urlopen(req, context=ctx, timeout=120) as r:
             resp = json.loads(r.read())
     except Exception as e:
         for _, _, src in items:
