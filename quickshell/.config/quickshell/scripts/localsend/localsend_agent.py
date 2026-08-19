@@ -193,9 +193,11 @@ class Handler(BaseHTTPRequestHandler):
             files = body.get('files') or {}
             if not files:
                 self._send(204, None); return
+            log.info('PREPARE files=%s', json.dumps(files, ensure_ascii=False)[:3000])
             sid = new_sid()
             infos = {fid: {'fileName': fi.get('fileName'), 'size': int(fi.get('size') or 0),
-                           'fileType': fi.get('fileType'), 'sha256': fi.get('sha256')}
+                           'fileType': fi.get('fileType'), 'sha256': fi.get('sha256'),
+                           'sourceText': ((fi.get('metadata') or {}).get('sourceText')) or fi.get('preview')}
                      for fid, fi in files.items()}
             s = {'sid': sid, 'files': infos, 'tokens': {}, 'sender_ip': self.client_address[0],
                  'decision': None, 'decision_event': threading.Event(), 'accepted': False,
@@ -248,6 +250,7 @@ class Handler(BaseHTTPRequestHandler):
         size = 0
         hasher = hashlib.sha256() if fi.get('sha256') else None
         remaining = int(self.headers.get('Content-Length') or 0)
+        log.info('UPLOAD clen=%s filesize=%s hasha=%s', remaining, fi.get('size'), bool(fi.get('sha256')))
         with open(tmp, 'wb') as fh:
             while remaining > 0:
                 chunk = self.rfile.read(min(65536, remaining))
@@ -261,7 +264,25 @@ class Handler(BaseHTTPRequestHandler):
                     s['written'][fid] = size
                 emit({'type': 'progress', 'session': sid, 'fileId': fid,
                       'written': size, 'total': fi['size']})
+        if fi.get('sourceText') is not None:
+            # LocalSend text share: the content lives in metadata.sourceText; the
+            # upload body is empty (Content-Length 0). Save the text and skip the
+            # body-hash check, which would otherwise mismatch on the empty body.
+            dest = Path(SAVE_DIR) / fi['fileName']
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                dest = dest.parent / ('%s-%s%s' % (dest.stem, sid[:6], dest.suffix))
+            dest.write_text(fi['sourceText'], encoding='utf-8')
+            with SESSIONS_LOCK:
+                s['written'][fid] = len(fi['sourceText'])
+            emit({'type': 'done', 'session': sid, 'fileId': fid, 'path': str(dest),
+                  'fileName': fi['fileName'], 'size': len(fi['sourceText']), 'text': True})
+            tmp.unlink(missing_ok=True)
+            self._send(200, {})
+            return
         if fi.get('sha256') and hasher.hexdigest() != fi['sha256']:
+            log.info('HASHMISMATCH size=%d expect=%s got=%s', size, fi['sha256'],
+                     hasher.hexdigest())
             tmp.unlink(missing_ok=True)
             self._send(422, {'error': 'checksum mismatch'}); return
         dest = Path(SAVE_DIR) / fi['fileName']
