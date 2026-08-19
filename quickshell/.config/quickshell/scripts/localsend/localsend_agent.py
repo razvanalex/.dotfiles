@@ -411,11 +411,13 @@ def _new_send_ctx(peer):
     ctx = ssl._create_unverified_context()
     if peer.get('fingerprint'):
         # pin: verify the peer's self-signed cert matches the announced fingerprint
-        probe = socket.create_connection((peer['ip'], peer.get('port') or PORT), timeout=6)
+        probe = socket.create_connection((peer['ip'], peer.get('port') or PORT), timeout=12)
         probe = ctx.wrap_socket(probe, server_hostname=peer['ip'])
         der = probe.getpeercert(binary_form=True) or b''
         probe.close()
-        if hashlib.sha256(der).hexdigest() != peer['fingerprint']:
+        # LocalSend announces the fingerprint in the case its client emits
+        # (often UPPERCASE); hexdigest() is lowercase — compare case-insensitively
+        if hashlib.sha256(der).hexdigest().lower() != str(peer['fingerprint']).lower():
             raise RuntimeError('peer fingerprint mismatch (possible MITM)')
     return ctx
 
