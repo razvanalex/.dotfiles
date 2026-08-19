@@ -5,7 +5,7 @@
 # Receive (prepare-upload/upload/cancel) and send are added in later tasks.
 import argparse, hashlib, json, logging, os, socket, ssl, subprocess, sys, threading, time
 import urllib.request, urllib.error
-import urllib.parse, shutil, tempfile, uuid, mimetypes
+import urllib.parse, shutil, tempfile, uuid, mimetypes, http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -201,7 +201,8 @@ class Handler(BaseHTTPRequestHandler):
                      for fid, fi in files.items()}
             s = {'sid': sid, 'files': infos, 'tokens': {}, 'sender_ip': self.client_address[0],
                  'decision': None, 'decision_event': threading.Event(), 'accepted': False,
-                 'written': {fid: 0 for fid in infos}, 'cancelled': False}
+                 'written': {fid: 0 for fid in infos}, 'cancelled': False,
+                 'created': time.time(), 'finished': None}
             with SESSIONS_LOCK:
                 SESSIONS[sid] = s
             emit({'type': 'inbound', 'session': sid,
@@ -251,6 +252,7 @@ class Handler(BaseHTTPRequestHandler):
         hasher = hashlib.sha256() if fi.get('sha256') else None
         remaining = int(self.headers.get('Content-Length') or 0)
         log.info('UPLOAD clen=%s filesize=%s hasha=%s', remaining, fi.get('size'), bool(fi.get('sha256')))
+        last_emit = [0.0]
         with open(tmp, 'wb') as fh:
             while remaining > 0:
                 chunk = self.rfile.read(min(65536, remaining))
@@ -262,8 +264,11 @@ class Handler(BaseHTTPRequestHandler):
                 size += len(chunk); remaining -= len(chunk)
                 with SESSIONS_LOCK:
                     s['written'][fid] = size
-                emit({'type': 'progress', 'session': sid, 'fileId': fid,
-                      'written': size, 'total': fi['size']})
+                now = time.time()
+                if now - last_emit[0] >= 0.1:   # throttle: ~10 events/sec
+                    last_emit[0] = now
+                    emit({'type': 'progress', 'session': sid, 'fileId': fid,
+                          'written': size, 'total': fi['size']})
         if fi.get('sourceText') is not None:
             # LocalSend text share: the content lives in metadata.sourceText; the
             # upload body is empty (Content-Length 0). Save the text and skip the
@@ -275,6 +280,7 @@ class Handler(BaseHTTPRequestHandler):
             dest.write_text(fi['sourceText'], encoding='utf-8')
             with SESSIONS_LOCK:
                 s['written'][fid] = len(fi['sourceText'])
+            _mark_finished(sid)
             emit({'type': 'done', 'session': sid, 'fileId': fid, 'path': str(dest),
                   'fileName': fi['fileName'], 'size': len(fi['sourceText']), 'text': True})
             tmp.unlink(missing_ok=True)
@@ -292,6 +298,7 @@ class Handler(BaseHTTPRequestHandler):
         shutil.move(str(tmp), str(dest))
         with SESSIONS_LOCK:
             s['written'][fid] = size
+        _mark_finished(sid)
         emit({'type': 'done', 'session': sid, 'fileId': fid, 'path': str(dest),
               'fileName': fi['fileName'], 'size': size})
         self._send(200, {})
@@ -329,6 +336,8 @@ def main():
     threading.Thread(target=udp_announcer, args=(udp,), daemon=True).start()
     # loopback control IPC for the QML shell (accept/decline/cancel/stop)
     threading.Thread(target=control_server, daemon=True).start()
+    # housekeeping (peer expiry, session cleanup)
+    threading.Thread(target=maintenance, daemon=True).start()
     # HTTPS server (per-connection TLS via LocalServer.get_request)
     httpd = LocalServer(('0.0.0.0', PORT), Handler)
     httpd.serve_forever()
@@ -347,6 +356,8 @@ def _decide(sid, decision):
         if not s:
             return False
         s['decision'] = decision
+        if decision in ('decline', 'cancel'):
+            s['finished'] = time.time()
         s['decision_event'].set()
         return True
 
@@ -363,8 +374,33 @@ def cancel_session(sid):
             return False
         s['decision'] = 'cancel'
         s['cancelled'] = True
+        s['finished'] = time.time()
         s['decision_event'].set()
         return True
+
+def _mark_finished(sid):
+    with SESSIONS_LOCK:
+        s = SESSIONS.get(sid)
+        if s:
+            s['finished'] = time.time()
+
+def session_cleanup(pending_ttl=300, finished_ttl=60):
+    now = time.time()
+    with SESSIONS_LOCK:
+        for k, s in list(SESSIONS.items()):
+            created = s.get('created') or now
+            finished = s.get('finished')
+            if finished is not None and now - finished > finished_ttl:
+                del SESSIONS[k]
+            elif finished is None and now - created > pending_ttl:
+                del SESSIONS[k]
+
+def maintenance():
+    # housekeeping: drop stale peers and finished/abandoned sessions
+    while True:
+        time.sleep(10)
+        prune_peers(ttl=30)
+        session_cleanup()
 
 class ControlHandler(BaseHTTPRequestHandler):
     # loopback-only IPC: /accept?session=ID /decline /cancel /stop
@@ -449,6 +485,37 @@ def _hash_file(p):
             h.update(c)
     return h.hexdigest()
 
+def _send_one_stream(peer, ctx, session, fid, token, source_file, total):
+    # streaming upload body via http.client (no whole-file-in-memory), with
+    # throttled progress events. source_file may be None for a 0-length body.
+    https = peer.get('protocol', 'https') == 'https'
+    cls = http.client.HTTPSConnection if https else http.client.HTTPConnection
+    conn = cls(peer['ip'], peer.get('port') or PORT, timeout=120, context=ctx)
+    path = ('/api/localsend/v2/upload?sessionId=%s&fileId=%s&token=%s' % (session, fid, token))
+    conn.putrequest('POST', path)
+    conn.putheader('Content-Length', str(total))
+    conn.putheader('Content-Type', 'application/octet-stream')
+    conn.endheaders()
+    sent = 0
+    last = [0.0]
+    if source_file is not None:
+        while True:
+            chunk = source_file.read(1 << 20)
+            if not chunk:
+                break
+            conn.send(chunk)
+            sent += len(chunk)
+            now = time.time()
+            if now - last[0] >= 0.15:   # throttle: ~7 events/sec
+                last[0] = now
+                emit({'type': 'sendprogress', 'fileId': fid,
+                      'written': sent, 'total': total})
+    resp = conn.getresponse()
+    status = resp.status
+    resp.read()
+    conn.close()
+    return status, sent
+
 def send_to(peer, paths=(), text=None):
     items = []
     for p in paths:
@@ -461,7 +528,9 @@ def send_to(peer, paths=(), text=None):
         tb = text.encode('utf-8')
         tid = uuid.uuid4().hex
         fi = {'id': tid, 'fileName': 'Shared text.txt', 'size': len(tb),
-              'fileType': 'text/plain'}
+              'fileType': 'text/plain',
+              'sha256': hashlib.sha256(tb).hexdigest(),
+              'preview': text, 'metadata': {'sourceText': text}}
         items.append((tid, fi, None))
     emit({'type': 'sending', 'peer': peer.get('alias') or peer['ip'],
           'files': [fi['fileName'] for _, fi, _ in items]})
@@ -484,18 +553,17 @@ def send_to(peer, paths=(), text=None):
     session = resp.get('sessionId'); tokens = resp.get('files') or {}
     for idx, (fid, fi, src) in enumerate(items):
         token = tokens.get(fid)
-        if src is not None:
-            body = src.read()       # bytes -> urllib sets Content-Length correctly
-        elif text is not None:
-            body = text.encode()
-        else:
-            body = b''
         ok = False
         try:
-            with urllib.request.urlopen(urllib.request.Request(
-                    base + '/api/localsend/v2/upload?sessionId=%s&fileId=%s&token=%s' % (session, fid, token),
-                    data=body, method='POST'), context=ctx, timeout=120) as rr:
-                ok = (rr.status == 200)
+            if src is not None:
+                status, _ = _send_one_stream(peer, ctx, session, fid, token, src, fi['size'])
+                ok = (status == 200)
+            elif text is not None:
+                # text: announced via preview/sourceText, body empty (like iOS)
+                status, _ = _send_one_stream(peer, ctx, session, fid, token, None, 0)
+                ok = (status == 200)
+            else:
+                ok = False
         except Exception as e:
             emit({'type': 'senderror', 'fileId': fid, 'error': str(e)})
         finally:
