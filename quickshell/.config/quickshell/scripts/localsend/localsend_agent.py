@@ -511,6 +511,10 @@ def _new_send_ctx(peer):
         # (often UPPERCASE); hexdigest() is lowercase — compare case-insensitively
         if hashlib.sha256(der).hexdigest().lower() != str(peer['fingerprint']).lower():
             raise RuntimeError('peer fingerprint mismatch (possible MITM)')
+    # LocalSend uses mutual TLS: present our own self-signed cert as the client
+    # certificate (the receiver requires it, else TLSV13_ALERT_CERTIFICATE_REQUIRED)
+    if CERT_PEM.exists() and KEY_PEM.exists():
+        ctx.load_cert_chain(str(CERT_PEM), str(KEY_PEM))
     return ctx
 
 def _hash_file(p):
