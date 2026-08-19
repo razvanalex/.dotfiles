@@ -56,7 +56,7 @@ hl.config({
         left_handed = false,
         follow_mouse = true,
         float_switch_override_focus = false,
-        scroll_factor = 1.0,
+        scroll_factor = 5.0,
         touchpad = {
             disable_while_typing = true,
             natural_scroll = true,
