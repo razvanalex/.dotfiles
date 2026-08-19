@@ -193,7 +193,7 @@ class Handler(BaseHTTPRequestHandler):
             files = body.get('files') or {}
             if not files:
                 self._send(204, None); return
-            log.info('PREPARE files=%s', json.dumps(files, ensure_ascii=False)[:3000])
+            log.info('PREPARE nfiles=%d', len(files))
             sid = new_sid()
             infos = {fid: {'fileName': fi.get('fileName'), 'size': int(fi.get('size') or 0),
                            'fileType': fi.get('fileType'), 'sha256': fi.get('sha256'),
@@ -275,7 +275,6 @@ class Handler(BaseHTTPRequestHandler):
                 # HTTP/1.1 chunked body (iOS/Flutter stream real files this way)
                 while True:
                     line = self.rfile.readline()
-                    log.info('CHUNK line=%r', line[:64])
                     try:
                         csize = int(line.split(b';')[0].strip(), 16)
                     except ValueError:
@@ -293,7 +292,6 @@ class Handler(BaseHTTPRequestHandler):
                             break
                         feed(c)
                         left -= len(c)
-                    log.info('CHUNK done csize=%d size=%d', csize, size)
                     self.rfile.readline()       # CRLF after chunk data
             elif cl is not None and cl.isdigit() and int(cl) > 0:
                 remaining = int(cl)
