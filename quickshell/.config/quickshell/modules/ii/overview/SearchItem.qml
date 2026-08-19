@@ -274,20 +274,25 @@ RippleButton {
                         id: actionContentItem
                         anchors.centerIn: parent
                         Loader {
+                            id: sysIconLoader
                             anchors.centerIn: parent
-                            active: actionButton.iconType === LauncherSearchResult.IconType.Material || actionButton.iconName === ""
-                            sourceComponent: MaterialSymbol {
-                                text: actionButton.iconName || "video_settings"
-                                font.pixelSize: Appearance.font.pixelSize.hugeass
+                            active: actionButton.iconType === LauncherSearchResult.IconType.System && actionButton.iconName !== ""
+                            sourceComponent: CustomIcon {
+                                source: actionButton.iconName
+                                width: 20
+                                height: 20
                                 color: root.colForeground
                             }
                         }
                         Loader {
                             anchors.centerIn: parent
-                            active: actionButton.iconType === LauncherSearchResult.IconType.System && actionButton.iconName !== ""
-                            sourceComponent: IconImage {
-                                source: Quickshell.iconPath(actionButton.iconName)
-                                implicitSize: 20
+                            active: (actionButton.iconType === LauncherSearchResult.IconType.Material) || 
+                                    (actionButton.iconName === "") || 
+                                    (sysIconLoader.item && sysIconLoader.item.failed)
+                            sourceComponent: MaterialSymbol {
+                                text: actionButton.iconType === LauncherSearchResult.IconType.Material ? (actionButton.iconName || "open_in_new") : "add"
+                                font.pixelSize: Appearance.font.pixelSize.hugeass
+                                color: root.colForeground
                             }
                         }
                     }
