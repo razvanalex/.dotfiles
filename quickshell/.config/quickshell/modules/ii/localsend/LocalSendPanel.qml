@@ -84,7 +84,7 @@ PanelWindow {
 
             ListView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(receiveCol.implicitHeight, 220)
+                Layout.preferredHeight: 200
                 clip: true
                 spacing: 6
                 model: LocalSend.inbound
@@ -92,7 +92,7 @@ PanelWindow {
                     required property var modelData
                     width: ListView.view.width
                     color: Appearance.colors.colLayer2
-                    radius: Appearance.rounding.medium
+                    radius: Appearance.rounding.small
                     implicitHeight: inner.implicitHeight + 12
                     ColumnLayout {
                         id: inner
@@ -186,7 +186,7 @@ PanelWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
                 color: Appearance.colors.colLayer2
-                radius: Appearance.rounding.medium
+                radius: Appearance.rounding.small
                 DropArea {
                     anchors.fill: parent
                     onDropped: drop => { /* quickshell file drop hook */ }
@@ -207,7 +207,7 @@ PanelWindow {
             // peer picker (inline list, no Qt popup)
             ListView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(peerList.implicitHeight, 160)
+                Layout.preferredHeight: 140
                 clip: true
                 spacing: 4
                 model: LocalSend.peers
