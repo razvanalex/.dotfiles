@@ -250,25 +250,60 @@ class Handler(BaseHTTPRequestHandler):
         tmp = Path(tempfile.gettempdir()) / ('lsin_%s_%s' % (sid, fid))
         size = 0
         hasher = hashlib.sha256() if fi.get('sha256') else None
-        remaining = int(self.headers.get('Content-Length') or 0)
-        log.info('UPLOAD clen=%s filesize=%s hasha=%s', remaining, fi.get('size'), bool(fi.get('sha256')))
+        cl = self.headers.get('Content-Length')
+        te = self.headers.get('Transfer-Encoding', '')
+        chunked = 'chunked' in te.lower()
+        log.info('UPLOAD clen=%r te=%r filesize=%s hasha=%s', cl, te, fi.get('size'), bool(fi.get('sha256')))
         last_emit = [0.0]
+        def report(n):
+            nonlocal size
+            size += n
+            with SESSIONS_LOCK:
+                s['written'][fid] = size
+            now = time.time()
+            if now - last_emit[0] >= 0.1:   # throttle: ~10 events/sec
+                last_emit[0] = now
+                emit({'type': 'progress', 'session': sid, 'fileId': fid,
+                      'written': size, 'total': fi['size']})
+        def feed(b):
+            fh.write(b)
+            if hasher:
+                hasher.update(b)
+            report(len(b))
         with open(tmp, 'wb') as fh:
-            while remaining > 0:
-                chunk = self.rfile.read(min(65536, remaining))
-                if not chunk:
-                    break
-                fh.write(chunk)
-                if hasher:
-                    hasher.update(chunk)
-                size += len(chunk); remaining -= len(chunk)
-                with SESSIONS_LOCK:
-                    s['written'][fid] = size
-                now = time.time()
-                if now - last_emit[0] >= 0.1:   # throttle: ~10 events/sec
-                    last_emit[0] = now
-                    emit({'type': 'progress', 'session': sid, 'fileId': fid,
-                          'written': size, 'total': fi['size']})
+            if chunked:
+                # HTTP/1.1 chunked body (iOS/Flutter stream real files this way)
+                while True:
+                    line = self.rfile.readline()
+                    log.info('CHUNK line=%r', line[:64])
+                    try:
+                        csize = int(line.split(b';')[0].strip(), 16)
+                    except ValueError:
+                        log.info('CHUNK parse-fail size=%d', size)
+                        break
+                    if csize == 0:
+                        self.rfile.readline()   # trailers terminator
+                        log.info('CHUNK end size=%d', size)
+                        break
+                    left = csize
+                    while left > 0:
+                        c = self.rfile.read(min(65536, left))
+                        if not c:
+                            log.info('CHUNK read-eof left=%d size=%d', left, size)
+                            break
+                        feed(c)
+                        left -= len(c)
+                    log.info('CHUNK done csize=%d size=%d', csize, size)
+                    self.rfile.readline()       # CRLF after chunk data
+            elif cl is not None and cl.isdigit() and int(cl) > 0:
+                remaining = int(cl)
+                while remaining > 0:
+                    c = self.rfile.read(min(65536, remaining))
+                    if not c:
+                        break
+                    feed(c)
+                    remaining -= len(c)
+            # else: empty body (text payloads carried in preview/sourceText)
         if fi.get('sourceText') is not None:
             # LocalSend text share: the content lives in metadata.sourceText; the
             # upload body is empty (Content-Length 0). Save the text and skip the
