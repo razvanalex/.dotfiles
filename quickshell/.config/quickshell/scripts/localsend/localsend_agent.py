@@ -5,7 +5,7 @@
 # Receive (prepare-upload/upload/cancel) and send are added in later tasks.
 import argparse, hashlib, json, logging, os, socket, ssl, subprocess, sys, threading, time
 import urllib.request, urllib.error
-import urllib.parse, shutil, tempfile, uuid
+import urllib.parse, shutil, tempfile, uuid, mimetypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -279,6 +279,20 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 def main():
+    ap = argparse.ArgumentParser(description='LocalSend v2 agent sidecar')
+    ap.add_argument('--send', nargs='+', metavar='ARG',
+                    help='one-shot send: HOST FILE [FILE...] (no daemon)')
+    ap.add_argument('--text', default=None, help='text payload for --send')
+    args = ap.parse_args()
+    if args.send:
+        logging.basicConfig(level=logging.INFO)
+        host = args.send[0]
+        peer = {'ip': host, 'port': PORT, 'protocol': PROTOCOL}
+        # ensure_cert so the sending fingerprint is coherent; ad-hoc sends do not
+        # pin (no fingerprint known) — the control /send path pins via discovery
+        ensure_cert()
+        send_to(peer, args.send[1:] or [], args.text)
+        return
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     ensure_cert()
     emit({'type': 'self', 'alias': ALIAS, 'fingerprint': FINGERPRINT, 'port': PORT})
@@ -356,6 +370,20 @@ class ControlHandler(BaseHTTPRequestHandler):
             cancel_session(sid); self._no(200)
         elif p == '/stop':
             os._exit(0)
+        elif p == '/send':
+            try:
+                ln = int(self.headers.get('Content-Length') or 0)
+                body = json.loads(self.rfile.read(ln).decode('utf-8'))
+            except Exception:
+                self._no(400); return
+            peer = {'ip': body.get('ip'), 'port': body.get('port') or PORT,
+                    'protocol': body.get('protocol') or 'https',
+                    'fingerprint': body.get('fingerprint'),
+                    'alias': body.get('alias')}
+            threading.Thread(target=send_to, kwargs={
+                'peer': peer, 'paths': body.get('files') or [], 'text': body.get('text')},
+                daemon=True).start()
+            self._no(202)
         else:
             self._no(404)
 
@@ -371,6 +399,88 @@ class LocalServer(ThreadingHTTPServer):
     def get_request(self):
         sock, addr = self.socket.accept()
         return CERT.wrap_socket(sock, server_side=True), addr
+
+# ---- send client (outbound) ----
+def _peer_base(peer):
+    scheme = 'https' if peer.get('protocol', 'https') == 'https' else 'http'
+    return '%s://%s:%s' % (scheme, peer['ip'], peer.get('port') or PORT)
+
+def _new_send_ctx(peer):
+    if peer.get('protocol', 'https') != 'https':
+        return None
+    ctx = ssl._create_unverified_context()
+    if peer.get('fingerprint'):
+        # pin: verify the peer's self-signed cert matches the announced fingerprint
+        probe = socket.create_connection((peer['ip'], peer.get('port') or PORT), timeout=6)
+        probe = ctx.wrap_socket(probe, server_hostname=peer['ip'])
+        der = probe.getpeercert(binary_form=True) or b''
+        probe.close()
+        if hashlib.sha256(der).hexdigest() != peer['fingerprint']:
+            raise RuntimeError('peer fingerprint mismatch (possible MITM)')
+    return ctx
+
+def _hash_file(p):
+    h = hashlib.sha256()
+    with open(p, 'rb') as f:
+        for c in iter(lambda: f.read(1 << 20), b''):
+            h.update(c)
+    return h.hexdigest()
+
+def send_to(peer, paths=(), text=None):
+    items = []
+    for p in paths:
+        fi = {'id': uuid.uuid4().hex, 'fileName': Path(p).name,
+              'size': Path(p).stat().st_size,
+              'fileType': mimetypes.guess_type(p)[0] or 'application/octet-stream',
+              'sha256': _hash_file(p)}
+        items.append((fi['id'], fi, open(p, 'rb')))
+    if text is not None:
+        tb = text.encode('utf-8')
+        tid = uuid.uuid4().hex
+        fi = {'id': tid, 'fileName': 'Shared text.txt', 'size': len(tb),
+              'fileType': 'text/plain'}
+        items.append((tid, fi, None))
+    emit({'type': 'sending', 'peer': peer.get('alias') or peer['ip'],
+          'files': [fi['fileName'] for _, fi, _ in items]})
+    try:
+        ctx = _new_send_ctx(peer)
+        base = _peer_base(peer)
+        payload = {'info': advertise_body(False),
+                   'files': {fid: fi for fid, fi, _ in items}}
+        req = urllib.request.Request(base + '/api/localsend/v2/prepare-upload',
+                                     data=json.dumps(payload).encode(), method='POST',
+                                     headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, context=ctx, timeout=10) as r:
+            resp = json.loads(r.read())
+    except Exception as e:
+        for _, _, src in items:
+            if src is not None:
+                src.close()
+        emit({'type': 'senderror', 'error': str(e)})
+        return
+    session = resp.get('sessionId'); tokens = resp.get('files') or {}
+    for idx, (fid, fi, src) in enumerate(items):
+        token = tokens.get(fid)
+        if src is not None:
+            body = src.read()       # bytes -> urllib sets Content-Length correctly
+        elif text is not None:
+            body = text.encode()
+        else:
+            body = b''
+        ok = False
+        try:
+            with urllib.request.urlopen(urllib.request.Request(
+                    base + '/api/localsend/v2/upload?sessionId=%s&fileId=%s&token=%s' % (session, fid, token),
+                    data=body, method='POST'), context=ctx, timeout=120) as rr:
+                ok = (rr.status == 200)
+        except Exception as e:
+            emit({'type': 'senderror', 'fileId': fid, 'error': str(e)})
+        finally:
+            if src is not None:
+                src.close()
+        emit({'type': 'sendprogress', 'fileId': fid, 'fileName': fi['fileName'],
+              'idx': idx, 'ok': ok, 'session': session})
+    emit({'type': 'senddone', 'session': session})
 
 if __name__ == '__main__':
     main()
