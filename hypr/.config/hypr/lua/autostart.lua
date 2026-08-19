@@ -7,8 +7,9 @@ hl.on("hyprland.start", function()
     -- Environment setup & TMUX instance signature
     hl.exec_cmd('tmux setenv -g HYPRLAND_INSTANCE_SIGNATURE "$HYPRLAND_INSTANCE_SIGNATURE"')
 
-    -- GNOME desktop interface cursor theme
+    -- GNOME desktop interface cursor & icon theme
     hl.exec_cmd('gsettings set org.gnome.desktop.interface cursor-theme "Bibata-Modern-Classic"')
+    hl.exec_cmd('gsettings set org.gnome.desktop.interface icon-theme "MoreWaita"')
 
     -- DBus & Systemd environment import
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE")
@@ -26,11 +27,8 @@ hl.on("hyprland.start", function()
     -- Polkit authentication agent (Polkit Gnome / KDE)
     hl.exec_cmd(vars.scriptsDir .. "/Polkit.sh")
 
-    -- Applets & Daemons (Bluetooth, Logitech Solaar, OpenRGB, ActivityWatch)
-    hl.exec_cmd(vars.scriptsDir .. "/wait-for-tray.sh blueman-applet &")
-    hl.exec_cmd(vars.scriptsDir .. "/wait-for-tray.sh solaar -w hide &")
+    -- Daemons (OpenRGB)
     hl.exec_cmd("openrgb --server --mode static --color 000000 &")
-    hl.exec_cmd('bash -l -c "sleep 10 && aw-qt &>> ~/.cache/activitywatch/log/aw-qt.log" &')
 
     -- Clipboard manager watchers (text & image via cliphist)
     hl.exec_cmd("wl-paste --type text --watch cliphist store")

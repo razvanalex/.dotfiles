@@ -1,0 +1,13 @@
+[Unit]
+Description=ActivityWatch Tray Daemon
+PartOf=hyprland.target
+After=hyprland.target quickshell.service
+
+[Service]
+Type=simple
+ExecStart=/home/razvan/.config/hypr/scripts/wait-for-tray.sh /home/razvan/.local/bin/aw-qt
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=hyprland.target

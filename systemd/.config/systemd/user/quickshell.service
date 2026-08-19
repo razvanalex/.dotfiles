@@ -1,0 +1,16 @@
+[Unit]
+Description=Quickshell Desktop Shell
+Documentation=https://git.outfoxxed.me/outfoxxed/quickshell
+BindsTo=hyprland.target
+After=hyprland.target
+
+[Service]
+Type=simple
+Environment="QS_ICON_THEME=MoreWaita"
+Environment="XDG_DATA_DIRS=/home/razvan/.local/share:/usr/local/share:/usr/share:/var/lib/flatpak/exports/share:/home/razvan/.local/share/flatpak/exports/share"
+ExecStart=/usr/bin/env quickshell
+Restart=on-failure
+RestartSec=1s
+
+[Install]
+WantedBy=hyprland.target
