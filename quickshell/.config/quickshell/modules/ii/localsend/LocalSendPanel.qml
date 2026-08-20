@@ -30,6 +30,13 @@ PanelWindow {
     implicitWidth: panelWidth
     implicitHeight: col.implicitHeight + 24
 
+    // Smooth the height change when switching tabs. A hard height step makes
+    // the Wayland layer surface lag a frame or two, leaving the old (taller)
+    // buffer + card shadow lingering below for <1s.
+    Behavior on implicitHeight {
+        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+    }
+
     mask: Region { item: card }
 
     Component.onCompleted: {
@@ -53,6 +60,7 @@ PanelWindow {
     Rectangle {
         id: card
         anchors.fill: parent
+        clip: true
         color: Appearance.colors.colLayer0
         radius: Appearance.rounding.screenRounding
 
