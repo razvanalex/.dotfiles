@@ -38,6 +38,24 @@ Singleton {
         root.inboundPendingCount = root.inbound.filter(s => s.state === "pending").length;
     }
 
+    // Drop terminal (Saved/Declined) entries older than `ageMs` so the floating
+    // panel doesn't accumulate history forever.
+    readonly property int terminalTtlMs: 30000   // 30s — enough to confirm the file landed
+    function _pruneTerminal() {
+        const now = Date.now();
+        root.inbound = root.inbound.filter(s => {
+            const terminal = s.state === "done" || s.state === "declined";
+            return !(terminal && (now - (s.finishedAt || 0)) > root.terminalTtlMs);
+        });
+        root._refreshPending();
+    }
+    Timer {
+        interval: 1000
+        repeat: true
+        running: true
+        onTriggered: root._pruneTerminal()
+    }
+
     // ---- daemon (receive + discovery), runs for the whole session ----
     Process {
         id: daemonProc
@@ -92,11 +110,15 @@ Singleton {
                                 s.state = "done";
                                 s.pct = 1;
                                 s.path = m.path;
+                                s.finishedAt = Date.now();
                             });
                             root._refreshPending();
                             break;
                         case "declined":
-                            root._mapInbound(m.session, s => s.state = "declined");
+                            root._mapInbound(m.session, s => {
+                                s.state = "declined";
+                                s.finishedAt = Date.now();
+                            });
                             root._refreshPending();
                             break;
                         default: break;
