@@ -1147,7 +1147,7 @@ PanelWindow {
                                         font.weight: Font.DemiBold
                                     }
                                     StyledText {
-                                        text: CF.NotificationUtils.getFriendlyNotifTimeString(modelData.timestamp)
+                                        text: NotificationUtils.getFriendlyNotifTimeString(modelData.timestamp)
                                         color: Appearance.m3colors.m3onSurfaceVariant
                                         font.pixelSize: Appearance.font.pixelSize.smaller
                                     }

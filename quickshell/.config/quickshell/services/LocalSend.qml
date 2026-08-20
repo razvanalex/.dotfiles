@@ -154,7 +154,7 @@ Singleton {
     }
 
     function buildDaemonCommand() {
-        let cmd = [root.script];
+        let cmd = ["python3", root.script];
         if (Config.options.localsend) {
             const c = Config.options.localsend;
             if (c.alias && c.alias.length) { cmd.push("--alias"); cmd.push(c.alias); }
@@ -187,7 +187,7 @@ Singleton {
 
     Timer {
         id: restartDaemonTimer
-        interval: 1200
+        interval: 1000
         repeat: false
         onTriggered: {
             daemonProc.running = false;
@@ -196,13 +196,20 @@ Singleton {
         }
     }
 
+    function restartDaemon() {
+        restartDaemonTimer.restart();
+    }
+
     // ---- daemon (receive + discovery), runs for the whole session ----
     Process {
         id: daemonProc
         running: true
         command: root.buildDaemonCommand()
         onStarted: root.daemonRunning = true
-        onExited: (code, status) => root.daemonRunning = false
+        onExited: (code, status) => {
+            root.daemonRunning = false;
+            restartDaemonTimer.restart();
+        }
 
         // daemon diagnostics (python `logging` + tracebacks) go to stderr; forward
         // them into the qs log/journal so they sit with the other shell logs.
@@ -568,7 +575,7 @@ print(json.dumps({'alias': ip, 'deviceType': 'desktop', 'deviceModel': 'Manual I
         root.lastSendText = text || "";
         root.pinRequiredPeer = null;
 
-        let args = [root.script];
+        let args = ["python3", root.script];
         for (let i = 0; i < peerList.length; i++) {
             const p = peerList[i];
             let targetPin = root.devicePins[p.ip] || "";

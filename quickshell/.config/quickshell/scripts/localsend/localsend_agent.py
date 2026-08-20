@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse, concurrent.futures, hashlib, html, io, json, logging, os, socket, ssl, subprocess, sys, threading, time
 import urllib.request, urllib.error
 import urllib.parse, shutil, tempfile, uuid, mimetypes, http.client, zipfile
