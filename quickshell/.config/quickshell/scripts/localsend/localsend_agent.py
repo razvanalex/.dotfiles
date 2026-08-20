@@ -595,6 +595,8 @@ def send_to(peer, paths=(), text=None):
     for idx, (fid, fi, src) in enumerate(items):
         token = tokens.get(fid)
         ok = False
+        emit({'type': 'sendfile', 'fileId': fid, 'fileName': fi['fileName'],
+              'total': fi['size'], 'idx': idx})
         try:
             if src is not None:
                 status, _ = _send_one_stream(peer, ctx, session, fid, token, src, fi['size'])
@@ -611,7 +613,7 @@ def send_to(peer, paths=(), text=None):
             if src is not None:
                 src.close()
         emit({'type': 'sendprogress', 'fileId': fid, 'fileName': fi['fileName'],
-              'idx': idx, 'ok': ok, 'session': session})
+              'idx': idx, 'ok': ok, 'session': session, 'total': fi['size']})
     emit({'type': 'senddone', 'session': session})
 
 if __name__ == '__main__':

@@ -243,6 +243,103 @@ PanelWindow {
                 }
             }
 
+            // file / folder sending (portal file chooser)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                RippleButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    buttonRadius: Appearance.rounding.full
+                    colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                    enabled: !!root.selectedPeer
+                    onClicked: LocalSend.pickAndSend(root.selectedPeer, true)
+                    contentItem: StyledText {
+                        horizontalAlignment: Text.AlignHCenter
+                        text: Translation.tr("Send files…")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnLayer0
+                    }
+                }
+                RippleButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    buttonRadius: Appearance.rounding.full
+                    colBackground: Appearance.colors.colLayer3
+                    enabled: !!root.selectedPeer
+                    onClicked: LocalSend.pickAndSend(root.selectedPeer, false)
+                    contentItem: StyledText {
+                        horizontalAlignment: Text.AlignHCenter
+                        text: Translation.tr("Send folder…")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnLayer0
+                    }
+                }
+            }
+
+            // outbound transfer progress
+            Rectangle {
+                Layout.fillWidth: true
+                visible: LocalSend.sendTransfer != null
+                color: Appearance.colors.colLayer2
+                radius: Appearance.rounding.small
+                implicitHeight: outCol.implicitHeight + 16
+                ColumnLayout {
+                    id: outCol
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 6
+                    RowLayout {
+                        Layout.fillWidth: true
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: LocalSend.sendTransfer ? (
+                                (LocalSend.sendTransfer.files && LocalSend.sendTransfer.files.length > 1
+                                    ? Translation.tr("File %1 of %2").arg((LocalSend.sendTransfer.index || 0) + 1).arg(LocalSend.sendTransfer.files.length) + " · "
+                                    : "")
+                                + Translation.tr("Sending to %1").arg(LocalSend.sendTransfer.peer || "")
+                                + (LocalSend.sendTransfer.fileName ? " · " + LocalSend.sendTransfer.fileName : "")
+                            ) : ""
+                            color: Appearance.colors.colOnLayer0
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            elide: Text.ElideRight
+                        }
+                        StyledText {
+                            text: LocalSend.sendTransfer ? (
+                                LocalSend.sendTransfer.state === "done" ? Translation.tr("Sent")
+                                : LocalSend.sendTransfer.state === "error" ? Translation.tr("Failed")
+                                : Translation.tr("Sending…")
+                            ) : ""
+                            color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error" ? Appearance.m3colors.m3error
+                                 : LocalSend.sendTransfer && LocalSend.sendTransfer.state === "done" ? "#4caf50"
+                                 : Appearance.m3colors.m3primary
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 4
+                        radius: 2
+                        color: Appearance.colors.colLayer4
+                        Rectangle {
+                            width: parent.width * Math.max(0, Math.min(1, (LocalSend.sendTransfer && LocalSend.sendTransfer.pct) || 0))
+                            height: parent.height
+                            radius: 2
+                            color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error"
+                                ? Appearance.m3colors.m3error : Appearance.m3colors.m3primary
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error" && !!LocalSend.sendTransfer.message
+                        text: (LocalSend.sendTransfer && LocalSend.sendTransfer.message) || ""
+                        color: Appearance.m3colors.m3error
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
+
             StyledText {
                 Layout.fillWidth: true
                 visible: root.transientMessage.length > 0
