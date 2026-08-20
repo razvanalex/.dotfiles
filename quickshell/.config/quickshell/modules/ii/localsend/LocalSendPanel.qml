@@ -116,7 +116,7 @@ PanelWindow {
 
                     ListView {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 84 + 8, 220) : 0
+                        Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 106 + 8, 260) : 0
                         clip: true
                         spacing: 6
                         visible: LocalSend.inbound.length > 0
@@ -126,7 +126,8 @@ PanelWindow {
                             width: ListView.view.width
                             color: Appearance.colors.colLayer2
                             radius: Appearance.rounding.small
-                            implicitHeight: inner.implicitHeight + 16
+                            // deterministic height per state so the actions row is never clipped
+                            implicitHeight: modelData.state === "pending" ? 104 : 76
                             ColumnLayout {
                                 id: inner
                                 anchors.fill: parent
