@@ -31,8 +31,6 @@ PanelWindow {
     implicitWidth: panelWidth
     implicitHeight: col.implicitHeight + 24
 
-    mask: Region { item: card }
-
     Component.onCompleted: {
         GlobalFocusGrab.addDismissable(root);
         // ToolbarTabBar's active pill isn't painted on first layout (its
