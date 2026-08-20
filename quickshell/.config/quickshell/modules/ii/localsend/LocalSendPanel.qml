@@ -21,11 +21,14 @@ PanelWindow {
     exclusiveZone: 0
     color: "transparent"
     property real panelWidth: 420
-    anchors { bottom: true; left: true; right: true }
-    margins { bottom: Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut }
+    anchors { bottom: true; right: true }
+    margins {
+        bottom: Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
+        right: Appearance.sizes.hyprlandGapsOut
+    }
 
     implicitWidth: panelWidth
-    implicitHeight: col.implicitHeight
+    implicitHeight: col.implicitHeight + 24
 
     mask: Region { item: card }
 
@@ -36,15 +39,19 @@ PanelWindow {
         function onDismissed() { GlobalStates.localsendOpen = false }
     }
 
+    StyledRectangularShadow {
+        target: card
+    }
+
     Rectangle {
         id: card
         anchors.fill: parent
-        color: Appearance.colors.colLayer1
+        color: Appearance.colors.colLayer0
         radius: Appearance.rounding.screenRounding
 
         ColumnLayout {
             id: col
-            anchors.fill: parent
+            anchors { left: parent.left; right: parent.right; top: parent.top }
             anchors.margins: 12
             spacing: 10
 
@@ -55,7 +62,7 @@ PanelWindow {
                 StyledText {
                     text: Translation.tr("LocalSend")
                     font.pixelSize: Appearance.font.pixelSize.large
-                    color: Appearance.colors.colOnLayer1
+                    color: Appearance.colors.colOnLayer0
                 }
                 Item { Layout.fillWidth: true }
                 MaterialSymbol {
@@ -70,7 +77,7 @@ PanelWindow {
                     contentItem: MaterialSymbol {
                         anchors.centerIn: parent
                         horizontalAlignment: Text.AlignHCenter
-                        text: "close"; iconSize: 20; color: Appearance.colors.colOnLayer1
+                        text: "close"; iconSize: 20; color: Appearance.colors.colOnLayer0
                     }
                 }
             }
@@ -84,9 +91,10 @@ PanelWindow {
 
             ListView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 200
+                Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 84 + 8, 200) : 0
                 clip: true
                 spacing: 6
+                visible: LocalSend.inbound.length > 0
                 model: LocalSend.inbound
                 delegate: Rectangle {
                     required property var modelData
@@ -103,7 +111,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             StyledText {
                                 text: modelData.sender
-                                color: Appearance.colors.colOnLayer1
+                                color: Appearance.colors.colOnLayer0
                                 font.pixelSize: Appearance.font.pixelSize.normal
                                 elide: Text.ElideRight
                             }
@@ -182,34 +190,22 @@ PanelWindow {
                 color: Appearance.m3colors.m3onSurfaceVariant
             }
 
-            Rectangle {
+            StyledText {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 120
-                color: Appearance.colors.colLayer2
-                radius: Appearance.rounding.small
-                DropArea {
-                    anchors.fill: parent
-                    onDropped: drop => { /* quickshell file drop hook */ }
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        MaterialSymbol { text: "upload_file"; iconSize: 24; color: Appearance.m3colors.m3onSurfaceVariant
-                            Layout.alignment: Qt.AlignHCenter }
-                        StyledText {
-                            text: Translation.tr("Pick devices & send below")
-                            color: Appearance.m3colors.m3onSurfaceVariant
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            Layout.alignment: Qt.AlignHCenter
-                        }
-                    }
-                }
+                visible: LocalSend.peers.length === 0
+                text: Translation.tr("No nearby devices — open LocalSend on another device to discover it")
+                color: Appearance.colors.colOnLayer0
+                font.pixelSize: Appearance.font.pixelSize.small
+                wrapMode: Text.Wrap
             }
 
             // peer picker (inline list, no Qt popup)
             ListView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 140
+                Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 30 + 8, 140) : 0
                 clip: true
                 spacing: 4
+                visible: LocalSend.peers.length > 0
                 model: LocalSend.peers
                 delegate: Rectangle {
                     required property var modelData
@@ -226,7 +222,7 @@ PanelWindow {
                         anchors.leftMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
                         text: (modelData.alias || modelData.ip) + (modelData.alias ? " · " + modelData.ip : "")
-                        color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer1
+                        color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer0
                         font.pixelSize: Appearance.font.pixelSize.small
                     }
                 }
@@ -243,7 +239,7 @@ PanelWindow {
                     horizontalAlignment: Text.AlignHCenter
                     text: root.selectedPeer ? Translation.tr("Send clipboard text to %1").arg(root.selectedPeer.alias || root.selectedPeer.ip) : Translation.tr("Select a device first")
                     font.pixelSize: Appearance.font.pixelSize.small
-                    color: root.selectedPeer ? "white" : Appearance.colors.colOnLayer1
+                    color: root.selectedPeer ? "white" : Appearance.colors.colOnLayer0
                 }
             }
 
