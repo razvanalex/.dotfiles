@@ -195,6 +195,9 @@ Singleton {
         }
     }
 
+    // Emitted when the portal picker returns paths (selection-first staging).
+    signal filesPicked(var paths)
+
     function sendFiles(ip, port, protocol, paths) {
         let args = [root.script, "--send", ip];
         for (let i = 0; i < paths.length; i++) args.push(paths[i]);
@@ -207,13 +210,21 @@ Singleton {
         sendProc.running = true;
     }
 
-    // ---- portal file/folder picker -> send ----
+    // Send a mixed batch (files/folders + optional text) in ONE transfer.
+    function sendSelection(ip, port, protocol, paths, text) {
+        let args = [root.script, "--send", ip];
+        for (let i = 0; i < paths.length; i++) args.push(paths[i]);
+        if (text && text.length) { args.push("--text"); args.push(text); }
+        sendProc.command = args;
+        sendProc.running = true;
+    }
+
+    // ---- portal file/folder picker -> stage (selection-first) ----
     readonly property string pickerScript: `${CF.FileUtils.trimFileProtocol(Directories.scriptPath)}/localsend/file_picker.py`
 
     Process {
         id: pickerProc
         running: false
-        property var target: null
         property var picked: []
         command: []
         stdout: SplitParser {
@@ -222,18 +233,14 @@ Singleton {
         onExited: (code, status) => {
             const paths = pickerProc.picked;
             pickerProc.picked = [];
-            const peer = pickerProc.target;
-            pickerProc.target = null;
-            if (paths.length && peer)
-                root.sendFiles(peer.ip, peer.port || 53317, peer.protocol || "https", paths);
+            if (paths.length) root.filesPicked(paths);
         }
     }
 
-    // Open the portal chooser and send the picked paths to `peer`.
-    // multiple=true → files (multi-select); multiple=false → a folder.
-    function pickAndSend(peer, multiple) {
+    // Open the portal chooser and emit the picked paths for staging (the target
+    // device is chosen later). multiple=true → files; false → a folder.
+    function pickFiles(multiple) {
         pickerProc.picked = [];
-        pickerProc.target = peer;
         pickerProc.command = ["python3", root.pickerScript, multiple ? "--multiple" : "--directory"];
         pickerProc.running = true;
     }

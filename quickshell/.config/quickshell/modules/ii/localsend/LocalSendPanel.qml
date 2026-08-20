@@ -215,12 +215,190 @@ PanelWindow {
                     }
                 }
 
+                // ===================== SEND PAGE (selection-first) =====================
                 ColumnLayout {
                     id: sendPage
                     anchors { left: parent.left; right: parent.right; top: parent.top }
                     visible: tabBar.currentIndex === 1
-                    spacing: 10
+                    spacing: 8
 
+                    // 1) source tiles: ALWAYS enabled — click to ADD to the staging queue
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 52
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: Appearance.colors.colLayer3
+                                onClicked: { root._pickKind = "file"; LocalSend.pickFiles(true) }
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol { Layout.alignment: Qt.AlignHCenter; text: "upload_file"; iconSize: 22; color: Appearance.m3colors.m3primary }
+                                StyledText { Layout.alignment: Qt.AlignHCenter; text: Translation.tr("File"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                            }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 52
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: Appearance.colors.colLayer3
+                                onClicked: { root._pickKind = "folder"; LocalSend.pickFiles(false) }
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol { Layout.alignment: Qt.AlignHCenter; text: "create_new_folder"; iconSize: 22; color: Appearance.m3colors.m3primary }
+                                StyledText { Layout.alignment: Qt.AlignHCenter; text: Translation.tr("Folder"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                            }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 52
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: Appearance.colors.colLayer3
+                                onClicked: root.toggleCompose()
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol { Layout.alignment: Qt.AlignHCenter; text: "edit_note"; iconSize: 22; color: Appearance.m3colors.m3primary }
+                                StyledText { Layout.alignment: Qt.AlignHCenter; text: Translation.tr("Text"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                            }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 52
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: Appearance.colors.colLayer3
+                                onClicked: root.stageClipboard()
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol { Layout.alignment: Qt.AlignHCenter; text: "content_paste"; iconSize: 22; color: Appearance.m3colors.m3primary }
+                                StyledText { Layout.alignment: Qt.AlignHCenter; text: Translation.tr("Paste"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                            }
+                        }
+                    }
+
+                    // text compose (Text tile): type a message, "Add" stages it
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        visible: root.textComposeVisible
+                        MaterialTextField {
+                            id: composeInput
+                            Layout.fillWidth: true
+                            placeholderText: Translation.tr("Type a message…")
+                            text: root.composeDraft
+                            onTextChanged: root.composeDraft = text
+                            Keys.onReturnPressed: { if (composeInput.text.trim().length) root.addComposeToStaged() }
+                        }
+                        RippleButton {
+                            Layout.preferredWidth: 56; Layout.preferredHeight: 40
+                            buttonRadius: Appearance.rounding.small
+                            colBackground: Appearance.m3colors.m3primary
+                            enabled: composeInput.text.trim().length > 0
+                            onClicked: root.addComposeToStaged()
+                            contentItem: MaterialSymbol {
+                                anchors.centerIn: parent
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "add"; iconSize: 18; color: "white"
+                            }
+                        }
+                    }
+
+                    // 2) staging queue (editable "what to send")
+                    RowLayout {
+                        Layout.fillWidth: true
+                        StyledText {
+                            text: Translation.tr("Staged (%1)").arg(stagedModel.count)
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        Item { Layout.fillWidth: true }
+                        RippleButton {
+                            Layout.preferredWidth: 44; Layout.preferredHeight: 20
+                            buttonRadius: Appearance.rounding.full
+                            colBackground: "transparent"
+                            visible: stagedModel.count > 0
+                            onClicked: root.stageClear()
+                            contentItem: StyledText {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "Clear"; color: Appearance.m3colors.m3error
+                                font.pixelSize: Appearance.font.pixelSize.small
+                            }
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: stagedModel.count === 0
+                        text: Translation.tr("Pick files, folder, text or paste to stage")
+                        color: Appearance.m3colors.m3onSurfaceVariant
+                        font.pixelSize: Appearance.font.pixelSize.small
+                    }
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: stagedModel.count > 0 ? Math.min(stagedModel.count * 30 + 4, 130) : 0
+                        clip: true
+                        spacing: 2
+                        visible: stagedModel.count > 0
+                        model: stagedModel
+                        delegate: Rectangle {
+                            width: ListView.view.width
+                            radius: Appearance.rounding.small
+                            color: Appearance.colors.colLayer2
+                            implicitHeight: 28
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 4
+                                spacing: 6
+                                MaterialSymbol {
+                                    Layout.preferredWidth: 18; Layout.preferredHeight: 18
+                                    text: root.stageIcon(model.type); iconSize: 16
+                                    color: Appearance.m3colors.m3onSurfaceVariant
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: model.name
+                                    color: Appearance.colors.colOnLayer0
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    elide: Text.ElideMiddle
+                                }
+                                StyledText {
+                                    text: model.meta
+                                    color: Appearance.m3colors.m3onSurfaceVariant
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                }
+                                RippleButton {
+                                    Layout.preferredWidth: 20; Layout.preferredHeight: 20
+                                    buttonRadius: Appearance.rounding.full
+                                    colBackground: "transparent"
+                                    onClicked: root.stageRemove(model.id)
+                                    contentItem: MaterialSymbol {
+                                        anchors.centerIn: parent
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: "close"; iconSize: 14
+                                        color: Appearance.m3colors.m3onSurfaceVariant
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3) target device
                     StyledText {
                         Layout.fillWidth: true
                         visible: LocalSend.peers.length === 0
@@ -229,7 +407,6 @@ PanelWindow {
                         font.pixelSize: Appearance.font.pixelSize.small
                         wrapMode: Text.Wrap
                     }
-
                     ListView {
                         Layout.fillWidth: true
                         Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 56 + 8, 240) : 0
@@ -321,150 +498,20 @@ PanelWindow {
                         }
                     }
 
-                    // send selection: tile buttons (File / Folder / Text / Paste)
-                    RowLayout {
+                    // 4) Send button (primary CTA with dynamic state)
+                    RippleButton {
                         Layout.fillWidth: true
-                        spacing: 6
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 54
-                            RippleButton {
-                                anchors.fill: parent
-                                buttonRadius: Appearance.rounding.small
-                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                                enabled: !!root.selectedPeer
-                                onClicked: LocalSend.pickAndSend(root.selectedPeer, true)
-                            }
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 3
-                                MaterialSymbol {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: "upload_file"; iconSize: 22
-                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                                }
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: Translation.tr("File")
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                    color: Appearance.colors.colOnLayer0
-                                }
-                            }
+                        Layout.preferredHeight: 44
+                        buttonRadius: Appearance.rounding.full
+                        colBackground: root.sendReady ? Appearance.m3colors.m3primary : Appearance.colors.colLayer3
+                        enabled: root.sendReady
+                        onClicked: root.sendStaged()
+                        contentItem: StyledText {
+                            horizontalAlignment: Text.AlignHCenter
+                            text: root.sendLabel()
+                            font.pixelSize: Appearance.font.pixelSize.normal
+                            color: root.sendReady ? "white" : Appearance.m3colors.m3onSurfaceVariant
                         }
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 54
-                            RippleButton {
-                                anchors.fill: parent
-                                buttonRadius: Appearance.rounding.small
-                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                                enabled: !!root.selectedPeer
-                                onClicked: LocalSend.pickAndSend(root.selectedPeer, false)
-                            }
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 3
-                                MaterialSymbol {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: "create_new_folder"; iconSize: 22
-                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                                }
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: Translation.tr("Folder")
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                    color: Appearance.colors.colOnLayer0
-                                }
-                            }
-                        }
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 54
-                            RippleButton {
-                                anchors.fill: parent
-                                buttonRadius: Appearance.rounding.small
-                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                                enabled: !!root.selectedPeer
-                                onClicked: root.toggleCompose()
-                            }
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 3
-                                MaterialSymbol {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: "edit_note"; iconSize: 22
-                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                                }
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: Translation.tr("Text")
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                    color: Appearance.colors.colOnLayer0
-                                }
-                            }
-                        }
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 54
-                            RippleButton {
-                                anchors.fill: parent
-                                buttonRadius: Appearance.rounding.small
-                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                                enabled: !!root.selectedPeer
-                                onClicked: root.pickTextPayload()
-                            }
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 3
-                                MaterialSymbol {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: "content_paste"; iconSize: 22
-                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                                }
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: Translation.tr("Paste")
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                    color: Appearance.colors.colOnLayer0
-                                }
-                            }
-                        }
-                    }
-
-                    // inline text compose (Text tile)
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        visible: root.textComposeVisible && !!root.selectedPeer
-                        MaterialTextField {
-                            id: composeInput
-                            Layout.fillWidth: true
-                            placeholderText: Translation.tr("Type a message…")
-                            text: root.composeDraft
-                            onTextChanged: root.composeDraft = text
-                            Keys.onReturnPressed: { if (composeInput.text.trim().length) root.sendComposed() }
-                        }
-                        RippleButton {
-                            Layout.preferredWidth: 52; Layout.preferredHeight: 40
-                            buttonRadius: Appearance.rounding.small
-                            colBackground: Appearance.m3colors.m3primary
-                            enabled: composeInput.text.trim().length > 0
-                            onClicked: root.sendComposed()
-                            contentItem: MaterialSymbol {
-                                anchors.centerIn: parent
-                                horizontalAlignment: Text.AlignHCenter
-                                text: "send"; iconSize: 18; color: "white"
-                            }
-                        }
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: !root.selectedPeer
-                        text: Translation.tr("Select a device to send to")
-                        color: Appearance.m3colors.m3onSurfaceVariant
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        horizontalAlignment: Text.AlignHCenter
                     }
 
                     // outbound transfer progress
@@ -543,21 +590,25 @@ PanelWindow {
         }
     }
 
+    // ---------------- state ----------------
     property var selectedPeer: null
     property string transientMessage: ""
     property bool textComposeVisible: false
     property string composeDraft: ""
+    property string _pickKind: "file"
+    property int _lastInboundCount: LocalSend.inbound.length
     property string receiveTabName: {
         const p = LocalSend.inboundPendingCount;
         return p > 0 ? Translation.tr("Receive (%1)").arg(p) : Translation.tr("Receive");
     }
+    property bool sendReady: stagedModel.count > 0 && !!root.selectedPeer
 
-    property int _lastInboundCount: LocalSend.inbound.length
+    ListModel {
+        id: stagedModel
+        // roles: id, type (file|folder|text), name, path, text, meta
+    }
 
     // Surface the Receive tab only on a genuinely NEW request (inbound grows).
-    // The auto-dismiss sweep re-assigns the array every second and progress
-    // events re-assign during a transfer; neither should yank the user off the
-    // Send tab — only an actual new arrival should.
     Connections {
         target: LocalSend
         function onInboundChanged() {
@@ -565,24 +616,85 @@ PanelWindow {
             if (n > root._lastInboundCount) tabBar.setCurrentIndex(0);
             root._lastInboundCount = n;
         }
+        function onFilesPicked(paths) { root.stagePaths(paths, root._pickKind); }
+    }
+
+    // ---------------- staging helpers ----------------
+    function _stageId() {
+        return (Date.now()).toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+    function stagePaths(paths, kind) {
+        for (let i = 0; i < paths.length; i++) {
+            const p = paths[i];
+            stagedModel.append({
+                id: root._stageId(), type: kind,
+                name: p.split(/[\\/]/).pop(),
+                path: p, text: "", meta: kind === "folder" ? Translation.tr("Folder") : Translation.tr("File")
+            });
+        }
+    }
+    function stageText(text) {
+        const t = text.trim();
+        if (!t.length) return;
+        stagedModel.append({
+            id: root._stageId(), type: "text",
+            name: t.length > 48 ? t.slice(0, 48) + "…" : t,
+            path: "", text: t, meta: Translation.tr("Text")
+        });
+        root.textComposeVisible = false;
+        root.composeDraft = "";
+    }
+    function stageClipboard() {
+        const t = Quickshell.clipboardText;
+        if (!t || !t.length) { root.transientMessage = Translation.tr("Clipboard is empty"); return; }
+        root.stageText(t);
+    }
+    function stageRemove(id) {
+        for (let i = 0; i < stagedModel.count; i++) {
+            if (stagedModel.get(i).id === id) { stagedModel.remove(i); break; }
+        }
+    }
+    function stageClear() { stagedModel.clear(); }
+    function addComposeToStaged() { root.stageText(root.composeDraft); }
+
+    function stagedPaths() {
+        const out = [];
+        for (let i = 0; i < stagedModel.count; i++) { const it = stagedModel.get(i); if (it.path) out.push(it.path); }
+        return out;
+    }
+    function stagedText() {
+        const out = [];
+        for (let i = 0; i < stagedModel.count; i++) { const it = stagedModel.get(i); if (it.type === "text") out.push(it.text); }
+        return out.join("\n\n");
+    }
+
+    function sendLabel() {
+        const peer = root.selectedPeer;
+        if (stagedModel.count === 0) return Translation.tr("Select items to send");
+        if (!peer) return Translation.tr("Select a target device");
+        return Translation.tr("Send %1 item(s) to %2").arg(stagedModel.count).arg(peer.alias || peer.ip);
+    }
+    function sendStaged() {
+        const peer = root.selectedPeer;
+        if (!peer) { root.transientMessage = Translation.tr("Select a target device"); return; }
+        const paths = root.stagedPaths();
+        const text = root.stagedText();
+        if (!paths.length && !text.length) { root.transientMessage = Translation.tr("Select items to send"); return; }
+        const n = stagedModel.count;
+        LocalSend.sendSelection(peer.ip, peer.port || 53317, peer.protocol || "https", paths, text);
+        root.stageClear();
+        root.transientMessage = Translation.tr("Sending %1 item(s) to %2…").arg(n).arg(peer.alias || peer.ip);
+    }
+
+    function stageIcon(type) {
+        if (type === "folder") return "folder";
+        if (type === "text") return "notes";
+        return "description";
     }
 
     // Toggle the inline text-compose field (Text tile).
     function toggleCompose() {
-        if (!root.selectedPeer) { root.transientMessage = Translation.tr("Select a device first"); return; }
         root.textComposeVisible = !root.textComposeVisible;
-    }
-
-    // Send the typed message to the selected peer.
-    function sendComposed() {
-        const peer = root.selectedPeer;
-        const text = root.composeDraft;
-        if (!peer) { root.transientMessage = Translation.tr("Select a device first"); return; }
-        if (!text || !text.trim().length) return;
-        LocalSend.sendText(peer.ip, peer.port || 53317, peer.protocol || "https", text.trim());
-        root.composeDraft = "";
-        root.textComposeVisible = false;
-        root.transientMessage = Translation.tr("Sending text to %1…").arg(peer.alias || peer.ip);
     }
 
     // Material Symbol glyph for a peer's device type.
@@ -599,15 +711,5 @@ PanelWindow {
         if (peer.deviceType === "mobile" || peer.deviceType === "phone") return "Phone";
         if (peer.deviceType === "desktop") return "Desktop";
         return "";
-    }
-
-    // Send the current clipboard text to the selected peer.
-    function pickTextPayload() {
-        const peer = root.selectedPeer;
-        if (!peer) { root.transientMessage = Translation.tr("Select a device first"); return; }
-        const text = Quickshell.clipboardText;
-        if (!text || !text.length) { root.transientMessage = Translation.tr("Clipboard is empty"); return; }
-        LocalSend.sendText(peer.ip, peer.port || 53317, peer.protocol || "https", text);
-        root.transientMessage = Translation.tr("Sending clipboard text to %1…").arg(peer.alias || peer.ip);
     }
 }
