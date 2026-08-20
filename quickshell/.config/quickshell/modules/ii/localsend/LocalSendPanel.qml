@@ -233,10 +233,14 @@ PanelWindow {
                                 }
                                 StyledText {
                                     Layout.fillWidth: true
-                                    text: modelData.files.map(f => f.fileName).join(", ")
+                                    text: (modelData.isText && modelData.text && modelData.text.length)
+                                        ? modelData.text
+                                        : modelData.files.map(f => f.fileName).join(", ")
                                     color: Appearance.m3colors.m3onSurfaceVariant
                                     font.pixelSize: Appearance.font.pixelSize.small
-                                    elide: Text.ElideRight
+                                    elide: modelData.isText ? Text.ElideNone : Text.ElideRight
+                                    wrapMode: modelData.isText ? Text.Wrap : Text.NoWrap
+                                    maximumLineCount: 3
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
@@ -331,7 +335,7 @@ PanelWindow {
                                             MaterialSymbol { text: "content_copy"; iconSize: 14; color: Appearance.colors.colOnLayer0 }
                                             StyledText {
                                                 id: cpyTxt
-                                                text: (modelData.savedPaths && modelData.savedPaths.length > 1) ? Translation.tr("Copy paths") : Translation.tr("Copy")
+                                                text: modelData.isText ? Translation.tr("Copy text") : ((modelData.savedPaths && modelData.savedPaths.length > 1) ? Translation.tr("Copy paths") : Translation.tr("Copy"))
                                                 font.pixelSize: Appearance.font.pixelSize.small
                                                 color: Appearance.colors.colOnLayer0
                                             }
@@ -1000,10 +1004,14 @@ PanelWindow {
 
                                 StyledText {
                                     Layout.fillWidth: true
-                                    text: (modelData.files && modelData.files.length) ? modelData.files.join(", ") : (modelData.text || "")
+                                    text: (modelData.isText && modelData.text && modelData.text.length)
+                                        ? modelData.text
+                                        : ((modelData.files && modelData.files.length) ? modelData.files.join(", ") : (modelData.text || ""))
                                     color: Appearance.m3colors.m3onSurfaceVariant
                                     font.pixelSize: Appearance.font.pixelSize.small
-                                    elide: Text.ElideRight
+                                    elide: modelData.isText ? Text.ElideNone : Text.ElideRight
+                                    wrapMode: modelData.isText ? Text.Wrap : Text.NoWrap
+                                    maximumLineCount: 3
                                     visible: !!text.length
                                 }
 
@@ -1018,7 +1026,7 @@ PanelWindow {
 
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: modelData.status === "done" && (modelData.paths && modelData.paths.length > 0)
+                                    visible: modelData.status === "done" && ((modelData.paths && modelData.paths.length > 0) || (modelData.isText && modelData.text))
                                     spacing: 6
                                     Item { Layout.fillWidth: true }
                                     RippleButton {
@@ -1026,6 +1034,7 @@ PanelWindow {
                                         Layout.preferredWidth: hOpenTxt.implicitWidth + 20
                                         buttonRadius: Appearance.rounding.full
                                         colBackground: Appearance.colors.colLayer3
+                                        visible: !!(modelData.paths && modelData.paths.length > 0)
                                         onClicked: LocalSend.openItem(modelData)
                                         contentItem: RowLayout {
                                             anchors.centerIn: parent
@@ -1044,6 +1053,7 @@ PanelWindow {
                                         Layout.preferredWidth: hFldTxt.implicitWidth + 20
                                         buttonRadius: Appearance.rounding.full
                                         colBackground: Appearance.colors.colLayer3
+                                        visible: !!(modelData.paths && modelData.paths.length > 0)
                                         onClicked: LocalSend.openContainingFolder(modelData.paths[0])
                                         contentItem: RowLayout {
                                             anchors.centerIn: parent
@@ -1068,7 +1078,7 @@ PanelWindow {
                                             MaterialSymbol { text: "content_copy"; iconSize: 13; color: Appearance.colors.colOnLayer0 }
                                             StyledText {
                                                 id: hCpyTxt
-                                                text: (modelData.paths && modelData.paths.length > 1) ? Translation.tr("Copy paths") : Translation.tr("Copy")
+                                                text: modelData.isText ? Translation.tr("Copy text") : ((modelData.paths && modelData.paths.length > 1) ? Translation.tr("Copy paths") : Translation.tr("Copy"))
                                                 font.pixelSize: Appearance.font.pixelSize.smaller
                                                 color: Appearance.colors.colOnLayer0
                                             }

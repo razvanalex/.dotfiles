@@ -223,13 +223,18 @@ Singleton {
                             root.peers = m.peers || [];
                             break;
                         case "inbound":
+                            const isTextInbound = (m.files || []).some(f => f.isText);
+                            const textPreview = (m.files || []).map(f => f.preview).filter(Boolean).join(" ");
                             root.inbound = root.inbound.concat([{
                                 session: m.session,
                                 sender: m.sender || "Unknown",
                                 files: (m.files || []).map(f => ({
                                     id: f.id, fileName: f.fileName, size: f.size,
+                                    fileType: f.fileType, isText: f.isText, preview: f.preview,
                                     status: "pending"
                                 })),
+                                isText: isTextInbound,
+                                text: textPreview,
                                 state: "pending"
                             }]);
                             root._refreshPending();
@@ -250,10 +255,14 @@ Singleton {
                                 s.state = "done";
                                 s.pct = 1;
                                 s.path = m.path;
-                                s.isText = !!m.text;
+                                s.isText = !!m.isText || !!m.text || s.isText;
+                                if (m.text) s.text = m.text;
                                 s.finishedAt = Date.now();
                                 if (!s.savedPaths) s.savedPaths = [];
                                 if (m.path && !s.savedPaths.includes(m.path)) s.savedPaths.push(m.path);
+                                if (s.isText && s.text && s.text.length) {
+                                    Quickshell.clipboardText = s.text;
+                                }
                                 root.recordHistory({
                                     direction: "received",
                                     peer: s.sender || "Unknown",

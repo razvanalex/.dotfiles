@@ -237,6 +237,7 @@ class Handler(BaseHTTPRequestHandler):
             sid = new_sid()
             infos = {fid: {'fileName': fi.get('fileName'), 'size': int(fi.get('size') or 0),
                            'fileType': fi.get('fileType'), 'sha256': fi.get('sha256'),
+                           'preview': fi.get('preview'),
                            'sourceText': ((fi.get('metadata') or {}).get('sourceText')) or fi.get('preview')}
                      for fid, fi in files.items()}
             s = {'sid': sid, 'files': infos, 'tokens': {}, 'sender_ip': self.client_address[0],
@@ -247,7 +248,10 @@ class Handler(BaseHTTPRequestHandler):
                 SESSIONS[sid] = s
             emit({'type': 'inbound', 'session': sid,
                   'sender': (body.get('info') or {}).get('alias'),
-                  'files': [{'id': fid, 'fileName': fi['fileName'], 'size': fi['size']}
+                  'files': [{'id': fid, 'fileName': fi['fileName'], 'size': fi['size'],
+                             'fileType': fi.get('fileType'),
+                             'preview': fi.get('sourceText') or fi.get('preview'),
+                             'isText': fi.get('fileType') == 'text' or fi.get('sourceText') is not None}
                             for fid, fi in infos.items()]})
             if AUTO_ACCEPT:
                 accept_session(sid)
@@ -342,6 +346,15 @@ class Handler(BaseHTTPRequestHandler):
                     feed(c)
                     remaining -= len(c)
             # else: empty body (text payloads carried in preview/sourceText)
+        
+        is_text = fi.get('fileType') == 'text' or fi.get('sourceText') is not None
+        text_content = fi.get('sourceText')
+        if not text_content and is_text and tmp.exists():
+            try:
+                text_content = tmp.read_text(encoding='utf-8', errors='replace')
+            except Exception:
+                pass
+
         if fi.get('sourceText') is not None:
             # LocalSend text share: the content lives in metadata.sourceText; the
             # upload body is empty (Content-Length 0). Save the text and skip the
@@ -355,7 +368,8 @@ class Handler(BaseHTTPRequestHandler):
                 s['written'][fid] = len(fi['sourceText'])
             _mark_finished(sid)
             emit({'type': 'done', 'session': sid, 'fileId': fid, 'path': str(dest),
-                  'fileName': fi['fileName'], 'size': len(fi['sourceText']), 'text': True})
+                  'fileName': fi['fileName'], 'size': len(fi['sourceText']),
+                  'text': fi['sourceText'], 'isText': True})
             tmp.unlink(missing_ok=True)
             self._send(200, {})
             return
@@ -373,7 +387,8 @@ class Handler(BaseHTTPRequestHandler):
             s['written'][fid] = size
         _mark_finished(sid)
         emit({'type': 'done', 'session': sid, 'fileId': fid, 'path': str(dest),
-              'fileName': fi['fileName'], 'size': size})
+              'fileName': fi['fileName'], 'size': size,
+              'text': text_content, 'isText': is_text})
         self._send(200, {})
 
     def log_message(self, *a):
