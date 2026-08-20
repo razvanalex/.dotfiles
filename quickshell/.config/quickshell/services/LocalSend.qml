@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import qs.modules.common
 import qs.modules.common.functions as CF
+import qs
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -72,6 +73,9 @@ Singleton {
                                 state: "pending"
                             }]);
                             root._refreshPending();
+                            // surface it: pop the panel open so the request can be
+                            // accepted without the user having to open it manually
+                            GlobalStates.localsendOpen = true;
                             break;
                         case "accepted":
                             root._mapInbound(m.session, s => s.state = "transferring");
