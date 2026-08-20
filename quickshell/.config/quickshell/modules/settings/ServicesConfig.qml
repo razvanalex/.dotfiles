@@ -80,13 +80,22 @@ ContentPage {
 
         ConfigRow {
             uniform: true
-            MaterialTextArea {
+            StyledComboBox {
                 Layout.fillWidth: true
-                placeholderText: Translation.tr("Device Type (desktop, laptop, mobile)")
-                text: Config.options.localsend.deviceType
-                wrapMode: TextEdit.Wrap
-                onTextChanged: {
-                    Config.options.localsend.deviceType = text;
+                buttonIcon: "devices"
+                textRole: "displayName"
+                model: [
+                    { displayName: Translation.tr("Desktop"), value: "desktop" },
+                    { displayName: Translation.tr("Laptop"), value: "laptop" },
+                    { displayName: Translation.tr("Mobile / Phone"), value: "mobile" },
+                    { displayName: Translation.tr("Headless / Server"), value: "headless" }
+                ]
+                currentIndex: {
+                    const index = model.findIndex(item => item.value === Config.options.localsend.deviceType);
+                    return index !== -1 ? index : 0;
+                }
+                onActivated: index => {
+                    Config.options.localsend.deviceType = model[index].value;
                 }
             }
             MaterialTextArea {
