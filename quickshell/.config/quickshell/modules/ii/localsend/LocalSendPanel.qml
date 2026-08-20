@@ -32,7 +32,12 @@ PanelWindow {
 
     mask: Region { item: card }
 
-    Component.onCompleted: GlobalFocusGrab.addDismissable(root)
+    Component.onCompleted: {
+        GlobalFocusGrab.addDismissable(root);
+        // On auto-open from an inbound, the request is already in the list, so
+        // surface the Receive tab (the popup). Otherwise default to Send.
+        if (LocalSend.inboundPendingCount > 0) tabBar.setCurrentIndex(0);
+    }
     Component.onDestruction: GlobalFocusGrab.removeDismissable(root)
     Connections {
         target: GlobalFocusGrab
@@ -545,13 +550,18 @@ PanelWindow {
         return p > 0 ? Translation.tr("Receive (%1)").arg(p) : Translation.tr("Receive");
     }
 
-    // On a NEW pending request, surface it: switch to the Receive tab so the
-    // incoming Accept/Decline is visible (same as opening the popup).
+    property int _lastInboundCount: LocalSend.inbound.length
+
+    // Surface the Receive tab only on a genuinely NEW request (inbound grows).
+    // The auto-dismiss sweep re-assigns the array every second and progress
+    // events re-assign during a transfer; neither should yank the user off the
+    // Send tab — only an actual new arrival should.
     Connections {
         target: LocalSend
         function onInboundChanged() {
-            const arr = LocalSend.inbound;
-            if (arr.length && arr[arr.length - 1].state === "pending") tabBar.currentIndex = 0;
+            const n = LocalSend.inbound.length;
+            if (n > root._lastInboundCount) tabBar.setCurrentIndex(0);
+            root._lastInboundCount = n;
         }
     }
 
