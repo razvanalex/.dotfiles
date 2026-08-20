@@ -49,6 +49,21 @@ AUTO_ACCEPT = CONFIG['auto_accept'].lower() == 'true'
 DEVICE_TYPE = 'desktop'
 PROTOCOL = 'https'
 
+def _save_dest(fileName):
+    # Resolve a save path inside SAVE_DIR, refusing path traversal (a trusted
+    # peer's fileName may legitimately contain subdirectories for folder shares,
+    # but must not escape the save dir).
+    raw = fileName or 'unnamed'
+    base = Path(SAVE_DIR).resolve()
+    dest = Path(SAVE_DIR) / raw
+    try:
+        inside = str(dest.resolve()).startswith(str(base) + os.sep)
+    except OSError:
+        inside = False
+    if not inside:
+        dest = base / Path(raw).name
+    return dest
+
 # ---- self identity (persistent self-signed cert so fingerprint is stable) ----
 CERT_PEM = CERT_DIR / 'cert.pem'
 KEY_PEM = CERT_DIR / 'key.pem'
@@ -308,7 +323,7 @@ class Handler(BaseHTTPRequestHandler):
             # LocalSend text share: the content lives in metadata.sourceText; the
             # upload body is empty (Content-Length 0). Save the text and skip the
             # body-hash check, which would otherwise mismatch on the empty body.
-            dest = Path(SAVE_DIR) / fi['fileName']
+            dest = _save_dest(fi['fileName'])
             dest.parent.mkdir(parents=True, exist_ok=True)
             if dest.exists():
                 dest = dest.parent / ('%s-%s%s' % (dest.stem, sid[:6], dest.suffix))
@@ -326,7 +341,7 @@ class Handler(BaseHTTPRequestHandler):
                      hasher.hexdigest())
             tmp.unlink(missing_ok=True)
             self._send(422, {'error': 'checksum mismatch'}); return
-        dest = Path(SAVE_DIR) / fi['fileName']
+        dest = _save_dest(fi['fileName'])
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             dest = dest.parent / ('%s-%s%s' % (dest.stem, sid[:6], dest.suffix))
@@ -559,14 +574,29 @@ def _send_one_stream(peer, ctx, session, fid, token, source_file, total):
     conn.close()
     return status, sent
 
-def send_to(peer, paths=(), text=None):
+def _build_send_items(paths):
     items = []
+    def add(path, rel=None):
+        if os.path.isdir(path):
+            # folder share: walk it, keeping the relative structure so the
+            # receiver can recreate subdirectories
+            for root, _dirs, files in os.walk(path):
+                for fn in files:
+                    full = os.path.join(root, fn)
+                    add(full, os.path.relpath(full, path))
+            return
+        name = rel if rel is not None else os.path.basename(path)
+        fi = {'id': uuid.uuid4().hex, 'fileName': name,
+              'size': os.path.getsize(path),
+              'fileType': mimetypes.guess_type(path)[0] or 'application/octet-stream',
+              'sha256': _hash_file(path)}
+        items.append((fi['id'], fi, open(path, 'rb')))
     for p in paths:
-        fi = {'id': uuid.uuid4().hex, 'fileName': Path(p).name,
-              'size': Path(p).stat().st_size,
-              'fileType': mimetypes.guess_type(p)[0] or 'application/octet-stream',
-              'sha256': _hash_file(p)}
-        items.append((fi['id'], fi, open(p, 'rb')))
+        add(p)
+    return items
+
+def send_to(peer, paths=(), text=None):
+    items = _build_send_items(paths)
     if text is not None:
         tb = text.encode('utf-8')
         tid = uuid.uuid4().hex
