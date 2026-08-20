@@ -356,6 +356,7 @@ def main():
         return
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     ensure_cert()
+    log.info('daemon up alias=%s port=%d fp=%s', ALIAS, PORT, FINGERPRINT[:16])
     emit({'type': 'self', 'alias': ALIAS, 'fingerprint': FINGERPRINT, 'port': PORT})
     # UDP discovery
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)

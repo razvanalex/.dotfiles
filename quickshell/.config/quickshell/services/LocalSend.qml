@@ -43,6 +43,12 @@ Singleton {
         onStarted: root.daemonRunning = true
         onExited: (code, status) => root.daemonRunning = false
 
+        // daemon diagnostics (python `logging` + tracebacks) go to stderr; forward
+        // them into the qs log/journal so they sit with the other shell logs.
+        stderr: SplitParser {
+            onRead: line => { if (line.length) print("[localsend]", line) }
+        }
+
         stdout: SplitParser {
             onRead: data => {
                 if (data.length === 0) return;
