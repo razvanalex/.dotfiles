@@ -1,2 +1,0 @@
-- [ ] UI popup very slow
-- [ ] Reset UI popup after timeout
