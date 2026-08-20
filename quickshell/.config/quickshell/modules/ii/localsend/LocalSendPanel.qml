@@ -341,13 +341,7 @@ PanelWindow {
                             }
                         }
                     }
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: stagedModel.count === 0
-                        text: Translation.tr("Pick files, folder, text or paste to stage")
-                        color: Appearance.m3colors.m3onSurfaceVariant
-                        font.pixelSize: Appearance.font.pixelSize.small
-                    }
+                    // (the Send button below covers all three states; no extra hint needed)
                     ListView {
                         Layout.fillWidth: true
                         Layout.preferredHeight: stagedModel.count > 0 ? Math.min(stagedModel.count * 30 + 4, 130) : 0
