@@ -15,6 +15,13 @@ import Quickshell.Hyprland
 Scope {
     id: root
 
+    // Always-on receive/discovery: force the LocalSend service (and its daemon)
+    // to instantiate at shell startup — not only when the panel opens — so files
+    // can arrive and be accepted even with the panel closed.
+    Component.onCompleted: {
+        void LocalSend.selfAlias;   // touch the singleton → creates it + daemon
+    }
+
     Loader {
         id: panelLoader
         active: GlobalStates.localsendOpen

@@ -398,7 +398,9 @@ def accept_session(sid):
     return _decide(sid, 'accept')
 
 def decline_session(sid):
-    return _decide(sid, 'decline')
+    ok = _decide(sid, 'decline')
+    emit({'type': 'declined', 'session': sid})
+    return ok
 
 def cancel_session(sid):
     with SESSIONS_LOCK:
@@ -409,7 +411,8 @@ def cancel_session(sid):
         s['cancelled'] = True
         s['finished'] = time.time()
         s['decision_event'].set()
-        return True
+    emit({'type': 'declined', 'session': sid})
+    return True
 
 def _mark_finished(sid):
     with SESSIONS_LOCK:
