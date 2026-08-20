@@ -34,9 +34,11 @@ PanelWindow {
 
     Component.onCompleted: {
         GlobalFocusGrab.addDismissable(root);
-        // On auto-open from an inbound, the request is already in the list, so
-        // surface the Receive tab (the popup). Otherwise default to Send.
-        if (LocalSend.inboundPendingCount > 0) tabBar.setCurrentIndex(0);
+        // ToolbarTabBar's active pill isn't painted on first layout (its
+        // indicator starts undefined); nudge the index so it renders, then land
+        // on the right tab: Receive if something is pending (auto-open), else Send.
+        tabBar.setCurrentIndex(tabBar.currentIndex === 1 ? 0 : 1);
+        tabBar.setCurrentIndex(LocalSend.inboundPendingCount > 0 ? 0 : 1);
     }
     Component.onDestruction: GlobalFocusGrab.removeDismissable(root)
     Connections {
