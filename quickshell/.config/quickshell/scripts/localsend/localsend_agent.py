@@ -119,17 +119,24 @@ def advertise_body(announce=True):
             'deviceType': DEVICE_TYPE, 'fingerprint': FINGERPRINT, 'port': PORT,
             'protocol': PROTOCOL, 'announce': announce}
 
-# ---- multicast UDP: listen for announces + periodic self-announce ----
-def unicast_register(ip, port, info):
-    # HTTP register reply to a peer that announced to us
-    url = 'http://%s:%s/api/localsend/v2/register' % (ip, port)
+# ---- multicast & broadcast UDP: listen for announces + periodic self-announce ----
+def unicast_register(ip, port, info, protocol='https'):
+    # HTTP/HTTPS register reply to a peer that announced to us
+    scheme = protocol or 'https'
+    url = f"{scheme}://{ip}:{port}/api/localsend/v2/register"
     data = json.dumps(info).encode()
     req = urllib.request.Request(url, data=data, method='POST',
                                  headers={'Content-Type': 'application/json'})
     try:
-        with urllib.request.urlopen(req, timeout=2) as r:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        if CERT_PEM.exists() and KEY_PEM.exists():
+            ctx.load_cert_chain(str(CERT_PEM), str(KEY_PEM))
+        with urllib.request.urlopen(req, context=ctx if scheme == 'https' else None, timeout=3) as r:
             return r.status
-    except Exception:
+    except Exception as e:
+        log.debug('unicast_register to %s failed: %r', ip, e)
         return None
 
 def udp_listener(sock):
@@ -147,19 +154,29 @@ def udp_listener(sock):
         peers = upsert_peer(info, addr[0])
         # tell the announcing origin about us (two-way discovery)
         if info.get('announce') is True:
-            unicast_register(addr[0], int(info.get('port') or PORT), advertise_body(False))
+            proto = info.get('protocol', 'https')
+            threading.Thread(target=unicast_register,
+                             args=(addr[0], int(info.get('port') or PORT), advertise_body(False), proto),
+                             daemon=True).start()
         emit({'type': 'peers', 'peers': peers})
 
-def udp_announcer(sock, ttl=10):
+def udp_announcer(sock, ttl=5):
     mreq = socket.inet_aton(GROUP) + socket.inet_aton('0.0.0.0')
     try:
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
     except OSError as e:
         log.warning('add membership failed: %r', e)
     payload = json.dumps(advertise_body(True)).encode()
     while True:
+        # 1) Multicast to group (standard LocalSend)
         try:
             sock.sendto(payload, (GROUP, PORT))
+        except OSError:
+            pass
+        # 2) Subnet broadcast (critical for iOS/routers that drop multicast)
+        try:
+            sock.sendto(payload, ('<broadcast>', PORT))
         except OSError:
             pass
         time.sleep(ttl)
@@ -432,6 +449,7 @@ def main():
     # UDP discovery
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     try:
         udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     except (AttributeError, OSError):
