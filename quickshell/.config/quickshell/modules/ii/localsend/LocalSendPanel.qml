@@ -199,10 +199,10 @@ PanelWindow {
                 wrapMode: Text.Wrap
             }
 
-            // peer picker (inline list, no Qt popup)
+            // peer picker: richer device cards (icon, badges, info), no Qt popup
             ListView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 30 + 8, 140) : 0
+                Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 48 + 8, 220) : 0
                 clip: true
                 spacing: 4
                 visible: LocalSend.peers.length > 0
@@ -212,69 +212,178 @@ PanelWindow {
                     width: ListView.view.width
                     radius: Appearance.rounding.small
                     color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3primaryContainer : Appearance.colors.colLayer3
-                    implicitHeight: 26
+                    implicitHeight: 44
                     MouseArea {
                         anchors.fill: parent
                         onClicked: root.selectedPeer = modelData
                     }
-                    StyledText {
-                        anchors.left: parent.left
+                    RowLayout {
+                        anchors.fill: parent
                         anchors.leftMargin: 10
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: (modelData.alias || modelData.ip) + (modelData.alias ? " · " + modelData.ip : "")
-                        color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer0
-                        font.pixelSize: Appearance.font.pixelSize.small
+                        anchors.rightMargin: 6
+                        spacing: 8
+                        MaterialSymbol {
+                            Layout.preferredWidth: 20; Layout.preferredHeight: 20
+                            iconSize: 18
+                            text: root.peerIcon(modelData.deviceType || "")
+                            color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            StyledText {
+                                Layout.fillWidth: true
+                                text: modelData.alias || modelData.ip
+                                color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer0
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                elide: Text.ElideRight
+                            }
+                            // badges: protocol + device
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+                                Rectangle {
+                                    Layout.preferredHeight: 15
+                                    Layout.preferredWidth: protoTxt.implicitWidth + 8
+                                    radius: 8
+                                    color: Appearance.colors.colLayer4
+                                    StyledText {
+                                        id: protoTxt
+                                        anchors.centerIn: parent
+                                        text: (modelData.protocol || "https").toUpperCase()
+                                        font.pixelSize: 9
+                                        color: Appearance.colors.colOnLayer0
+                                    }
+                                }
+                                Rectangle {
+                                    visible: root.peerModel(modelData).length > 0
+                                    Layout.preferredHeight: 15
+                                    Layout.preferredWidth: devTxt.implicitWidth + 8
+                                    radius: 8
+                                    color: Appearance.colors.colLayer4
+                                    StyledText {
+                                        id: devTxt
+                                        anchors.centerIn: parent
+                                        text: root.peerModel(modelData)
+                                        font.pixelSize: 9
+                                        color: Appearance.colors.colOnLayer0
+                                    }
+                                }
+                            }
+                        }
+                        // info button
+                        RippleButton {
+                            Layout.preferredWidth: 24; Layout.preferredHeight: 24
+                            buttonRadius: Appearance.rounding.full
+                            colBackground: "transparent"
+                            onClicked: {
+                                const fp = modelData.fingerprint || "";
+                                root.transientMessage = Translation.tr("%1 · %2:%3 · fp %4…")
+                                    .arg(modelData.alias || modelData.ip).arg(modelData.ip)
+                                    .arg(modelData.port || 53317).arg(fp.slice(0, 12));
+                            }
+                            contentItem: MaterialSymbol {
+                                anchors.centerIn: parent
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "info"; iconSize: 16
+                                color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
+                            }
+                        }
                     }
                 }
             }
 
-            RippleButton {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 30
-                buttonRadius: Appearance.rounding.full
-                colBackground: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.colors.colLayer3
-                enabled: !!root.selectedPeer
-                onClicked: root.pickTextPayload()
-                contentItem: StyledText {
-                    horizontalAlignment: Text.AlignHCenter
-                    text: root.selectedPeer ? Translation.tr("Send clipboard text to %1").arg(root.selectedPeer.alias || root.selectedPeer.ip) : Translation.tr("Select a device first")
-                    font.pixelSize: Appearance.font.pixelSize.small
-                    color: root.selectedPeer ? "white" : Appearance.colors.colOnLayer0
-                }
-            }
-
-            // file / folder sending (portal file chooser)
+            // send selection: tile buttons (File / Folder / Text)
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                RippleButton {
+                Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 28
-                    buttonRadius: Appearance.rounding.full
-                    colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                    enabled: !!root.selectedPeer
-                    onClicked: LocalSend.pickAndSend(root.selectedPeer, true)
-                    contentItem: StyledText {
-                        horizontalAlignment: Text.AlignHCenter
-                        text: Translation.tr("Send files…")
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colOnLayer0
+                    Layout.preferredHeight: 52
+                    RippleButton {
+                        anchors.fill: parent
+                        buttonRadius: Appearance.rounding.small
+                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                        enabled: !!root.selectedPeer
+                        onClicked: LocalSend.pickAndSend(root.selectedPeer, true)
+                    }
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 2
+                        MaterialSymbol {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "upload_file"; iconSize: 18
+                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        StyledText {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: Translation.tr("File")
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer0
+                        }
                     }
                 }
-                RippleButton {
+                Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 28
-                    buttonRadius: Appearance.rounding.full
-                    colBackground: Appearance.colors.colLayer3
-                    enabled: !!root.selectedPeer
-                    onClicked: LocalSend.pickAndSend(root.selectedPeer, false)
-                    contentItem: StyledText {
-                        horizontalAlignment: Text.AlignHCenter
-                        text: Translation.tr("Send folder…")
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colOnLayer0
+                    Layout.preferredHeight: 52
+                    RippleButton {
+                        anchors.fill: parent
+                        buttonRadius: Appearance.rounding.small
+                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                        enabled: !!root.selectedPeer
+                        onClicked: LocalSend.pickAndSend(root.selectedPeer, false)
+                    }
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 2
+                        MaterialSymbol {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "create_new_folder"; iconSize: 18
+                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        StyledText {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: Translation.tr("Folder")
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer0
+                        }
                     }
                 }
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 52
+                    RippleButton {
+                        anchors.fill: parent
+                        buttonRadius: Appearance.rounding.small
+                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                        enabled: !!root.selectedPeer
+                        onClicked: root.pickTextPayload()
+                    }
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 2
+                        MaterialSymbol {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "content_paste"; iconSize: 18
+                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        StyledText {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: Translation.tr("Text")
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer0
+                        }
+                    }
+                }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: !root.selectedPeer
+                text: Translation.tr("Select a device to send to")
+                color: Appearance.m3colors.m3onSurfaceVariant
+                font.pixelSize: Appearance.font.pixelSize.small
+                horizontalAlignment: Text.AlignHCenter
             }
 
             // outbound transfer progress
@@ -353,6 +462,22 @@ PanelWindow {
 
     property var selectedPeer: null
     property string transientMessage: ""
+
+    // Material Symbol glyph for a peer's device type.
+    function peerIcon(type) {
+        if (type === "mobile" || type === "phone") return "smartphone";
+        if (type === "desktop" || type === "laptop") return "laptop";
+        return "devices";
+    }
+
+    // Human label for the device badge: prefer the announced model ("Linux",
+    // "iPhone …"), fall back to a mapped device type.
+    function peerModel(peer) {
+        if (peer.deviceModel) return peer.deviceModel;
+        if (peer.deviceType === "mobile" || peer.deviceType === "phone") return "Phone";
+        if (peer.deviceType === "desktop") return "Desktop";
+        return "";
+    }
 
     // Send the current clipboard text to the selected peer.
     function pickTextPayload() {

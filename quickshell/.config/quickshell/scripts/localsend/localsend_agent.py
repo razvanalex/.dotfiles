@@ -82,7 +82,9 @@ def upsert_peer(info, ip):
                        'port': int(info.get('port') or PORT),
                        'protocol': info.get('protocol', 'https'),
                        'fingerprint': info.get('fingerprint'),
-                       'deviceType': info.get('deviceType'), 't': time.time()}
+                       'deviceType': info.get('deviceType'),
+                       'deviceModel': info.get('deviceModel'),
+                       't': time.time()}
         return list(_peers.values())
 
 def prune_peers(ttl=300):
