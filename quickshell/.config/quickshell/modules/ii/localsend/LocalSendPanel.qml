@@ -121,13 +121,14 @@ PanelWindow {
                 }
             }
 
-            // tab bar: Receive / Send (same pill style as the sidebar panes)
+            // tab bar: Receive / Send / History (same pill style as the sidebar panes)
             ToolbarTabBar {
                 id: tabBar
                 Layout.alignment: Qt.AlignHCenter
                 tabButtonList: [
                     { "icon": "wifi", "name": root.receiveTabName },
-                    { "icon": "send", "name": Translation.tr("Send") }
+                    { "icon": "send", "name": Translation.tr("Send") },
+                    { "icon": "history", "name": Translation.tr("History") }
                 ]
                 currentIndex: 0
             }
@@ -135,7 +136,11 @@ PanelWindow {
             // StackLayout or swipe area for the tabs
             Item {
                 Layout.fillWidth: true
-                implicitHeight: (tabBar.currentIndex === 0 ? recvPage.implicitHeight : sendPage.implicitHeight) + 4
+                implicitHeight: {
+                    if (tabBar.currentIndex === 0) return recvPage.implicitHeight + 4;
+                    if (tabBar.currentIndex === 1) return sendPage.implicitHeight + 4;
+                    return historyPage.implicitHeight + 4;
+                }
                 Behavior on implicitHeight {
                     animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
                 }
@@ -856,6 +861,220 @@ PanelWindow {
                                 color: Appearance.m3colors.m3error
                                 font.pixelSize: Appearance.font.pixelSize.small
                                 wrapMode: Text.Wrap
+                            }
+                        }
+                    }
+                }
+
+                // ===================== HISTORY PAGE =====================
+                ColumnLayout {
+                    id: historyPage
+                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                    visible: tabBar.currentIndex === 2
+                    spacing: 8
+
+                    // Header / clear row
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: LocalSend.history && LocalSend.history.length > 0
+                        StyledText {
+                            text: Translation.tr("Recent Transfers (%1)").arg(LocalSend.history.length)
+                            color: Appearance.colors.colOnLayer0
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            font.weight: Font.Medium
+                        }
+                        Item { Layout.fillWidth: true }
+                        RippleButton {
+                            Layout.preferredHeight: 22
+                            Layout.preferredWidth: 60
+                            buttonRadius: Appearance.rounding.full
+                            colBackground: "transparent"
+                            onClicked: LocalSend.clearHistory()
+                            contentItem: StyledText {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: Translation.tr("Clear"); color: Appearance.m3colors.m3error
+                                font.pixelSize: Appearance.font.pixelSize.small
+                            }
+                        }
+                    }
+
+                    // Empty banner
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: !LocalSend.history || LocalSend.history.length === 0
+                        spacing: 4
+                        Layout.topMargin: 16
+                        Layout.bottomMargin: 16
+
+                        MaterialSymbol {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "history"
+                            iconSize: 32
+                            color: Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: Translation.tr("No transfer history yet")
+                            color: Appearance.colors.colOnLayer0
+                            font.pixelSize: Appearance.font.pixelSize.normal
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: Translation.tr("Transfers you send and receive will appear here")
+                            color: Appearance.m3colors.m3onSurfaceVariant
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+
+                    // History list
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: (LocalSend.history && LocalSend.history.length > 0) ? Math.min(contentHeight + 8, 380) : 0
+                        clip: true
+                        spacing: 8
+                        visible: LocalSend.history && LocalSend.history.length > 0
+                        reuseItems: true
+                        cacheBuffer: 400
+                        model: LocalSend.history
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: ListView.view.width
+                            color: Appearance.colors.colLayer2
+                            radius: Appearance.rounding.small
+                            implicitHeight: histInner.implicitHeight + 20
+
+                            ColumnLayout {
+                                id: histInner
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 6
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    MaterialSymbol {
+                                        text: modelData.direction === "received" ? "call_received" : "call_made"
+                                        iconSize: 16
+                                        color: modelData.direction === "received" ? "#4caf50" : Appearance.m3colors.m3primary
+                                    }
+                                    StyledText {
+                                        text: modelData.peer || Translation.tr("Unknown")
+                                        color: Appearance.colors.colOnLayer0
+                                        font.pixelSize: Appearance.font.pixelSize.normal
+                                        font.weight: Font.Medium
+                                        elide: Text.ElideRight
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    StyledText {
+                                        text: {
+                                            if (modelData.status === "declined") return Translation.tr("Declined");
+                                            if (modelData.status === "error") return Translation.tr("Failed");
+                                            return modelData.direction === "received" ? Translation.tr("Saved") : Translation.tr("Sent");
+                                        }
+                                        color: modelData.status === "error" || modelData.status === "declined"
+                                            ? Appearance.m3colors.m3error
+                                            : (modelData.direction === "received" ? "#4caf50" : Appearance.m3colors.m3primary)
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        font.weight: Font.DemiBold
+                                    }
+                                    StyledText {
+                                        text: CF.NotificationUtils.getFriendlyNotifTimeString(modelData.timestamp)
+                                        color: Appearance.m3colors.m3onSurfaceVariant
+                                        font.pixelSize: Appearance.font.pixelSize.smaller
+                                    }
+                                    RippleButton {
+                                        Layout.preferredWidth: 20; Layout.preferredHeight: 20
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: "transparent"
+                                        onClicked: LocalSend.deleteHistoryItem(modelData.id)
+                                        contentItem: MaterialSymbol {
+                                            anchors.centerIn: parent
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: "close"; iconSize: 14
+                                            color: Appearance.m3colors.m3onSurfaceVariant
+                                        }
+                                    }
+                                }
+
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: (modelData.files && modelData.files.length) ? modelData.files.join(", ") : (modelData.text || "")
+                                    color: Appearance.m3colors.m3onSurfaceVariant
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    elide: Text.ElideRight
+                                    visible: !!text.length
+                                }
+
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    visible: modelData.status === "error" && !!modelData.error
+                                    text: modelData.error || ""
+                                    color: Appearance.m3colors.m3error
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    wrapMode: Text.Wrap
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: modelData.status === "done" && (modelData.paths && modelData.paths.length > 0)
+                                    spacing: 6
+                                    Item { Layout.fillWidth: true }
+                                    RippleButton {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: hOpenTxt.implicitWidth + 20
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.colors.colLayer3
+                                        onClicked: LocalSend.openItem(modelData)
+                                        contentItem: RowLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+                                            MaterialSymbol { text: "visibility"; iconSize: 13; color: Appearance.colors.colOnLayer0 }
+                                            StyledText {
+                                                id: hOpenTxt
+                                                text: (modelData.paths && modelData.paths.length > 1) ? Translation.tr("Open all") : Translation.tr("Open")
+                                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                                color: Appearance.colors.colOnLayer0
+                                            }
+                                        }
+                                    }
+                                    RippleButton {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: hFldTxt.implicitWidth + 20
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.colors.colLayer3
+                                        onClicked: LocalSend.openContainingFolder(modelData.paths[0])
+                                        contentItem: RowLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+                                            MaterialSymbol { text: "folder_open"; iconSize: 13; color: Appearance.colors.colOnLayer0 }
+                                            StyledText { id: hFldTxt; text: Translation.tr("Folder"); font.pixelSize: Appearance.font.pixelSize.smaller; color: Appearance.colors.colOnLayer0 }
+                                        }
+                                    }
+                                    RippleButton {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: hCpyTxt.implicitWidth + 20
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.colors.colLayer3
+                                        onClicked: {
+                                            if (LocalSend.copyReceivedItem(modelData)) {
+                                                root.setTransient(Translation.tr("Copied to clipboard!"));
+                                            }
+                                        }
+                                        contentItem: RowLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+                                            MaterialSymbol { text: "content_copy"; iconSize: 13; color: Appearance.colors.colOnLayer0 }
+                                            StyledText {
+                                                id: hCpyTxt
+                                                text: (modelData.paths && modelData.paths.length > 1) ? Translation.tr("Copy paths") : Translation.tr("Copy")
+                                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                                color: Appearance.colors.colOnLayer0
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

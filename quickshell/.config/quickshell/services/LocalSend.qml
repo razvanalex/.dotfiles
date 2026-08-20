@@ -254,6 +254,15 @@ Singleton {
                                 s.finishedAt = Date.now();
                                 if (!s.savedPaths) s.savedPaths = [];
                                 if (m.path && !s.savedPaths.includes(m.path)) s.savedPaths.push(m.path);
+                                root.recordHistory({
+                                    direction: "received",
+                                    peer: s.sender || "Unknown",
+                                    status: "done",
+                                    files: (s.files || []).map(f => f.fileName),
+                                    paths: s.savedPaths.slice(),
+                                    text: s.text || "",
+                                    isText: !!s.isText
+                                });
                             });
                             root._refreshPending();
                             break;
@@ -261,6 +270,12 @@ Singleton {
                             root._mapInbound(m.session, s => {
                                 s.state = "declined";
                                 s.finishedAt = Date.now();
+                                root.recordHistory({
+                                    direction: "received",
+                                    peer: s.sender || "Unknown",
+                                    status: "declined",
+                                    files: (s.files || []).map(f => f.fileName)
+                                });
                             });
                             root._refreshPending();
                             break;
@@ -284,6 +299,16 @@ Singleton {
                 root.sendTransfer = Object.assign({}, root.sendTransfer, {
                     state: "done",
                     pct: 1
+                });
+                const peerNames = (root.lastSendPeers || []).map(p => p.alias || p.ip).join(", ");
+                root.recordHistory({
+                    direction: "sent",
+                    peer: peerNames || "Unknown",
+                    status: "done",
+                    files: (root.lastSendPaths || []).map(p => p.split("/").pop()),
+                    paths: (root.lastSendPaths || []).slice(),
+                    text: root.lastSendText || "",
+                    isText: !!(root.lastSendText && root.lastSendText.length)
                 });
                 sendDoneTimer.restart();
             }
@@ -340,6 +365,14 @@ Singleton {
                                 message: (m.peer ? (m.peer + ": ") : "") + errMsg,
                                 pct: 0
                             });
+                            root.recordHistory({
+                                direction: "sent",
+                                peer: (m.peer || (root.lastSendPeers || []).map(p => p.alias || p.ip).join(", ") || "Unknown"),
+                                status: "error",
+                                error: errMsg || "Failed",
+                                files: (root.lastSendPaths || []).map(p => p.split("/").pop()),
+                                text: root.lastSendText || ""
+                            });
                             if (errMsg && (errMsg.indexOf("PIN") !== -1 || errMsg.indexOf("401") !== -1)) {
                                 let found = null;
                                 if (m.ip && root.lastSendPeers) {
@@ -353,6 +386,16 @@ Singleton {
                                 root.sendTransfer = Object.assign({}, root.sendTransfer, {
                                     state: "done",
                                     pct: 1
+                                });
+                                const pNames = (root.lastSendPeers || []).map(p => p.alias || p.ip).join(", ");
+                                root.recordHistory({
+                                    direction: "sent",
+                                    peer: pNames || "Unknown",
+                                    status: "done",
+                                    files: (root.lastSendPaths || []).map(p => p.split("/").pop()),
+                                    paths: (root.lastSendPaths || []).slice(),
+                                    text: root.lastSendText || "",
+                                    isText: !!(root.lastSendText && root.lastSendText.length)
                                 });
                                 sendDoneTimer.restart();
                             }
@@ -541,5 +584,48 @@ Singleton {
             Quickshell.clipboardText = paths.join("\n");
         }
         return true;
+    }
+
+    // ---- transfer history persistence ----
+    property var history: []
+
+    FileView {
+        id: historyFileView
+        path: Qt.resolvedUrl(Directories.localsendHistoryPath)
+        onLoaded: {
+            try {
+                const text = historyFileView.text();
+                root.history = text ? JSON.parse(text) : [];
+            } catch (e) {
+                root.history = [];
+            }
+        }
+        onLoadFailed: error => {
+            root.history = [];
+            historyFileView.setText("[]");
+        }
+    }
+
+    function recordHistory(entry) {
+        if (!entry) return;
+        const record = Object.assign({
+            id: Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+            timestamp: Date.now()
+        }, entry);
+        const next = [record].concat((root.history || []).slice(0, 99));
+        root.history = next;
+        historyFileView.setText(JSON.stringify(next));
+    }
+
+    function clearHistory() {
+        root.history = [];
+        historyFileView.setText("[]");
+    }
+
+    function deleteHistoryItem(id) {
+        if (!id) return;
+        const next = (root.history || []).filter(h => h.id !== id);
+        root.history = next;
+        historyFileView.setText(JSON.stringify(next));
     }
 }
