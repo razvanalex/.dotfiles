@@ -6,6 +6,7 @@ import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -46,8 +47,17 @@ PanelWindow {
         function onDismissed() { GlobalStates.localsendOpen = false }
     }
 
-    StyledRectangularShadow {
-        target: card
+    // Non-cached shadow: the shared StyledRectangularShadow uses cached:true,
+    // which leaves a stale dark rectangle below the card whenever it resizes
+    // (tab switch, queue add/remove). cached:false re-renders on every resize.
+    RectangularShadow {
+        anchors.fill: card
+        radius: card.radius
+        blur: 0.9 * Appearance.sizes.elevationMargin
+        offset: Qt.vector2d(0.0, 1.0)
+        spread: 1
+        color: Appearance.colors.colShadow
+        cached: false
     }
 
     Rectangle {
@@ -104,7 +114,7 @@ PanelWindow {
             // content: two pages (Receive / Send), active page drives height
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.max(receivePage.implicitHeight, sendPage.implicitHeight, 140)
+                Layout.preferredHeight: tabBar.currentIndex === 0 ? receivePage.implicitHeight : sendPage.implicitHeight
                 clip: true
 
                 ColumnLayout {
