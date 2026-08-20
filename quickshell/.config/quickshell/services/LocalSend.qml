@@ -495,6 +495,14 @@ Singleton {
         ctlProc.running = true;
     }
 
+    function openItem(item) {
+        if (!item) return;
+        const paths = (item.savedPaths && item.savedPaths.length) ? item.savedPaths : (item.path ? [item.path] : []);
+        for (let i = 0; i < paths.length; i++) {
+            Quickshell.execDetached(["xdg-open", paths[i]]);
+        }
+    }
+
     function openPath(path) {
         if (!path || !path.length) return;
         Quickshell.execDetached(["xdg-open", path]);
@@ -519,13 +527,18 @@ Singleton {
             Quickshell.clipboardText = item.text;
             return true;
         }
-        const path = item.path || (item.savedPaths && item.savedPaths[0]);
-        if (!path) return false;
-        const ext = path.split(".").pop().toLowerCase();
-        if (["png", "jpg", "jpeg", "webp", "gif", "bmp"].includes(ext)) {
-            Quickshell.execDetached(["bash", "-c", `wl-copy -t image/png < "${path}" || wl-copy < "${path}"`]);
+        const paths = (item.savedPaths && item.savedPaths.length) ? item.savedPaths : (item.path ? [item.path] : []);
+        if (!paths.length) return false;
+        if (paths.length === 1) {
+            const p = paths[0];
+            const ext = p.split(".").pop().toLowerCase();
+            if (["png", "jpg", "jpeg", "webp", "gif", "bmp"].includes(ext)) {
+                Quickshell.execDetached(["bash", "-c", `wl-copy -t image/png < "${p}" || wl-copy < "${p}"`]);
+            } else {
+                Quickshell.clipboardText = p;
+            }
         } else {
-            Quickshell.clipboardText = path;
+            Quickshell.clipboardText = paths.join("\n");
         }
         return true;
     }

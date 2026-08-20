@@ -183,9 +183,9 @@ PanelWindow {
 
                     ListView {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 106 + 8, 300) : 0
+                        Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(contentHeight + 8, 360) : 0
                         clip: true
-                        spacing: 6
+                        spacing: 8
                         visible: LocalSend.inbound.length > 0
                         reuseItems: true
                         cacheBuffer: 400
@@ -195,19 +195,19 @@ PanelWindow {
                             width: ListView.view.width
                             color: Appearance.colors.colLayer2
                             radius: Appearance.rounding.small
-                            // deterministic height per state so the actions row is never clipped
-                            implicitHeight: (modelData.state === "pending" || modelData.state === "done") ? 104 : 76
+                            implicitHeight: inner.implicitHeight + 20
                             ColumnLayout {
                                 id: inner
                                 anchors.fill: parent
-                                anchors.margins: 8
-                                spacing: 6
+                                anchors.margins: 10
+                                spacing: 8
                                 RowLayout {
                                     Layout.fillWidth: true
                                     StyledText {
                                         text: modelData.sender
                                         color: Appearance.colors.colOnLayer0
                                         font.pixelSize: Appearance.font.pixelSize.normal
+                                        font.weight: Font.Medium
                                         elide: Text.ElideRight
                                     }
                                     Item { Layout.fillWidth: true }
@@ -223,6 +223,7 @@ PanelWindow {
                                              : modelData.state === "declined" ? Appearance.m3colors.m3error
                                              : Appearance.m3colors.m3onSurfaceVariant
                                         font.pixelSize: Appearance.font.pixelSize.small
+                                        font.weight: Font.DemiBold
                                     }
                                 }
                                 StyledText {
@@ -237,7 +238,7 @@ PanelWindow {
                                     Layout.preferredHeight: 4
                                     radius: 2
                                     color: Appearance.colors.colLayer4
-                                    opacity: modelData.state === "transferring" ? 1 : 0
+                                    visible: modelData.state === "transferring"
                                     Rectangle {
                                         width: parent.width * Math.max(0, Math.min(1, modelData.pct || 0))
                                         height: parent.height
@@ -248,26 +249,27 @@ PanelWindow {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     visible: modelData.state === "pending"
+                                    spacing: 8
                                     Item { Layout.fillWidth: true }
                                     RippleButton {
-                                        Layout.preferredWidth: 60; Layout.preferredHeight: 26
+                                        Layout.preferredWidth: 64; Layout.preferredHeight: 28
                                         buttonRadius: Appearance.rounding.full
                                         colBackground: Appearance.m3colors.m3error
                                         onClicked: LocalSend.declineRequest(modelData.session)
                                         contentItem: StyledText {
                                             horizontalAlignment: Text.AlignHCenter
-                                            text: "Decline"; color: "white"
+                                            text: Translation.tr("Decline"); color: "white"
                                             font.pixelSize: Appearance.font.pixelSize.small
                                         }
                                     }
                                     RippleButton {
-                                        Layout.preferredWidth: 60; Layout.preferredHeight: 26
+                                        Layout.preferredWidth: 64; Layout.preferredHeight: 28
                                         buttonRadius: Appearance.rounding.full
                                         colBackground: Appearance.m3colors.m3primary
                                         onClicked: LocalSend.acceptRequest(modelData.session)
                                         contentItem: StyledText {
                                             horizontalAlignment: Text.AlignHCenter
-                                            text: "Accept"; color: "white"
+                                            text: Translation.tr("Accept"); color: "white"
                                             font.pixelSize: Appearance.font.pixelSize.small
                                         }
                                     }
@@ -275,27 +277,32 @@ PanelWindow {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     visible: modelData.state === "done"
-                                    spacing: 6
+                                    spacing: 8
                                     Item { Layout.fillWidth: true }
                                     RippleButton {
-                                        Layout.preferredHeight: 26
+                                        Layout.preferredHeight: 28
                                         Layout.preferredWidth: openTxt.implicitWidth + 24
                                         buttonRadius: Appearance.rounding.full
-                                        colBackground: Appearance.colors.colLayer4
-                                        onClicked: LocalSend.openPath(modelData.path)
+                                        colBackground: Appearance.colors.colLayer3
+                                        onClicked: LocalSend.openItem(modelData)
                                         contentItem: RowLayout {
                                             anchors.centerIn: parent
                                             spacing: 4
                                             MaterialSymbol { text: "visibility"; iconSize: 14; color: Appearance.colors.colOnLayer0 }
-                                            StyledText { id: openTxt; text: Translation.tr("Open"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                                            StyledText {
+                                                id: openTxt
+                                                text: (modelData.savedPaths && modelData.savedPaths.length > 1) ? Translation.tr("Open all") : Translation.tr("Open")
+                                                font.pixelSize: Appearance.font.pixelSize.small
+                                                color: Appearance.colors.colOnLayer0
+                                            }
                                         }
                                     }
                                     RippleButton {
-                                        Layout.preferredHeight: 26
+                                        Layout.preferredHeight: 28
                                         Layout.preferredWidth: fldTxt.implicitWidth + 24
                                         buttonRadius: Appearance.rounding.full
-                                        colBackground: Appearance.colors.colLayer4
-                                        onClicked: LocalSend.openContainingFolder(modelData.path)
+                                        colBackground: Appearance.colors.colLayer3
+                                        onClicked: LocalSend.openContainingFolder(modelData.path || (modelData.savedPaths && modelData.savedPaths[0]))
                                         contentItem: RowLayout {
                                             anchors.centerIn: parent
                                             spacing: 4
@@ -304,10 +311,10 @@ PanelWindow {
                                         }
                                     }
                                     RippleButton {
-                                        Layout.preferredHeight: 26
+                                        Layout.preferredHeight: 28
                                         Layout.preferredWidth: cpyTxt.implicitWidth + 24
                                         buttonRadius: Appearance.rounding.full
-                                        colBackground: Appearance.colors.colLayer4
+                                        colBackground: Appearance.colors.colLayer3
                                         onClicked: {
                                             if (LocalSend.copyReceivedItem(modelData)) {
                                                 root.setTransient(Translation.tr("Copied to clipboard!"));
@@ -317,7 +324,12 @@ PanelWindow {
                                             anchors.centerIn: parent
                                             spacing: 4
                                             MaterialSymbol { text: "content_copy"; iconSize: 14; color: Appearance.colors.colOnLayer0 }
-                                            StyledText { id: cpyTxt; text: Translation.tr("Copy"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                                            StyledText {
+                                                id: cpyTxt
+                                                text: (modelData.savedPaths && modelData.savedPaths.length > 1) ? Translation.tr("Copy paths") : Translation.tr("Copy")
+                                                font.pixelSize: Appearance.font.pixelSize.small
+                                                color: Appearance.colors.colOnLayer0
+                                            }
                                         }
                                     }
                                 }
