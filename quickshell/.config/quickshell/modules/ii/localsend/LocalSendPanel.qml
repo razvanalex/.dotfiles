@@ -17,18 +17,22 @@ PanelWindow {
     screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? null
     WlrLayershell.namespace: "quickshell:localsend"
     WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusionMode: ExclusionMode.Ignore
     exclusiveZone: 0
     color: "transparent"
     property real panelWidth: 440
-    anchors { top: true; left: true }
-    margins {
-        top: Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
-        left: ((root.screen?.width ?? 1920) - panelWidth) / 2
+
+    anchors {
+        top: true
+        bottom: true
+        left: true
+        right: true
     }
 
-    implicitWidth: panelWidth
-    implicitHeight: card.implicitHeight + 24   // content-fit; card animates (search pattern)
+    mask: Region {
+        item: card
+    }
 
     Component.onCompleted: {
         GlobalFocusGrab.addDismissable(root);
@@ -44,20 +48,22 @@ PanelWindow {
         function onDismissed() { GlobalStates.localsendOpen = false }
     }
 
-    // Cached shadow is fine here because the height is ANIMATED (the cache
-    // recomputes each frame). Non-cached re-blurs every animation frame and
-    // worsens the expand stutter; cached matches the search widget.
     StyledRectangularShadow {
         target: card
     }
 
     Rectangle {
         id: card
-        anchors { top: parent.top; left: parent.left; right: parent.right }
+        width: root.panelWidth
+        anchors {
+            top: parent.top
+            horizontalCenter: parent.horizontalCenter
+            topMargin: (Config?.options.bar.vertical ?? false) ? Appearance.sizes.hyprlandGapsOut : Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
+        }
         clip: true
         implicitHeight: col.implicitHeight + 24
-        // Content-fit with a SMOOTH height animation — mirrors the search
-        // widget, so the layer surface resize is clean (no leftover/stutter).
+        // Content-fit with smooth height animation within the static full-screen
+        // layer surface (matches search/clipboard widgets).
         Behavior on implicitHeight {
             animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
         }
@@ -73,6 +79,7 @@ PanelWindow {
             // header
             RowLayout {
                 Layout.fillWidth: true
+                spacing: 8
                 MaterialSymbol { text: "near_me"; iconSize: 22; color: Appearance.m3colors.m3primary }
                 StyledText {
                     text: Translation.tr("LocalSend")
@@ -80,6 +87,12 @@ PanelWindow {
                     color: Appearance.colors.colOnLayer0
                 }
                 Item { Layout.fillWidth: true }
+                StyledText {
+                    visible: LocalSend.selfAlias.length > 0
+                    text: LocalSend.selfAlias
+                    color: Appearance.m3colors.m3onSurfaceVariant
+                    font.pixelSize: Appearance.font.pixelSize.small
+                }
                 MaterialSymbol {
                     text: LocalSend.selfAlias.length ? "phonelink" : "cloud_off"
                     iconSize: 18; color: Appearance.m3colors.m3onSurfaceVariant
@@ -118,15 +131,39 @@ PanelWindow {
                     id: receivePage
                     anchors { left: parent.left; right: parent.right; top: parent.top }
                     visible: tabBar.currentIndex === 0
-                    spacing: 6
+                    spacing: 8
 
-                    StyledText {
+                    ColumnLayout {
                         Layout.fillWidth: true
+                        Layout.topMargin: 12
+                        Layout.bottomMargin: 12
                         visible: LocalSend.inbound.length === 0
-                        text: Translation.tr("No incoming transfers")
-                        color: Appearance.m3colors.m3onSurfaceVariant
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        horizontalAlignment: Text.AlignHCenter
+                        spacing: 6
+
+                        MaterialSymbol {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "wifi_tethering"
+                            iconSize: 32
+                            color: Appearance.m3colors.m3primary
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: Translation.tr("No incoming transfers")
+                            color: Appearance.colors.colOnLayer0
+                            font.pixelSize: Appearance.font.pixelSize.normal
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: LocalSend.selfAlias.length
+                                ? Translation.tr("Visible to nearby devices as \"%1\"").arg(LocalSend.selfAlias)
+                                : Translation.tr("Ready to receive from nearby devices")
+                            color: Appearance.m3colors.m3onSurfaceVariant
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            horizontalAlignment: Text.AlignHCenter
+                        }
                     }
 
                     ListView {
@@ -243,7 +280,7 @@ PanelWindow {
                                 anchors.fill: parent
                                 buttonRadius: Appearance.rounding.small
                                 colBackground: Appearance.colors.colLayer3
-                                onClicked: { root._pickKind = "file"; LocalSend.pickFiles(true) }
+                                onClicked: LocalSend.pickFiles(true)
                             }
                             ColumnLayout {
                                 anchors.fill: parent
@@ -259,7 +296,7 @@ PanelWindow {
                                 anchors.fill: parent
                                 buttonRadius: Appearance.rounding.small
                                 colBackground: Appearance.colors.colLayer3
-                                onClicked: { root._pickKind = "folder"; LocalSend.pickFiles(false) }
+                                onClicked: LocalSend.pickFiles(false)
                             }
                             ColumnLayout {
                                 anchors.fill: parent
@@ -275,7 +312,7 @@ PanelWindow {
                                 anchors.fill: parent
                                 buttonRadius: Appearance.rounding.small
                                 colBackground: Appearance.colors.colLayer3
-                                onClicked: root.toggleCompose()
+                                onClicked: LocalSend.toggleCompose()
                             }
                             ColumnLayout {
                                 anchors.fill: parent
@@ -306,13 +343,13 @@ PanelWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        visible: root.textComposeVisible
+                        visible: LocalSend.textComposeVisible
                         MaterialTextField {
                             id: composeInput
                             Layout.fillWidth: true
                             placeholderText: Translation.tr("Type a message…")
-                            text: root.composeDraft
-                            onTextChanged: root.composeDraft = text
+                            text: LocalSend.composeDraft
+                            onTextChanged: LocalSend.composeDraft = text
                             Keys.onReturnPressed: { if (composeInput.text.trim().length) root.addComposeToStaged() }
                         }
                         RippleButton {
@@ -333,7 +370,7 @@ PanelWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         StyledText {
-                            text: Translation.tr("Staged (%1)").arg(stagedModel.count)
+                            text: Translation.tr("Staged (%1)").arg(LocalSend.staged.length)
                             font.pixelSize: Appearance.font.pixelSize.small
                             color: Appearance.m3colors.m3onSurfaceVariant
                         }
@@ -342,8 +379,8 @@ PanelWindow {
                             Layout.preferredWidth: 44; Layout.preferredHeight: 20
                             buttonRadius: Appearance.rounding.full
                             colBackground: "transparent"
-                            visible: stagedModel.count > 0
-                            onClicked: root.stageClear()
+                            visible: LocalSend.staged.length > 0
+                            onClicked: LocalSend.stageClear()
                             contentItem: StyledText {
                                 horizontalAlignment: Text.AlignHCenter
                                 text: "Clear"; color: Appearance.m3colors.m3error
@@ -354,14 +391,15 @@ PanelWindow {
                     // (the Send button below covers all three states; no extra hint needed)
                     ListView {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: stagedModel.count > 0 ? Math.min(stagedModel.count * 30 + 4, 96) : 0
+                        Layout.preferredHeight: LocalSend.staged.length > 0 ? Math.min(LocalSend.staged.length * 30 + 4, 96) : 0
                         clip: true
                         spacing: 2
-                        visible: stagedModel.count > 0
+                        visible: LocalSend.staged.length > 0
                         reuseItems: true
                         cacheBuffer: 200
-                        model: stagedModel
+                        model: LocalSend.staged
                         delegate: Rectangle {
+                            required property var modelData
                             width: ListView.view.width
                             radius: Appearance.rounding.small
                             color: Appearance.colors.colLayer2
@@ -373,18 +411,18 @@ PanelWindow {
                                 spacing: 6
                                 MaterialSymbol {
                                     Layout.preferredWidth: 18; Layout.preferredHeight: 18
-                                    text: root.stageIcon(model.type); iconSize: 16
+                                    text: root.stageIcon(modelData.type); iconSize: 16
                                     color: Appearance.m3colors.m3onSurfaceVariant
                                 }
                                 StyledText {
                                     Layout.fillWidth: true
-                                    text: model.name
+                                    text: modelData.name
                                     color: Appearance.colors.colOnLayer0
                                     font.pixelSize: Appearance.font.pixelSize.small
                                     elide: Text.ElideMiddle
                                 }
                                 StyledText {
-                                    text: model.meta
+                                    text: modelData.meta
                                     color: Appearance.m3colors.m3onSurfaceVariant
                                     font.pixelSize: Appearance.font.pixelSize.small
                                 }
@@ -392,7 +430,7 @@ PanelWindow {
                                     Layout.preferredWidth: 20; Layout.preferredHeight: 20
                                     buttonRadius: Appearance.rounding.full
                                     colBackground: "transparent"
-                                    onClicked: root.stageRemove(model.id)
+                                    onClicked: LocalSend.stageRemove(modelData.id)
                                     contentItem: MaterialSymbol {
                                         anchors.centerIn: parent
                                         horizontalAlignment: Text.AlignHCenter
@@ -413,6 +451,35 @@ PanelWindow {
                         font.pixelSize: Appearance.font.pixelSize.small
                         wrapMode: Text.Wrap
                     }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: LocalSend.peers.length > 1
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: Translation.tr("Nearby devices (%1)").arg(LocalSend.peers.length)
+                            color: Appearance.m3colors.m3onSurfaceVariant
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
+                        RippleButton {
+                            Layout.preferredHeight: 24
+                            colBackground: "transparent"
+                            onClicked: {
+                                if (LocalSend.selectedPeers.length === LocalSend.peers.length) {
+                                    LocalSend.clearPeerSelection();
+                                } else {
+                                    LocalSend.selectAllPeers();
+                                }
+                            }
+                            contentItem: StyledText {
+                                anchors.centerIn: parent
+                                text: LocalSend.selectedPeers.length === LocalSend.peers.length ? Translation.tr("Deselect all") : Translation.tr("Select all")
+                                color: Appearance.m3colors.m3primary
+                                font.pixelSize: Appearance.font.pixelSize.small
+                            }
+                        }
+                    }
+
                     ListView {
                         Layout.fillWidth: true
                         Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 56 + 8, 260) : 0
@@ -424,13 +491,14 @@ PanelWindow {
                         model: LocalSend.peers
                         delegate: Rectangle {
                             required property var modelData
+                            readonly property bool isSelected: LocalSend.isPeerSelected(modelData)
                             width: ListView.view.width
                             radius: Appearance.rounding.small
-                            color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3primaryContainer : Appearance.colors.colLayer3
+                            color: isSelected ? Appearance.m3colors.m3primaryContainer : Appearance.colors.colLayer3
                             implicitHeight: 52
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: root.selectedPeer = modelData
+                                onClicked: LocalSend.togglePeer(modelData)
                             }
                             RowLayout {
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
@@ -441,7 +509,7 @@ PanelWindow {
                                     Layout.preferredWidth: 24; Layout.preferredHeight: 24
                                     iconSize: 22
                                     text: root.peerIcon(modelData.deviceType || "")
-                                    color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
+                                    color: isSelected ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
@@ -449,7 +517,7 @@ PanelWindow {
                                     StyledText {
                                         Layout.fillWidth: true
                                         text: modelData.alias || modelData.ip
-                                        color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer0
+                                        color: isSelected ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer0
                                         font.pixelSize: Appearance.font.pixelSize.normal
                                         elide: Text.ElideRight
                                     }
@@ -485,21 +553,27 @@ PanelWindow {
                                         }
                                     }
                                 }
+                                MaterialSymbol {
+                                    Layout.preferredWidth: 22; Layout.preferredHeight: 22
+                                    iconSize: 20
+                                    text: isSelected ? "check_circle" : "radio_button_unchecked"
+                                    color: isSelected ? Appearance.m3colors.m3primary : Appearance.colors.colLayer4
+                                }
                                 RippleButton {
                                     Layout.preferredWidth: 24; Layout.preferredHeight: 24
                                     buttonRadius: Appearance.rounding.full
                                     colBackground: "transparent"
                                     onClicked: {
                                         const fp = modelData.fingerprint || "";
-                                        root.transientMessage = Translation.tr("%1 · %2:%3 · fp %4…")
+                                        root.setTransient(Translation.tr("%1 · %2:%3 · fp %4…")
                                             .arg(modelData.alias || modelData.ip).arg(modelData.ip)
-                                            .arg(modelData.port || 53317).arg(fp.slice(0, 12));
+                                            .arg(modelData.port || 53317).arg(fp.slice(0, 12)));
                                     }
                                     contentItem: MaterialSymbol {
                                         anchors.centerIn: parent
                                         horizontalAlignment: Text.AlignHCenter
                                         text: "info"; iconSize: 16
-                                        color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
+                                        color: isSelected ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
                                     }
                                 }
                             }
@@ -522,10 +596,122 @@ PanelWindow {
                         }
                     }
 
+                    // 5) inline PIN prompt card (appears when receiver requires a PIN / returns 401)
+                    Rectangle {
+                        id: pinCard
+                        property bool showPinText: false
+                        Layout.fillWidth: true
+                        visible: LocalSend.pinRequiredPeer != null
+                        color: Appearance.colors.colLayer2
+                        radius: Appearance.rounding.small
+                        implicitHeight: pinCol.implicitHeight + 16
+                        border.width: 1
+                        border.color: Appearance.m3colors.m3primary
+
+                        ColumnLayout {
+                            id: pinCol
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 8
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                MaterialSymbol {
+                                    text: "lock"
+                                    iconSize: 20
+                                    color: Appearance.m3colors.m3primary
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: LocalSend.pinRequiredPeer
+                                        ? Translation.tr("PIN required for %1").arg(LocalSend.pinRequiredPeer.alias || LocalSend.pinRequiredPeer.ip)
+                                        : Translation.tr("PIN required")
+                                    color: Appearance.colors.colOnLayer0
+                                    font.pixelSize: Appearance.font.pixelSize.normal
+                                    font.weight: Font.DemiBold
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                MaterialTextField {
+                                    id: pinField
+                                    Layout.fillWidth: true
+                                    placeholderText: Translation.tr("Enter PIN code…")
+                                    echoMode: pinCard.showPinText ? TextField.Normal : TextField.Password
+                                    inputMethodHints: Qt.ImhHiddenText | Qt.ImhDigitsOnly
+                                    Keys.onReturnPressed: {
+                                        if (pinField.text.trim().length > 0) {
+                                            LocalSend.retryWithPin(pinField.text.trim());
+                                            pinField.text = "";
+                                        }
+                                    }
+                                }
+
+                                RippleButton {
+                                    Layout.preferredWidth: 36
+                                    Layout.preferredHeight: 36
+                                    buttonRadius: Appearance.rounding.small
+                                    colBackground: "transparent"
+                                    onClicked: pinCard.showPinText = !pinCard.showPinText
+                                    contentItem: MaterialSymbol {
+                                        anchors.centerIn: parent
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: pinCard.showPinText ? "visibility_off" : "visibility"
+                                        iconSize: 18
+                                        color: Appearance.m3colors.m3onSurfaceVariant
+                                    }
+                                }
+
+                                RippleButton {
+                                    Layout.preferredWidth: 54
+                                    Layout.preferredHeight: 36
+                                    buttonRadius: Appearance.rounding.small
+                                    colBackground: Appearance.colors.colLayer3
+                                    onClicked: {
+                                        LocalSend.cancelPinPrompt();
+                                        pinField.text = "";
+                                    }
+                                    contentItem: StyledText {
+                                        anchors.centerIn: parent
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: Translation.tr("Cancel")
+                                        color: Appearance.colors.colOnLayer0
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                    }
+                                }
+
+                                RippleButton {
+                                    Layout.preferredWidth: 58
+                                    Layout.preferredHeight: 36
+                                    buttonRadius: Appearance.rounding.small
+                                    colBackground: Appearance.m3colors.m3primary
+                                    enabled: pinField.text.trim().length > 0
+                                    onClicked: {
+                                        LocalSend.retryWithPin(pinField.text.trim());
+                                        pinField.text = "";
+                                    }
+                                    contentItem: StyledText {
+                                        anchors.centerIn: parent
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: Translation.tr("Send")
+                                        color: "white"
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        font.weight: Font.DemiBold
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // outbound transfer progress
                     Rectangle {
                         Layout.fillWidth: true
-                        visible: LocalSend.sendTransfer != null
+                        visible: LocalSend.sendTransfer != null && LocalSend.pinRequiredPeer == null
                         color: Appearance.colors.colLayer2
                         radius: Appearance.rounding.small
                         implicitHeight: outCol.implicitHeight + 16
@@ -538,27 +724,37 @@ PanelWindow {
                                 Layout.fillWidth: true
                                 StyledText {
                                     Layout.fillWidth: true
-                                    text: LocalSend.sendTransfer ? (
-                                        (LocalSend.sendTransfer.files && LocalSend.sendTransfer.files.length > 1
-                                            ? Translation.tr("File %1 of %2").arg((LocalSend.sendTransfer.index || 0) + 1).arg(LocalSend.sendTransfer.files.length) + " · "
-                                            : "")
-                                        + Translation.tr("Sending to %1").arg(LocalSend.sendTransfer.peer || "")
-                                        + (LocalSend.sendTransfer.fileName ? " · " + LocalSend.sendTransfer.fileName : "")
-                                    ) : ""
+                                    text: {
+                                        const t = LocalSend.sendTransfer;
+                                        if (!t) return "";
+                                        const n = t.files ? t.files.length : 0;
+                                        const peer = t.peer || "";
+                                        if (n > 1) {
+                                            return t.filesDone > 0
+                                                ? Translation.tr("%1 of %2 files sent · %3").arg(t.filesDone).arg(n).arg(peer)
+                                                : Translation.tr("Sending %1 files to %2").arg(n).arg(peer);
+                                        } else if (n === 1 && t.files[0]) {
+                                            return Translation.tr("Sending %1 to %2").arg(t.files[0]).arg(peer);
+                                        }
+                                        return Translation.tr("Sending to %1").arg(peer);
+                                    }
                                     color: Appearance.colors.colOnLayer0
                                     font.pixelSize: Appearance.font.pixelSize.small
                                     elide: Text.ElideRight
                                 }
                                 StyledText {
-                                    text: LocalSend.sendTransfer ? (
-                                        LocalSend.sendTransfer.state === "done" ? Translation.tr("Sent")
-                                        : LocalSend.sendTransfer.state === "error" ? Translation.tr("Failed")
-                                        : Translation.tr("Sending…")
-                                    ) : ""
+                                    text: {
+                                        const t = LocalSend.sendTransfer;
+                                        if (!t) return "";
+                                        if (t.state === "done") return Translation.tr("Sent");
+                                        if (t.state === "error") return Translation.tr("Failed");
+                                        return Math.round(t.pct * 100) + "%";
+                                    }
                                     color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error" ? Appearance.m3colors.m3error
                                          : LocalSend.sendTransfer && LocalSend.sendTransfer.state === "done" ? "#4caf50"
                                          : Appearance.m3colors.m3primary
                                     font.pixelSize: Appearance.font.pixelSize.small
+                                    font.weight: Font.DemiBold
                                 }
                             }
                             Rectangle {
@@ -572,6 +768,9 @@ PanelWindow {
                                     radius: 2
                                     color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error"
                                         ? Appearance.m3colors.m3error : Appearance.m3colors.m3primary
+                                    Behavior on width {
+                                        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                                    }
                                 }
                             }
                             StyledText {
@@ -599,22 +798,24 @@ PanelWindow {
     }
 
     // ---------------- state ----------------
-    property var selectedPeer: null
     property string transientMessage: ""
-    property bool textComposeVisible: false
-    property string composeDraft: ""
-    property string _pickKind: "file"
+    function setTransient(msg) {
+        root.transientMessage = msg;
+        transientTimer.restart();
+    }
+    Timer {
+        id: transientTimer
+        interval: 3500
+        repeat: false
+        onTriggered: root.transientMessage = ""
+    }
+
     property int _lastInboundCount: LocalSend.inbound.length
     property string receiveTabName: {
         const p = LocalSend.inboundPendingCount;
         return p > 0 ? Translation.tr("Receive (%1)").arg(p) : Translation.tr("Receive");
     }
-    property bool sendReady: stagedModel.count > 0 && !!root.selectedPeer
-
-    ListModel {
-        id: stagedModel
-        // roles: id, type (file|folder|text), name, path, text, meta
-    }
+    property bool sendReady: (LocalSend.staged && LocalSend.staged.length > 0) && (LocalSend.selectedPeers && LocalSend.selectedPeers.length > 0)
 
     // Surface the Receive tab only on a genuinely NEW request (inbound grows).
     Connections {
@@ -624,85 +825,43 @@ PanelWindow {
             if (n > root._lastInboundCount) tabBar.setCurrentIndex(0);
             root._lastInboundCount = n;
         }
-        function onFilesPicked(paths) { root.stagePaths(paths, root._pickKind); }
     }
 
     // ---------------- staging helpers ----------------
-    function _stageId() {
-        return (Date.now()).toString(36) + Math.random().toString(36).slice(2, 6);
-    }
-    function stagePaths(paths, kind) {
-        for (let i = 0; i < paths.length; i++) {
-            const p = paths[i];
-            stagedModel.append({
-                id: root._stageId(), type: kind,
-                name: p.split(/[\\/]/).pop(),
-                path: p, text: "", meta: kind === "folder" ? Translation.tr("Folder") : Translation.tr("File")
-            });
-        }
-    }
-    function stageText(text) {
-        const t = text.trim();
-        if (!t.length) return;
-        stagedModel.append({
-            id: root._stageId(), type: "text",
-            name: t.length > 48 ? t.slice(0, 48) + "…" : t,
-            path: "", text: t, meta: Translation.tr("Text")
-        });
-        root.textComposeVisible = false;
-        root.composeDraft = "";
-    }
     function stageClipboard() {
-        const t = Quickshell.clipboardText;
-        if (!t || !t.length) { root.transientMessage = Translation.tr("Clipboard is empty"); return; }
-        root.stageText(t);
-    }
-    function stageRemove(id) {
-        for (let i = 0; i < stagedModel.count; i++) {
-            if (stagedModel.get(i).id === id) { stagedModel.remove(i); break; }
+        if (!LocalSend.stageClipboard()) {
+            root.setTransient(Translation.tr("Clipboard is empty"));
         }
     }
-    function stageClear() { stagedModel.clear(); }
-    function addComposeToStaged() { root.stageText(root.composeDraft); }
-
-    function stagedPaths() {
-        const out = [];
-        for (let i = 0; i < stagedModel.count; i++) { const it = stagedModel.get(i); if (it.path) out.push(it.path); }
-        return out;
-    }
-    function stagedText() {
-        const out = [];
-        for (let i = 0; i < stagedModel.count; i++) { const it = stagedModel.get(i); if (it.type === "text") out.push(it.text); }
-        return out.join("\n\n");
+    function addComposeToStaged() {
+        LocalSend.stageText(LocalSend.composeDraft);
     }
 
     function sendLabel() {
-        const peer = root.selectedPeer;
-        if (stagedModel.count === 0) return Translation.tr("Select items to send");
-        if (!peer) return Translation.tr("Select a target device");
-        return Translation.tr("Send %1 item(s) to %2").arg(stagedModel.count).arg(peer.alias || peer.ip);
+        const count = LocalSend.staged ? LocalSend.staged.length : 0;
+        const peers = LocalSend.selectedPeers || [];
+        if (count === 0) return Translation.tr("Select items to send");
+        if (peers.length === 0) return Translation.tr("Select a target device");
+        if (peers.length === 1) {
+            return Translation.tr("Send %1 item(s) to %2").arg(count).arg(peers[0].alias || peers[0].ip);
+        }
+        return Translation.tr("Send %1 item(s) to %2 devices").arg(count).arg(peers.length);
     }
     function sendStaged() {
-        const peer = root.selectedPeer;
-        if (!peer) { root.transientMessage = Translation.tr("Select a target device"); return; }
-        const paths = root.stagedPaths();
-        const text = root.stagedText();
-        if (!paths.length && !text.length) { root.transientMessage = Translation.tr("Select items to send"); return; }
-        const n = stagedModel.count;
-        LocalSend.sendSelection(peer.ip, peer.port || 53317, peer.protocol || "https", paths, text);
-        root.stageClear();
-        root.transientMessage = Translation.tr("Sending %1 item(s) to %2…").arg(n).arg(peer.alias || peer.ip);
+        const peers = LocalSend.selectedPeers || [];
+        if (!peers.length) { root.setTransient(Translation.tr("Select a target device")); return; }
+        const paths = LocalSend.stagedPaths();
+        const text = LocalSend.stagedText();
+        if (!paths.length && !text.length) { root.setTransient(Translation.tr("Select items to send")); return; }
+        root.transientMessage = "";
+        LocalSend.sendSelection(peers, paths, text);
+        LocalSend.stageClear();
     }
 
     function stageIcon(type) {
         if (type === "folder") return "folder";
         if (type === "text") return "notes";
         return "description";
-    }
-
-    // Toggle the inline text-compose field (Text tile).
-    function toggleCompose() {
-        root.textComposeVisible = !root.textComposeVisible;
     }
 
     // Material Symbol glyph for a peer's device type.
@@ -715,6 +874,7 @@ PanelWindow {
     // Human label for the device badge: prefer the announced model ("Linux",
     // "iPhone …"), fall back to a mapped device type.
     function peerModel(peer) {
+        if (!peer) return "";
         if (peer.deviceModel) return peer.deviceModel;
         if (peer.deviceType === "mobile" || peer.deviceType === "phone") return "Phone";
         if (peer.deviceType === "desktop") return "Desktop";

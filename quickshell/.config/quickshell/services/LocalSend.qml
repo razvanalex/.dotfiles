@@ -29,6 +29,103 @@ Singleton {
     // active outbound transfer: {state, peer, files, index, fileName, bytesDone, bytesTotal, pct, message}
     property var sendTransfer: null
 
+    // ---- persistent staging state (retained across panel closes) ----
+    property var staged: []          // [{id, type, name, path, text, meta}]
+    property var selectedPeers: []   // [{alias, ip, port, protocol, fingerprint, deviceType}]
+    property var selectedPeer: selectedPeers.length > 0 ? selectedPeers[0] : null
+    property string composeDraft: ""
+    property bool textComposeVisible: false
+    property string lastPickKind: "file"
+
+    function isPeerSelected(peer) {
+        if (!peer) return false;
+        return (root.selectedPeers || []).some(p => p.ip === peer.ip);
+    }
+
+    function togglePeer(peer) {
+        if (!peer) return;
+        const cur = (root.selectedPeers || []).slice();
+        const idx = cur.findIndex(p => p.ip === peer.ip);
+        if (idx >= 0) {
+            cur.splice(idx, 1);
+        } else {
+            cur.push(peer);
+        }
+        root.selectedPeers = cur;
+    }
+
+    function selectAllPeers() {
+        root.selectedPeers = (root.peers || []).slice();
+    }
+
+    function clearPeerSelection() {
+        root.selectedPeers = [];
+    }
+
+    function _stageId() {
+        return (Date.now()).toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    function stagePaths(paths, kind) {
+        const next = (root.staged || []).slice();
+        for (let i = 0; i < paths.length; i++) {
+            const p = paths[i];
+            next.push({
+                id: root._stageId(),
+                type: kind || "file",
+                name: p.split(/[\\/]/).pop(),
+                path: p,
+                text: "",
+                meta: kind === "folder" ? Translation.tr("Folder") : Translation.tr("File")
+            });
+        }
+        root.staged = next;
+    }
+
+    function stageText(text) {
+        const t = (text || "").trim();
+        if (!t.length) return;
+        const next = (root.staged || []).slice();
+        next.push({
+            id: root._stageId(),
+            type: "text",
+            name: t.length > 48 ? t.slice(0, 48) + "…" : t,
+            path: "",
+            text: t,
+            meta: Translation.tr("Text")
+        });
+        root.staged = next;
+        root.textComposeVisible = false;
+        root.composeDraft = "";
+    }
+
+    function stageClipboard() {
+        const t = Quickshell.clipboardText;
+        if (!t || !t.length) return false;
+        root.stageText(t);
+        return true;
+    }
+
+    function stageRemove(id) {
+        root.staged = (root.staged || []).filter(it => it.id !== id);
+    }
+
+    function stageClear() {
+        root.staged = [];
+    }
+
+    function stagedPaths() {
+        return (root.staged || []).filter(it => it.path).map(it => it.path);
+    }
+
+    function stagedText() {
+        return (root.staged || []).filter(it => it.type === "text").map(it => it.text).join("\n\n");
+    }
+
+    function toggleCompose() {
+        root.textComposeVisible = !root.textComposeVisible;
+    }
+
     function _mapInbound(session, fn) {
         root.inbound = root.inbound.map(s => s.session === session ? (fn(s), s) : s);
     }
@@ -138,8 +235,11 @@ Singleton {
         onExited: (code, status) => {
             root.sending = false
             if (root.sendTransfer && root.sendTransfer.state === "sending") {
-                root.sendTransfer.state = "done"
-                root.sendTransfer.pct = 1
+                root.sendTransfer = Object.assign({}, root.sendTransfer, {
+                    state: "done",
+                    pct: 1
+                });
+                sendDoneTimer.restart();
             }
         }
 
@@ -150,43 +250,61 @@ Singleton {
                     const m = JSON.parse(data);
                     switch (m.type) {
                         case "sending":
-                            root.sendTransfer = { state: "sending", peer: m.peer,
-                                files: m.files || [], index: -1, fileName: "",
-                                bytesDone: 0, bytesTotal: 0, pct: 0, message: "" };
+                            root.sendTransfer = {
+                                state: "sending",
+                                peer: m.peer,
+                                files: m.files || [],
+                                filesDone: 0,
+                                bytesDone: 0,
+                                bytesTotal: 0,
+                                pct: 0,
+                                message: ""
+                            };
                             break;
                         case "sendfile":
                             if (root.sendTransfer) {
-                                root.sendTransfer.index = m.idx;
-                                root.sendTransfer.fileName = m.fileName;
-                                root.sendTransfer.bytesTotal += m.total || 0;
+                                root.sendTransfer = Object.assign({}, root.sendTransfer, {
+                                    fileName: m.fileName || "",
+                                    bytesTotal: root.sendTransfer.bytesTotal + (m.total || 0)
+                                });
                             }
                             break;
                         case "sendprogress":
-                            if (root.sendTransfer && m.written !== undefined && m.total > 0) {
+                            if (root.sendTransfer) {
                                 const t = root.sendTransfer;
-                                const denom = t.bytesTotal > 0 ? t.bytesTotal : m.total;
-                                t.pct = Math.max(0, Math.min(1, (t.bytesDone + (m.written || 0)) / denom));
-                            } else if (root.sendTransfer && m.idx !== undefined) {
-                                // per-file completion
-                                root.sendTransfer.bytesDone += m.total || 0;
-                                root.sendTransfer.index = m.idx;
-                                if (m.fileName) root.sendTransfer.fileName = m.fileName;
-                                const t = root.sendTransfer;
-                                if (t.bytesTotal > 0) t.pct = Math.max(0, Math.min(1, t.bytesDone / t.bytesTotal));
+                                let nextFilesDone = t.filesDone || 0;
+                                if (m.ok) nextFilesDone += 1;
+                                let nextPct = t.pct || 0;
+                                if (m.total > 0 && m.written !== undefined) {
+                                    nextPct = Math.max(nextPct, Math.min(1, m.written / m.total));
+                                }
+                                root.sendTransfer = Object.assign({}, t, {
+                                    bytesDone: m.written !== undefined ? m.written : t.bytesDone,
+                                    bytesTotal: m.total > 0 ? m.total : t.bytesTotal,
+                                    filesDone: nextFilesDone,
+                                    pct: nextPct,
+                                    fileName: m.fileName || t.fileName
+                                });
                             }
                             break;
                         case "senderror":
-                            if (root.sendTransfer) {
-                                root.sendTransfer.state = "error";
-                                root.sendTransfer.message = m.error || "";
-                            } else {
-                                root.sendTransfer = { state: "error", message: m.error || "", pct: 0 };
+                            const errMsg = m.error || "";
+                            root.sendTransfer = Object.assign({}, root.sendTransfer || {}, {
+                                state: "error",
+                                message: errMsg,
+                                pct: 0
+                            });
+                            if (errMsg && (errMsg.indexOf("PIN") !== -1 || errMsg.indexOf("401") !== -1)) {
+                                root.pinRequiredPeer = root.lastSendPeer;
                             }
                             break;
                         case "senddone":
                             if (root.sendTransfer) {
-                                root.sendTransfer.state = "done";
-                                root.sendTransfer.pct = 1;
+                                root.sendTransfer = Object.assign({}, root.sendTransfer, {
+                                    state: "done",
+                                    pct: 1
+                                });
+                                sendDoneTimer.restart();
                             }
                             break;
                     }
@@ -195,28 +313,86 @@ Singleton {
         }
     }
 
+    Timer {
+        id: sendDoneTimer
+        interval: 4000
+        repeat: false
+        onTriggered: {
+            if (root.sendTransfer && root.sendTransfer.state === "done") {
+                root.sendTransfer = null;
+            }
+        }
+    }
+
     // Emitted when the portal picker returns paths (selection-first staging).
     signal filesPicked(var paths)
 
+    property var lastSendPeers: []
+    property var lastSendPeer: lastSendPeers.length > 0 ? lastSendPeers[0] : null
+    property var lastSendPaths: []
+    property string lastSendText: ""
+    property var pinRequiredPeer: null
+    property var devicePins: ({})   // ip -> pin string
+
     function sendFiles(ip, port, protocol, paths) {
-        let args = [root.script, "--send", ip];
-        for (let i = 0; i < paths.length; i++) args.push(paths[i]);
-        sendProc.command = args;
-        sendProc.running = true;
+        root.sendSelection([ { ip: ip, port: port, protocol: protocol, alias: ip } ], paths, "");
     }
 
     function sendText(ip, port, protocol, text) {
-        sendProc.command = [root.script, "--send", ip, "--text", text];
+        root.sendSelection([ { ip: ip, port: port, protocol: protocol, alias: ip } ], [], text);
+    }
+
+    // Send a mixed batch (files/folders + optional text) to one or multiple peers in parallel.
+    function sendSelection(targets, paths, text, pin) {
+        let peerList = [];
+        if (Array.isArray(targets)) {
+            peerList = targets;
+        } else if (targets && typeof targets === "object") {
+            peerList = [targets];
+        } else if (typeof targets === "string") {
+            peerList = [{ ip: targets, port: 53317, protocol: "https", alias: targets }];
+        } else if (root.selectedPeers && root.selectedPeers.length) {
+            peerList = root.selectedPeers;
+        }
+
+        if (!peerList.length) return;
+        root.lastSendPeers = peerList;
+        root.lastSendPaths = paths || [];
+        root.lastSendText = text || "";
+        root.pinRequiredPeer = null;
+
+        let args = [root.script];
+        for (let i = 0; i < peerList.length; i++) {
+            const p = peerList[i];
+            let targetPin = pin || root.devicePins[p.ip] || "";
+            args.push("--target");
+            args.push(p.ip + (targetPin ? ":" + targetPin : ""));
+        }
+        for (let i = 0; i < paths.length; i++) args.push(paths[i]);
+        if (text && text.length) { args.push("--text"); args.push(text); }
+
+        sendProc.command = args;
         sendProc.running = true;
     }
 
-    // Send a mixed batch (files/folders + optional text) in ONE transfer.
-    function sendSelection(ip, port, protocol, paths, text) {
-        let args = [root.script, "--send", ip];
-        for (let i = 0; i < paths.length; i++) args.push(paths[i]);
-        if (text && text.length) { args.push("--text"); args.push(text); }
-        sendProc.command = args;
-        sendProc.running = true;
+    function retryWithPin(pin) {
+        if (!root.lastSendPeers.length && !root.lastSendPeer) return;
+        if (pin && pin.length && root.lastSendPeer) {
+            const ip = root.lastSendPeer.ip;
+            const nextPins = Object.assign({}, root.devicePins);
+            nextPins[ip] = pin;
+            root.devicePins = nextPins;
+        }
+        const peers = root.lastSendPeers.length ? root.lastSendPeers : [root.lastSendPeer];
+        const paths = root.lastSendPaths;
+        const text = root.lastSendText;
+        root.pinRequiredPeer = null;
+        if (root.sendTransfer) root.sendTransfer = null;
+        root.sendSelection(peers, paths, text, pin);
+    }
+
+    function cancelPinPrompt() {
+        root.pinRequiredPeer = null;
     }
 
     // ---- portal file/folder picker -> stage (selection-first) ----
@@ -233,13 +409,18 @@ Singleton {
         onExited: (code, status) => {
             const paths = pickerProc.picked;
             pickerProc.picked = [];
-            if (paths.length) root.filesPicked(paths);
+            if (paths.length) {
+                root.stagePaths(paths, root.lastPickKind);
+                root.filesPicked(paths);
+                GlobalStates.localsendOpen = true;
+            }
         }
     }
 
     // Open the portal chooser and emit the picked paths for staging (the target
     // device is chosen later). multiple=true → files; false → a folder.
     function pickFiles(multiple) {
+        root.lastPickKind = multiple ? "file" : "folder";
         pickerProc.picked = [];
         pickerProc.command = ["python3", root.pickerScript, multiple ? "--multiple" : "--directory"];
         pickerProc.running = true;

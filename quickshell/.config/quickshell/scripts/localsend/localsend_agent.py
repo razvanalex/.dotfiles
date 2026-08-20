@@ -3,17 +3,20 @@
 # Emits JSON events on stdout consumed by QML Process + SplitParser.
 # Task 1: discovery (UDP announce + /register) + self fingerprint/cert + /info.
 # Receive (prepare-upload/upload/cancel) and send are added in later tasks.
-import argparse, hashlib, json, logging, os, socket, ssl, subprocess, sys, threading, time
+import argparse, concurrent.futures, hashlib, json, logging, os, socket, ssl, subprocess, sys, threading, time
 import urllib.request, urllib.error
 import urllib.parse, shutil, tempfile, uuid, mimetypes, http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 log = logging.getLogger('localsend')
+EMIT_LOCK = threading.Lock()
 
 def emit(obj):
     try:
-        print(json.dumps(obj, ensure_ascii=False), flush=True)
+        line = json.dumps(obj, ensure_ascii=False)
+        with EMIT_LOCK:
+            print(line, flush=True)
     except BrokenPipeError:
         os._exit(0)
     except Exception:
@@ -360,8 +363,26 @@ def main():
     ap = argparse.ArgumentParser(description='LocalSend v2 agent sidecar')
     ap.add_argument('--send', nargs='+', metavar='ARG',
                     help='one-shot send: HOST FILE [FILE...] (no daemon)')
+    ap.add_argument('--target', action='append', default=[],
+                    help='target peer spec: HOST[:PIN] (repeatable for multi-target)')
     ap.add_argument('--text', default=None, help='text payload for --send')
+    ap.add_argument('--pin', default=None, help='optional PIN code for --send')
+    ap.add_argument('files', nargs='*', default=[], help='files when using --target')
     args = ap.parse_args()
+    if args.target:
+        logging.basicConfig(level=logging.INFO)
+        ensure_cert()
+        targets = []
+        for raw in args.target:
+            parts = raw.split(':')
+            host = parts[0]
+            pin = parts[1] if len(parts) > 1 and parts[1] else (args.pin or None)
+            targets.append({'ip': host, 'port': PORT, 'protocol': PROTOCOL, 'pin': pin})
+        threads = [threading.Thread(target=send_to, args=(t, args.files, args.text, t.get('pin')))
+                   for t in targets]
+        for th in threads: th.start()
+        for th in threads: th.join()
+        return
     if args.send:
         logging.basicConfig(level=logging.INFO)
         host = args.send[0]
@@ -369,7 +390,7 @@ def main():
         # ensure_cert so the sending fingerprint is coherent; ad-hoc sends do not
         # pin (no fingerprint known) — the control /send path pins via discovery
         ensure_cert()
-        send_to(peer, args.send[1:] or [], args.text)
+        send_to(peer, args.send[1:] or [], args.text, pin=args.pin)
         return
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     ensure_cert()
@@ -543,7 +564,7 @@ def _hash_file(p):
             h.update(c)
     return h.hexdigest()
 
-def _send_one_stream(peer, ctx, session, fid, token, source_file, total):
+def _send_one_stream(peer, ctx, session, fid, token, source_file, total, on_progress=None):
     # streaming upload body via http.client (no whole-file-in-memory), with
     # throttled progress events. source_file may be None for a 0-length body.
     https = peer.get('protocol', 'https') == 'https'
@@ -566,8 +587,10 @@ def _send_one_stream(peer, ctx, session, fid, token, source_file, total):
             now = time.time()
             if now - last[0] >= 0.15:   # throttle: ~7 events/sec
                 last[0] = now
-                emit({'type': 'sendprogress', 'fileId': fid,
-                      'written': sent, 'total': total})
+                if on_progress:
+                    on_progress(fid, sent, total)
+        if on_progress:
+            on_progress(fid, sent, total)
     resp = conn.getresponse()
     status = resp.status
     resp.read()
@@ -595,7 +618,7 @@ def _build_send_items(paths):
         add(p)
     return items
 
-def send_to(peer, paths=(), text=None):
+def send_to(peer, paths=(), text=None, pin=None):
     items = _build_send_items(paths)
     if text is not None:
         tb = text.encode('utf-8')
@@ -610,43 +633,93 @@ def send_to(peer, paths=(), text=None):
     try:
         ctx = _new_send_ctx(peer)
         base = _peer_base(peer)
+        target_pin = pin if pin is not None else (PIN or None)
+        endpoint = '/api/localsend/v2/prepare-upload'
+        if target_pin:
+            endpoint += '?pin=' + urllib.parse.quote(str(target_pin))
         payload = {'info': advertise_body(False),
                    'files': {fid: fi for fid, fi, _ in items}}
-        req = urllib.request.Request(base + '/api/localsend/v2/prepare-upload',
+        req = urllib.request.Request(base + endpoint,
                                      data=json.dumps(payload).encode(), method='POST',
                                      headers={'Content-Type': 'application/json'})
         with urllib.request.urlopen(req, context=ctx, timeout=120) as r:
-            resp = json.loads(r.read())
+            raw = r.read().decode('utf-8').strip()
+            resp = json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        for _, _, src in items:
+            if src is not None:
+                src.close()
+        msg = f"HTTP Error {e.code}: {e.reason}"
+        if e.code == 401:
+            msg = "PIN required or invalid (HTTP 401)"
+        elif e.code == 409:
+            msg = "Target device is busy with an unfinished transfer (HTTP 409)"
+        emit({'type': 'senderror', 'error': msg})
+        return
     except Exception as e:
         for _, _, src in items:
             if src is not None:
                 src.close()
         emit({'type': 'senderror', 'error': str(e)})
         return
-    session = resp.get('sessionId'); tokens = resp.get('files') or {}
-    for idx, (fid, fi, src) in enumerate(items):
+    session = resp.get('sessionId')
+    tokens = resp.get('files') or {}
+    peer_name = peer.get('alias') or peer['ip']
+
+    file_written = {}
+    progress_lock = threading.Lock()
+    total_batch_bytes = max(1, sum(fi['size'] for _, fi, _ in items))
+
+    def on_chunk(fid, sent, total):
+        with progress_lock:
+            file_written[fid] = sent
+            curr_written = sum(file_written.values())
+        emit({'type': 'sendprogress', 'fileId': fid,
+              'written': curr_written, 'total': total_batch_bytes,
+              'peer': peer_name})
+
+    def _upload_one(idx_item):
+        idx, (fid, fi, src) = idx_item
         token = tokens.get(fid)
         ok = False
         emit({'type': 'sendfile', 'fileId': fid, 'fileName': fi['fileName'],
-              'total': fi['size'], 'idx': idx})
+              'total': fi['size'], 'idx': idx, 'peer': peer_name})
         try:
-            if src is not None:
-                status, _ = _send_one_stream(peer, ctx, session, fid, token, src, fi['size'])
+            if src is not None and token is not None:
+                status, _ = _send_one_stream(peer, ctx, session, fid, token, src, fi['size'], on_progress=on_chunk)
                 ok = (status == 200)
-            elif text is not None:
-                # text: announced via preview/sourceText, body empty (like iOS)
-                status, _ = _send_one_stream(peer, ctx, session, fid, token, None, 0)
-                ok = (status == 200)
+            elif src is None:
+                # Text item: content is delivered inline in prepare-upload; no separate stream upload
+                with progress_lock:
+                    file_written[fid] = fi['size']
+                ok = True
             else:
                 ok = False
         except Exception as e:
-            emit({'type': 'senderror', 'fileId': fid, 'error': str(e)})
+            emit({'type': 'senderror', 'fileId': fid, 'error': str(e), 'peer': peer_name})
         finally:
             if src is not None:
-                src.close()
+                try:
+                    src.close()
+                except Exception:
+                    pass
+        with progress_lock:
+            file_written[fid] = fi['size'] if ok else file_written.get(fid, 0)
+            curr_written = sum(file_written.values())
         emit({'type': 'sendprogress', 'fileId': fid, 'fileName': fi['fileName'],
-              'idx': idx, 'ok': ok, 'session': session, 'total': fi['size']})
-    emit({'type': 'senddone', 'session': session})
+              'idx': idx, 'ok': ok, 'session': session, 'written': curr_written,
+              'total': total_batch_bytes, 'peer': peer_name})
+        return ok
+
+    max_workers = min(3, max(1, len(items)))
+    if max_workers > 1:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+            list(pool.map(_upload_one, enumerate(items)))
+    else:
+        for it in enumerate(items):
+            _upload_one(it)
+
+    emit({'type': 'senddone', 'session': session, 'peer': peer_name})
 
 if __name__ == '__main__':
     main()
