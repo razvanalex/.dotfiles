@@ -705,13 +705,13 @@ def send_to(peer, paths=(), text=None, pin=None):
             msg = "PIN required or invalid (HTTP 401)"
         elif e.code == 409:
             msg = "Target device is busy with an unfinished transfer (HTTP 409)"
-        emit({'type': 'senderror', 'error': msg})
+        emit({'type': 'senderror', 'error': msg, 'peer': peer.get('alias') or peer['ip'], 'ip': peer['ip']})
         return
     except Exception as e:
         for _, _, src in items:
             if src is not None:
                 src.close()
-        emit({'type': 'senderror', 'error': str(e)})
+        emit({'type': 'senderror', 'error': str(e), 'peer': peer.get('alias') or peer['ip'], 'ip': peer['ip']})
         return
     session = resp.get('sessionId')
     tokens = resp.get('files') or {}

@@ -334,11 +334,15 @@ Singleton {
                             const errMsg = m.error || "";
                             root.sendTransfer = Object.assign({}, root.sendTransfer || {}, {
                                 state: "error",
-                                message: errMsg,
+                                message: (m.peer ? (m.peer + ": ") : "") + errMsg,
                                 pct: 0
                             });
                             if (errMsg && (errMsg.indexOf("PIN") !== -1 || errMsg.indexOf("401") !== -1)) {
-                                root.pinRequiredPeer = root.lastSendPeer;
+                                let found = null;
+                                if (m.ip && root.lastSendPeers) {
+                                    found = root.lastSendPeers.find(p => p.ip === m.ip);
+                                }
+                                root.pinRequiredPeer = found || root.lastSendPeer;
                             }
                             break;
                         case "senddone":
@@ -407,7 +411,8 @@ Singleton {
         let args = [root.script];
         for (let i = 0; i < peerList.length; i++) {
             const p = peerList[i];
-            let targetPin = pin || root.devicePins[p.ip] || "";
+            let targetPin = root.devicePins[p.ip] || "";
+            if (pin && root.lastSendPeer && root.lastSendPeer.ip === p.ip) targetPin = pin;
             args.push("--target");
             args.push(p.ip + (targetPin ? ":" + targetPin : ""));
         }
@@ -419,19 +424,20 @@ Singleton {
     }
 
     function retryWithPin(pin) {
-        if (!root.lastSendPeers.length && !root.lastSendPeer) return;
-        if (pin && pin.length && root.lastSendPeer) {
-            const ip = root.lastSendPeer.ip;
+        const targetPeer = root.pinRequiredPeer || root.lastSendPeer;
+        if (!targetPeer) return;
+        const ip = targetPeer.ip;
+        if (pin && pin.length) {
             const nextPins = Object.assign({}, root.devicePins);
             nextPins[ip] = pin;
             root.devicePins = nextPins;
         }
-        const peers = root.lastSendPeers.length ? root.lastSendPeers : [root.lastSendPeer];
+        const peers = root.lastSendPeers.length ? root.lastSendPeers : [targetPeer];
         const paths = root.lastSendPaths;
         const text = root.lastSendText;
         root.pinRequiredPeer = null;
         if (root.sendTransfer) root.sendTransfer = null;
-        root.sendSelection(peers, paths, text, pin);
+        root.sendSelection(peers, paths, text);
     }
 
     function cancelPinPrompt() {
