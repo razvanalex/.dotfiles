@@ -22,6 +22,7 @@ PanelWindow {
     exclusiveZone: 0
     color: "transparent"
     property real panelWidth: 440
+    property real panelHeight: 500
     anchors { top: true; left: true }
     margins {
         top: Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
@@ -29,7 +30,7 @@ PanelWindow {
     }
 
     implicitWidth: panelWidth
-    implicitHeight: col.implicitHeight + 24
+    implicitHeight: root.panelHeight   // fixed — like the search panel, lists scroll inside
 
     Component.onCompleted: {
         GlobalFocusGrab.addDismissable(root);
@@ -67,7 +68,7 @@ PanelWindow {
 
         ColumnLayout {
             id: col
-            anchors { left: parent.left; right: parent.right; top: parent.top }
+            anchors.fill: parent
             anchors.margins: 12
             spacing: 10
 
@@ -109,15 +110,15 @@ PanelWindow {
                 currentIndex: 1   // default to Send; receive is surfaced via the popup
             }
 
-            // content: two pages (Receive / Send), active page drives height
+            // content: two pages, active page fills the fixed content area
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: tabBar.currentIndex === 0 ? receivePage.implicitHeight : sendPage.implicitHeight
+                Layout.fillHeight: true
                 clip: true
 
                 ColumnLayout {
                     id: receivePage
-                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                    anchors.fill: parent
                     visible: tabBar.currentIndex === 0
                     spacing: 6
 
@@ -132,7 +133,7 @@ PanelWindow {
 
                     ListView {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 106 + 8, 260) : 0
+                        Layout.fillHeight: LocalSend.inbound.length > 0
                         clip: true
                         spacing: 6
                         visible: LocalSend.inbound.length > 0
@@ -227,7 +228,7 @@ PanelWindow {
                 // ===================== SEND PAGE (selection-first) =====================
                 ColumnLayout {
                     id: sendPage
-                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                    anchors.fill: parent
                     visible: tabBar.currentIndex === 1
                     spacing: 8
 
@@ -353,7 +354,7 @@ PanelWindow {
                     // (the Send button below covers all three states; no extra hint needed)
                     ListView {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: stagedModel.count > 0 ? Math.min(stagedModel.count * 30 + 4, 130) : 0
+                        Layout.preferredHeight: stagedModel.count > 0 ? Math.min(stagedModel.count * 30 + 4, 96) : 0
                         clip: true
                         spacing: 2
                         visible: stagedModel.count > 0
@@ -412,7 +413,7 @@ PanelWindow {
                     }
                     ListView {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 56 + 8, 240) : 0
+                        Layout.fillHeight: LocalSend.peers.length > 0
                         clip: true
                         spacing: 4
                         visible: LocalSend.peers.length > 0
