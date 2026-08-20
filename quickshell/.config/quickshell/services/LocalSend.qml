@@ -369,25 +369,27 @@ Singleton {
                             break;
                         case "senderror":
                             const errMsg = m.error || "";
+                            const isPinChallenge = errMsg && (errMsg.indexOf("PIN") !== -1 || errMsg.indexOf("401") !== -1);
                             root.sendTransfer = Object.assign({}, root.sendTransfer || {}, {
                                 state: "error",
                                 message: (m.peer ? (m.peer + ": ") : "") + errMsg,
                                 pct: 0
                             });
-                            root.recordHistory({
-                                direction: "sent",
-                                peer: (m.peer || (root.lastSendPeers || []).map(p => p.alias || p.ip).join(", ") || "Unknown"),
-                                status: "error",
-                                error: errMsg || "Failed",
-                                files: (root.lastSendPaths || []).map(p => p.split("/").pop()),
-                                text: root.lastSendText || ""
-                            });
-                            if (errMsg && (errMsg.indexOf("PIN") !== -1 || errMsg.indexOf("401") !== -1)) {
+                            if (isPinChallenge) {
                                 let found = null;
                                 if (m.ip && root.lastSendPeers) {
                                     found = root.lastSendPeers.find(p => p.ip === m.ip);
                                 }
                                 root.pinRequiredPeer = found || root.lastSendPeer;
+                            } else {
+                                root.recordHistory({
+                                    direction: "sent",
+                                    peer: (m.peer || (root.lastSendPeers || []).map(p => p.alias || p.ip).join(", ") || "Unknown"),
+                                    status: "error",
+                                    error: errMsg || "Failed",
+                                    files: (root.lastSendPaths || []).map(p => p.split("/").pop()),
+                                    text: root.lastSendText || ""
+                                });
                             }
                             break;
                         case "senddone":
@@ -496,7 +498,18 @@ Singleton {
     }
 
     function cancelPinPrompt() {
+        if (root.pinRequiredPeer) {
+            root.recordHistory({
+                direction: "sent",
+                peer: root.pinRequiredPeer.alias || root.pinRequiredPeer.ip || "Unknown",
+                status: "declined",
+                error: Translation.tr("PIN prompt cancelled"),
+                files: (root.lastSendPaths || []).map(p => p.split("/").pop()),
+                text: root.lastSendText || ""
+            });
+        }
         root.pinRequiredPeer = null;
+        if (root.sendTransfer) root.sendTransfer = null;
     }
 
     // ---- portal file/folder picker -> stage (selection-first) ----
