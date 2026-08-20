@@ -184,6 +184,14 @@ PanelWindow {
             }
 
             // ---- SEND ----
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                Layout.topMargin: 2
+                Layout.bottomMargin: 2
+                opacity: 0.5
+                color: Appearance.colors.colLayer4
+            }
             StyledText {
                 text: Translation.tr("Send")
                 font.pixelSize: Appearance.font.pixelSize.small
@@ -202,7 +210,7 @@ PanelWindow {
             // peer picker: richer device cards (icon, badges, info), no Qt popup
             ListView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 48 + 8, 220) : 0
+                Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 56 + 8, 240) : 0
                 clip: true
                 spacing: 4
                 visible: LocalSend.peers.length > 0
@@ -212,25 +220,25 @@ PanelWindow {
                     width: ListView.view.width
                     radius: Appearance.rounding.small
                     color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3primaryContainer : Appearance.colors.colLayer3
-                    implicitHeight: 44
+                    implicitHeight: 52
                     MouseArea {
                         anchors.fill: parent
                         onClicked: root.selectedPeer = modelData
                     }
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 10
+                        anchors.leftMargin: 12
                         anchors.rightMargin: 6
-                        spacing: 8
+                        spacing: 10
                         MaterialSymbol {
-                            Layout.preferredWidth: 20; Layout.preferredHeight: 20
-                            iconSize: 18
+                            Layout.preferredWidth: 24; Layout.preferredHeight: 24
+                            iconSize: 22
                             text: root.peerIcon(modelData.deviceType || "")
                             color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 2
+                            spacing: 3
                             StyledText {
                                 Layout.fillWidth: true
                                 text: modelData.alias || modelData.ip
@@ -241,31 +249,31 @@ PanelWindow {
                             // badges: protocol + device
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 4
+                                spacing: 6
                                 Rectangle {
-                                    Layout.preferredHeight: 15
-                                    Layout.preferredWidth: protoTxt.implicitWidth + 8
-                                    radius: 8
+                                    Layout.preferredHeight: 18
+                                    Layout.preferredWidth: protoTxt.implicitWidth + 12
+                                    radius: 9
                                     color: Appearance.colors.colLayer4
                                     StyledText {
                                         id: protoTxt
                                         anchors.centerIn: parent
                                         text: (modelData.protocol || "https").toUpperCase()
-                                        font.pixelSize: 9
+                                        font.pixelSize: 10
                                         color: Appearance.colors.colOnLayer0
                                     }
                                 }
                                 Rectangle {
                                     visible: root.peerModel(modelData).length > 0
-                                    Layout.preferredHeight: 15
-                                    Layout.preferredWidth: devTxt.implicitWidth + 8
-                                    radius: 8
+                                    Layout.preferredHeight: 18
+                                    Layout.preferredWidth: devTxt.implicitWidth + 12
+                                    radius: 9
                                     color: Appearance.colors.colLayer4
                                     StyledText {
                                         id: devTxt
                                         anchors.centerIn: parent
                                         text: root.peerModel(modelData)
-                                        font.pixelSize: 9
+                                        font.pixelSize: 10
                                         color: Appearance.colors.colOnLayer0
                                     }
                                 }
@@ -293,13 +301,13 @@ PanelWindow {
                 }
             }
 
-            // send selection: tile buttons (File / Folder / Text)
+            // send selection: tile buttons (File / Folder / Text / Paste)
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: 6
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 52
+                    Layout.preferredHeight: 54
                     RippleButton {
                         anchors.fill: parent
                         buttonRadius: Appearance.rounding.small
@@ -309,10 +317,10 @@ PanelWindow {
                     }
                     ColumnLayout {
                         anchors.fill: parent
-                        spacing: 2
+                        spacing: 3
                         MaterialSymbol {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "upload_file"; iconSize: 18
+                            text: "upload_file"; iconSize: 22
                             color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
                         }
                         StyledText {
@@ -325,7 +333,7 @@ PanelWindow {
                 }
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 52
+                    Layout.preferredHeight: 54
                     RippleButton {
                         anchors.fill: parent
                         buttonRadius: Appearance.rounding.small
@@ -335,10 +343,10 @@ PanelWindow {
                     }
                     ColumnLayout {
                         anchors.fill: parent
-                        spacing: 2
+                        spacing: 3
                         MaterialSymbol {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "create_new_folder"; iconSize: 18
+                            text: "create_new_folder"; iconSize: 22
                             color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
                         }
                         StyledText {
@@ -351,7 +359,33 @@ PanelWindow {
                 }
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 52
+                    Layout.preferredHeight: 54
+                    RippleButton {
+                        anchors.fill: parent
+                        buttonRadius: Appearance.rounding.small
+                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                        enabled: !!root.selectedPeer
+                        onClicked: root.toggleCompose()
+                    }
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 3
+                        MaterialSymbol {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "edit_note"; iconSize: 22
+                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                        }
+                        StyledText {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: Translation.tr("Text")
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer0
+                        }
+                    }
+                }
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 54
                     RippleButton {
                         anchors.fill: parent
                         buttonRadius: Appearance.rounding.small
@@ -361,18 +395,45 @@ PanelWindow {
                     }
                     ColumnLayout {
                         anchors.fill: parent
-                        spacing: 2
+                        spacing: 3
                         MaterialSymbol {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "content_paste"; iconSize: 18
+                            text: "content_paste"; iconSize: 22
                             color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
                         }
                         StyledText {
                             Layout.alignment: Qt.AlignHCenter
-                            text: Translation.tr("Text")
+                            text: Translation.tr("Paste")
                             font.pixelSize: Appearance.font.pixelSize.small
                             color: Appearance.colors.colOnLayer0
                         }
+                    }
+                }
+            }
+
+            // inline text compose (Text tile): type a message, then send
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: root.textComposeVisible && !!root.selectedPeer
+                MaterialTextField {
+                    id: composeInput
+                    Layout.fillWidth: true
+                    placeholderText: Translation.tr("Type a message…")
+                    text: root.composeDraft
+                    onTextChanged: root.composeDraft = text
+                    Keys.onReturnPressed: { if (composeInput.text.trim().length) root.sendComposed() }
+                }
+                RippleButton {
+                    Layout.preferredWidth: 52; Layout.preferredHeight: 40
+                    buttonRadius: Appearance.rounding.small
+                    colBackground: Appearance.m3colors.m3primary
+                    enabled: composeInput.text.trim().length > 0
+                    onClicked: root.sendComposed()
+                    contentItem: MaterialSymbol {
+                        anchors.centerIn: parent
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "send"; iconSize: 18; color: "white"
                     }
                 }
             }
@@ -462,6 +523,26 @@ PanelWindow {
 
     property var selectedPeer: null
     property string transientMessage: ""
+    property bool textComposeVisible: false
+    property string composeDraft: ""
+
+    // Toggle the inline text-compose field (Text tile).
+    function toggleCompose() {
+        if (!root.selectedPeer) { root.transientMessage = Translation.tr("Select a device first"); return; }
+        root.textComposeVisible = !root.textComposeVisible;
+    }
+
+    // Send the typed message to the selected peer.
+    function sendComposed() {
+        const peer = root.selectedPeer;
+        const text = root.composeDraft;
+        if (!peer) { root.transientMessage = Translation.tr("Select a device first"); return; }
+        if (!text || !text.trim().length) return;
+        LocalSend.sendText(peer.ip, peer.port || 53317, peer.protocol || "https", text.trim());
+        root.composeDraft = "";
+        root.textComposeVisible = false;
+        root.transientMessage = Translation.tr("Sending text to %1…").arg(peer.alias || peer.ip);
+    }
 
     // Material Symbol glyph for a peer's device type.
     function peerIcon(type) {
