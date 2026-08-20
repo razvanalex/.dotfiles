@@ -22,7 +22,6 @@ PanelWindow {
     exclusiveZone: 0
     color: "transparent"
     property real panelWidth: 440
-    property real panelHeight: 500
     anchors { top: true; left: true }
     margins {
         top: Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
@@ -30,7 +29,7 @@ PanelWindow {
     }
 
     implicitWidth: panelWidth
-    implicitHeight: root.panelHeight   // fixed — like the search panel, lists scroll inside
+    implicitHeight: card.implicitHeight + 24   // content-fit; card animates (search pattern)
 
     Component.onCompleted: {
         GlobalFocusGrab.addDismissable(root);
@@ -61,14 +60,20 @@ PanelWindow {
 
     Rectangle {
         id: card
-        anchors.fill: parent
+        anchors { top: parent.top; left: parent.left; right: parent.right }
         clip: true
+        implicitHeight: col.implicitHeight + 24
+        // Content-fit with a SMOOTH height animation — mirrors the search
+        // widget, so the layer surface resize is clean (no leftover/stutter).
+        Behavior on implicitHeight {
+            animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
+        }
         color: Appearance.colors.colLayer0
         radius: Appearance.rounding.screenRounding
 
         ColumnLayout {
             id: col
-            anchors.fill: parent
+            anchors { top: parent.top; left: parent.left; right: parent.right }
             anchors.margins: 12
             spacing: 10
 
@@ -110,15 +115,15 @@ PanelWindow {
                 currentIndex: 1   // default to Send; receive is surfaced via the popup
             }
 
-            // content: two pages, active page fills the fixed content area
+            // content: two pages, active page drives the (animated) height
             Item {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: tabBar.currentIndex === 0 ? receivePage.implicitHeight : sendPage.implicitHeight
                 clip: true
 
                 ColumnLayout {
                     id: receivePage
-                    anchors.fill: parent
+                    anchors { left: parent.left; right: parent.right; top: parent.top }
                     visible: tabBar.currentIndex === 0
                     spacing: 6
 
@@ -133,7 +138,7 @@ PanelWindow {
 
                     ListView {
                         Layout.fillWidth: true
-                        Layout.fillHeight: LocalSend.inbound.length > 0
+                        Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 106 + 8, 300) : 0
                         clip: true
                         spacing: 6
                         visible: LocalSend.inbound.length > 0
@@ -228,7 +233,7 @@ PanelWindow {
                 // ===================== SEND PAGE (selection-first) =====================
                 ColumnLayout {
                     id: sendPage
-                    anchors.fill: parent
+                    anchors { left: parent.left; right: parent.right; top: parent.top }
                     visible: tabBar.currentIndex === 1
                     spacing: 8
 
@@ -413,7 +418,7 @@ PanelWindow {
                     }
                     ListView {
                         Layout.fillWidth: true
-                        Layout.fillHeight: LocalSend.peers.length > 0
+                        Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 56 + 8, 260) : 0
                         clip: true
                         spacing: 4
                         visible: LocalSend.peers.length > 0
