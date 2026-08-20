@@ -222,6 +222,11 @@ Singleton {
                         case "peers":
                             root.peers = m.peers || [];
                             break;
+                        case "webshare":
+                            root.webShareActive = !!m.active;
+                            root.webShareFiles = m.files || [];
+                            root.webShareText = m.text || "";
+                            break;
                         case "inbound":
                             const isTextInbound = (m.files || []).some(f => f.isText);
                             const textPreview = (m.files || []).map(f => f.preview).filter(Boolean).join(" ");
@@ -238,6 +243,8 @@ Singleton {
                                 state: "pending"
                             }]);
                             root._refreshPending();
+                            root.notify(Translation.tr("Incoming transfer from %1").arg(m.sender || "LocalSend"),
+                                        (m.files || []).map(f => f.fileName).join(", ") || Translation.tr("1 item"));
                             // surface it: pop the panel open so the request can be
                             // accepted without the user having to open it manually
                             GlobalStates.localsendOpen = true;
@@ -263,6 +270,8 @@ Singleton {
                                 if (s.isText && s.text && s.text.length) {
                                     Quickshell.clipboardText = s.text;
                                 }
+                                root.notify(Translation.tr("Received from %1").arg(s.sender || "LocalSend"),
+                                            s.isText ? s.text : (s.files || []).map(f => f.fileName).join(", "));
                                 root.recordHistory({
                                     direction: "received",
                                     peer: s.sender || "Unknown",
@@ -390,6 +399,7 @@ Singleton {
                                     files: (root.lastSendPaths || []).map(p => p.split("/").pop()),
                                     text: root.lastSendText || ""
                                 });
+                                root.notify(Translation.tr("Transfer failed"), errMsg || Translation.tr("Error sending files"));
                             }
                             break;
                         case "senddone":
@@ -408,6 +418,8 @@ Singleton {
                                     text: root.lastSendText || "",
                                     isText: !!(root.lastSendText && root.lastSendText.length)
                                 });
+                                root.notify(Translation.tr("Sent to %1").arg(pNames || "LocalSend"),
+                                            (root.lastSendPaths || []).map(p => p.split("/").pop()).join(", ") || Translation.tr("Transfer complete"));
                                 sendDoneTimer.restart();
                             }
                             break;
@@ -437,6 +449,97 @@ Singleton {
     property string lastSendText: ""
     property var pinRequiredPeer: null
     property var devicePins: ({})   // ip -> pin string
+
+    function notify(title, body) {
+        if (!title) return;
+        Quickshell.execDetached(["notify-send", "-a", "LocalSend", "-i", "network-wireless", title, body || ""]);
+    }
+
+    // ---- manual peer discovery probe (Send to IP) ----
+    Process {
+        id: probeProc
+        running: false
+        property string manualIp: ""
+        property int manualPort: 53317
+        command: []
+        stdout: SplitParser {
+            onRead: data => {
+                if (!data || !data.length) return;
+                try {
+                    const info = JSON.parse(data);
+                    if (info) {
+                        const newPeer = {
+                            alias: info.alias || probeProc.manualIp,
+                            deviceModel: info.deviceModel || "Manual IP",
+                            deviceType: info.deviceType || "desktop",
+                            fingerprint: info.fingerprint || "",
+                            ip: probeProc.manualIp,
+                            port: probeProc.manualPort || 53317,
+                            protocol: info.protocol || "https",
+                            lastSeen: Date.now()
+                        };
+                        const list = (root.peers || []).filter(p => p.ip !== newPeer.ip);
+                        list.push(newPeer);
+                        root.peers = list;
+                        if (!root.isPeerSelected(newPeer)) {
+                            root.togglePeer(newPeer);
+                        }
+                    }
+                } catch (e) { }
+            }
+        }
+    }
+
+    function addManualPeer(ip, port) {
+        if (!ip || !ip.trim().length) return;
+        const targetIp = ip.trim();
+        const targetPort = port || 53317;
+        probeProc.manualIp = targetIp;
+        probeProc.manualPort = targetPort;
+        probeProc.command = ["python3", "-c", `
+import sys, urllib.request, ssl, json
+ip = "${targetIp}"
+port = ${targetPort}
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+for proto in ['https', 'http']:
+    try:
+        url = f"{proto}://{ip}:{port}/api/localsend/v2/info"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, context=ctx if proto == 'https' else None, timeout=1.8) as r:
+            data = json.loads(r.read().decode())
+            data['protocol'] = proto
+            print(json.dumps(data))
+            sys.exit(0)
+    except Exception:
+        pass
+print(json.dumps({'alias': ip, 'deviceType': 'desktop', 'deviceModel': 'Manual IP', 'protocol': 'https'}))
+`];
+        probeProc.running = true;
+    }
+
+    // ---- web share (share via browser link) ----
+    property bool webShareActive: false
+    property var webShareFiles: []
+    property string webShareText: ""
+    property string localIp: Network?.primaryAddress || "127.0.0.1"
+
+    function startWebShare(paths, text) {
+        const payload = JSON.stringify({
+            action: "set",
+            files: paths || [],
+            text: text || ""
+        });
+        Quickshell.execDetached(["curl", "-s", "--max-time", "3", "-X", "POST", "-H", "Content-Type: application/json", "-d", payload, `${root.control}/webshare`]);
+        root.webShareActive = true;
+    }
+
+    function stopWebShare() {
+        const payload = JSON.stringify({ action: "clear" });
+        Quickshell.execDetached(["curl", "-s", "--max-time", "3", "-X", "POST", "-H", "Content-Type: application/json", "-d", payload, `${root.control}/webshare`]);
+        root.webShareActive = false;
+    }
 
     function sendFiles(ip, port, protocol, paths) {
         root.sendSelection([ { ip: ip, port: port, protocol: protocol, alias: ip } ], paths, "");

@@ -1,11 +1,6 @@
-#!/usr/bin/env python3
-# LocalSend v2.2 agent for the quickshell shell (sidecar pattern).
-# Emits JSON events on stdout consumed by QML Process + SplitParser.
-# Task 1: discovery (UDP announce + /register) + self fingerprint/cert + /info.
-# Receive (prepare-upload/upload/cancel) and send are added in later tasks.
-import argparse, concurrent.futures, hashlib, json, logging, os, socket, ssl, subprocess, sys, threading, time
+import argparse, concurrent.futures, hashlib, html, io, json, logging, os, socket, ssl, subprocess, sys, threading, time
 import urllib.request, urllib.error
-import urllib.parse, shutil, tempfile, uuid, mimetypes, http.client
+import urllib.parse, shutil, tempfile, uuid, mimetypes, http.client, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -25,6 +20,16 @@ def emit(obj):
 HERE = Path(__file__).resolve().parent
 CONF = HERE / 'localsend.conf'
 CERT_DIR = HERE / 'cert'
+
+# ---- Web Share state (for browser link downloads) ----
+WEB_SHARE = {'files': [], 'text': '', 'active': False}
+WEB_SHARE_LOCK = threading.Lock()
+
+def format_bytes(b):
+    if b < 1024: return f"{b} B"
+    elif b < 1048576: return f"{b/1024:.1f} KB"
+    elif b < 1073741824: return f"{b/1048576:.1f} MB"
+    return f"{b/1073741824:.2f} GB"
 
 def load_config():
     cfg = {'alias': 'Razvan PC', 'save_dir': '~/Downloads', 'pin': '', 'auto_accept': 'false',
@@ -197,10 +202,138 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def do_GET(self):
-        if self.path.startswith('/api/localsend/v2/info'):
+        clean_path = self.path.split('?')[0]
+        if clean_path.startswith('/api/localsend/v2/info'):
             self._send(200, advertise_body(False))
+        elif clean_path in ('/web', '/web/', '/', ''):
+            self._serve_web_index()
+        elif clean_path.startswith('/web/file/'):
+            fid = clean_path[len('/web/file/'):]
+            self._serve_web_file(urllib.parse.unquote(fid))
+        elif clean_path == '/web/zip':
+            self._serve_web_zip()
         else:
             self._send(404, {'error': 'not found'})
+
+    def _serve_web_index(self):
+        with WEB_SHARE_LOCK:
+            files = list(WEB_SHARE.get('files') or [])
+            text = WEB_SHARE.get('text') or ''
+        
+        items_html = ""
+        for f in files:
+            name_esc = html.escape(f['name'])
+            sz_str = format_bytes(f.get('size', 0))
+            dl_url = f"/web/file/{urllib.parse.quote(f['id'])}"
+            items_html += f"""
+            <div class="item">
+              <div>
+                <div class="item-name">{name_esc}</div>
+                <div class="item-meta">{sz_str}</div>
+              </div>
+              <a href="{dl_url}" download="{name_esc}" class="btn">Download</a>
+            </div>
+            """
+        
+        text_html = ""
+        if text:
+            text_esc = html.escape(text)
+            text_html = f"""
+            <div class="section-title">Shared Text</div>
+            <div class="text-box" id="shareText">{text_esc}</div>
+            <button class="btn" onclick="copyText()">Copy Text</button>
+            <div style="height: 16px;"></div>
+            """
+
+        zip_html = ""
+        if len(files) > 1:
+            zip_html = f'<a href="/web/zip" class="btn btn-all">Download All as ZIP ({len(files)} files)</a>'
+
+        empty_html = '<div class="empty">No active files shared right now.<br>Open LocalSend on your desktop to share files.</div>' if (not files and not text) else ''
+
+        body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalSend Web Share</title>
+<style>
+  :root {{ --bg: #0f1117; --surface: #1a1d27; --primary: #3b82f6; --primary-hover: #2563eb; --text: #f3f4f6; --sub: #9ca3af; --border: #2d3345; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 90vh; }}
+  .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 520px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); box-sizing: border-box; }}
+  h1 {{ font-size: 20px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; color: var(--text); }}
+  .sender {{ color: var(--sub); font-size: 13px; margin-bottom: 20px; }}
+  .section-title {{ font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--sub); margin: 12px 0 8px; }}
+  .item {{ display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px; margin-bottom: 8px; border: 1px solid var(--border); gap: 12px; }}
+  .item-name {{ font-weight: 500; font-size: 14px; word-break: break-all; }}
+  .item-meta {{ font-size: 12px; color: var(--sub); margin-top: 2px; }}
+  .btn {{ display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: white; border: none; padding: 8px 18px; border-radius: 999px; text-decoration: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }}
+  .btn:hover {{ background: var(--primary-hover); }}
+  .btn-all {{ width: 100%; padding: 12px; font-size: 14px; margin-top: 14px; box-sizing: border-box; }}
+  .text-box {{ background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 14px; white-space: pre-wrap; margin-bottom: 12px; word-break: break-word; line-height: 1.5; }}
+  .empty {{ text-align: center; color: var(--sub); padding: 30px 0; font-size: 14px; line-height: 1.6; }}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>LocalSend Web Share</h1>
+  <div class="sender">Shared by <b>{html.escape(ALIAS)}</b></div>
+  {text_html}
+  {f'<div class="section-title">Files ({len(files)})</div>' if files else ''}
+  {items_html}
+  {zip_html}
+  {empty_html}
+</div>
+<script>
+function copyText() {{
+  const t = document.getElementById('shareText').innerText;
+  navigator.clipboard.writeText(t).then(() => alert('Copied to clipboard!'));
+}}
+</script>
+</body>
+</html>
+""".encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_web_file(self, fid):
+        with WEB_SHARE_LOCK:
+            files = list(WEB_SHARE.get('files') or [])
+        target = next((f for f in files if f['id'] == fid or f['name'] == fid), None)
+        if not target or not Path(target['path']).is_file():
+            self._send(404, {'error': 'file not found'}); return
+        p = Path(target['path'])
+        ctype = mimetypes.guess_type(str(p))[0] or 'application/octet-stream'
+        size = p.stat().st_size
+        self.send_response(200)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Disposition', f'attachment; filename="{p.name}"')
+        self.send_header('Content-Length', str(size))
+        self.end_headers()
+        with open(p, 'rb') as f:
+            shutil.copyfileobj(f, self.wfile)
+
+    def _serve_web_zip(self):
+        with WEB_SHARE_LOCK:
+            files = list(WEB_SHARE.get('files') or [])
+        if not files:
+            self._send(404, {'error': 'no files'}); return
+        bio = io.BytesIO()
+        with zipfile.ZipFile(bio, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for f in files:
+                p = Path(f['path'])
+                if p.is_file():
+                    zf.write(p, arcname=f['name'])
+        data = bio.getvalue()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/zip')
+        self.send_header('Content-Disposition', 'attachment; filename="localsend_shared.zip"')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_POST(self):
         path = self.path.split('?')[0]
@@ -582,6 +715,31 @@ class ControlHandler(BaseHTTPRequestHandler):
                 'peer': peer, 'paths': body.get('files') or [], 'text': body.get('text')},
                 daemon=True).start()
             self._no(202)
+        elif p == '/webshare':
+            try:
+                ln = int(self.headers.get('Content-Length') or 0)
+                body = json.loads(self.rfile.read(ln).decode('utf-8')) if ln else {}
+            except Exception:
+                self._no(400); return
+            with WEB_SHARE_LOCK:
+                if body.get('action') == 'clear':
+                    WEB_SHARE['active'] = False
+                    WEB_SHARE['files'] = []
+                    WEB_SHARE['text'] = ''
+                else:
+                    paths = body.get('files') or []
+                    files = []
+                    for idx, pt in enumerate(paths):
+                        pobj = Path(pt)
+                        if pobj.is_file():
+                            files.append({'id': str(idx), 'name': pobj.name, 'path': str(pobj), 'size': pobj.stat().st_size})
+                    WEB_SHARE['files'] = files
+                    WEB_SHARE['text'] = body.get('text') or ''
+                    WEB_SHARE['active'] = True
+            emit({'type': 'webshare', 'active': WEB_SHARE['active'],
+                  'files': [f['name'] for f in WEB_SHARE['files']],
+                  'text': WEB_SHARE['text']})
+            self._no(200)
         else:
             self._no(404)
 

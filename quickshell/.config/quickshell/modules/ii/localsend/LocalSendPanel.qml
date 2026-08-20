@@ -422,6 +422,28 @@ PanelWindow {
                                 StyledText { Layout.alignment: Qt.AlignHCenter; text: Translation.tr("Paste"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
                             }
                         }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 52
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: LocalSend.webShareActive ? Appearance.m3colors.m3primary : Appearance.colors.colLayer3
+                                onClicked: {
+                                    if (LocalSend.webShareActive) {
+                                        LocalSend.stopWebShare();
+                                    } else {
+                                        LocalSend.startWebShare(LocalSend.stagedPaths, LocalSend.stagedText);
+                                    }
+                                }
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol { Layout.alignment: Qt.AlignHCenter; text: "language"; iconSize: 22; color: LocalSend.webShareActive ? "white" : Appearance.m3colors.m3primary }
+                                StyledText { Layout.alignment: Qt.AlignHCenter; text: Translation.tr("Web"); font.pixelSize: Appearance.font.pixelSize.small; color: LocalSend.webShareActive ? "white" : Appearance.colors.colOnLayer0 }
+                            }
+                        }
                     }
 
                     // text compose (Text tile): type a message, "Add" stages it
@@ -527,28 +549,117 @@ PanelWindow {
                         }
                     }
 
-                    // 3) target device
-                    StyledText {
+                    // 2.5) Web Share active card
+                    Rectangle {
                         Layout.fillWidth: true
-                        visible: LocalSend.peers.length === 0
-                        text: Translation.tr("No nearby devices — open LocalSend on another device to discover it")
-                        color: Appearance.colors.colOnLayer0
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        wrapMode: Text.Wrap
+                        implicitHeight: webShareCol.implicitHeight + 20
+                        radius: Appearance.rounding.normal
+                        color: Appearance.colors.colLayer2
+                        border.color: Appearance.m3colors.m3primary
+                        border.width: 1
+                        visible: LocalSend.webShareActive
+
+                        ColumnLayout {
+                            id: webShareCol
+                            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
+                            spacing: 6
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                MaterialSymbol { text: "language"; iconSize: 18; color: Appearance.m3colors.m3primary }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: Translation.tr("Web Share Active")
+                                    font.weight: Font.DemiBold
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer0
+                                }
+                                RippleButton {
+                                    Layout.preferredHeight: 22
+                                    buttonRadius: Appearance.rounding.full
+                                    colBackground: Appearance.m3colors.m3error
+                                    onClicked: LocalSend.stopWebShare()
+                                    contentItem: StyledText {
+                                        anchors.centerIn: parent
+                                        text: Translation.tr("Stop"); color: "white"
+                                        font.pixelSize: Appearance.font.pixelSize.smaller
+                                    }
+                                }
+                            }
+
+                            StyledText {
+                                Layout.fillWidth: true
+                                text: Translation.tr("Anyone on Wi-Fi can open this link in their browser to download:")
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: Appearance.m3colors.m3onSurfaceVariant
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+                                    radius: Appearance.rounding.small
+                                    color: Appearance.colors.colLayer3
+                                    StyledText {
+                                        anchors.centerIn: parent
+                                        text: `http://${LocalSend.localIp}:${Config.options.localsend?.port || 53317}/web`
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: Appearance.m3colors.m3primary
+                                        font.bold: true
+                                    }
+                                }
+                                RippleButton {
+                                    Layout.preferredHeight: 32
+                                    Layout.preferredWidth: 60
+                                    buttonRadius: Appearance.rounding.small
+                                    colBackground: Appearance.m3colors.m3primary
+                                    onClicked: {
+                                        Quickshell.clipboardText = `http://${LocalSend.localIp}:${Config.options.localsend?.port || 53317}/web`;
+                                        root.setTransient(Translation.tr("Link copied!"));
+                                    }
+                                    contentItem: StyledText {
+                                        anchors.centerIn: parent
+                                        text: Translation.tr("Copy"); color: "white"
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                    }
+                                }
+                            }
+                        }
                     }
+
+                    // 3) target device section header
+                    property bool manualIpVisible: false
 
                     RowLayout {
                         Layout.fillWidth: true
-                        visible: LocalSend.peers.length > 1
+                        spacing: 8
                         StyledText {
                             Layout.fillWidth: true
-                            text: Translation.tr("Nearby devices (%1)").arg(LocalSend.peers.length)
+                            text: LocalSend.peers.length > 0 ? Translation.tr("Nearby devices (%1)").arg(LocalSend.peers.length) : Translation.tr("Devices")
                             color: Appearance.m3colors.m3onSurfaceVariant
                             font.pixelSize: Appearance.font.pixelSize.small
                         }
                         RippleButton {
                             Layout.preferredHeight: 24
                             colBackground: "transparent"
+                            onClicked: sendPage.manualIpVisible = !sendPage.manualIpVisible
+                            contentItem: RowLayout {
+                                anchors.centerIn: parent
+                                spacing: 3
+                                MaterialSymbol { text: sendPage.manualIpVisible ? "expand_less" : "add"; iconSize: 14; color: Appearance.m3colors.m3primary }
+                                StyledText {
+                                    text: Translation.tr("Add IP")
+                                    color: Appearance.m3colors.m3primary
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                }
+                            }
+                        }
+                        RippleButton {
+                            Layout.preferredHeight: 24
+                            colBackground: "transparent"
+                            visible: LocalSend.peers.length > 1
                             onClicked: {
                                 if (LocalSend.selectedPeers.length === LocalSend.peers.length) {
                                     LocalSend.clearPeerSelection();
@@ -563,6 +674,58 @@ PanelWindow {
                                 font.pixelSize: Appearance.font.pixelSize.small
                             }
                         }
+                    }
+
+                    // Manual IP input row
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        visible: sendPage.manualIpVisible
+                        MaterialTextField {
+                            id: manualIpInput
+                            Layout.fillWidth: true
+                            placeholderText: Translation.tr("IP (e.g. 192.168.1.50)")
+                            Keys.onReturnPressed: {
+                                if (manualIpInput.text.trim().length) {
+                                    LocalSend.addManualPeer(manualIpInput.text.trim(), parseInt(manualPortInput.text.trim()) || 53317);
+                                    manualIpInput.text = "";
+                                    sendPage.manualIpVisible = false;
+                                }
+                            }
+                        }
+                        MaterialTextField {
+                            id: manualPortInput
+                            Layout.preferredWidth: 65
+                            placeholderText: "53317"
+                            text: "53317"
+                        }
+                        RippleButton {
+                            Layout.preferredHeight: 40
+                            Layout.preferredWidth: 50
+                            buttonRadius: Appearance.rounding.small
+                            colBackground: Appearance.m3colors.m3primary
+                            onClicked: {
+                                if (manualIpInput.text.trim().length) {
+                                    LocalSend.addManualPeer(manualIpInput.text.trim(), parseInt(manualPortInput.text.trim()) || 53317);
+                                    manualIpInput.text = "";
+                                    sendPage.manualIpVisible = false;
+                                }
+                            }
+                            contentItem: StyledText {
+                                anchors.centerIn: parent
+                                text: Translation.tr("Add"); color: "white"
+                                font.pixelSize: Appearance.font.pixelSize.small
+                            }
+                        }
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: LocalSend.peers.length === 0 && !sendPage.manualIpVisible
+                        text: Translation.tr("No nearby devices found — open LocalSend on another device or click 'Add IP'")
+                        color: Appearance.colors.colOnLayer0
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        wrapMode: Text.Wrap
                     }
 
                     ListView {
