@@ -101,6 +101,17 @@ PanelWindow {
                     Layout.preferredWidth: 30; Layout.preferredHeight: 30
                     buttonRadius: Appearance.rounding.full
                     colBackground: "transparent"
+                    onClicked: LocalSend.openSaveDirectory()
+                    contentItem: MaterialSymbol {
+                        anchors.centerIn: parent
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "folder_open"; iconSize: 18; color: Appearance.m3colors.m3onSurfaceVariant
+                    }
+                }
+                RippleButton {
+                    Layout.preferredWidth: 30; Layout.preferredHeight: 30
+                    buttonRadius: Appearance.rounding.full
+                    colBackground: "transparent"
                     onClicked: GlobalStates.localsendOpen = false
                     contentItem: MaterialSymbol {
                         anchors.centerIn: parent
@@ -118,31 +129,35 @@ PanelWindow {
                     { "icon": "wifi", "name": root.receiveTabName },
                     { "icon": "send", "name": Translation.tr("Send") }
                 ]
-                currentIndex: 1   // default to Send; receive is surfaced via the popup
+                currentIndex: 0
             }
 
-            // content: two pages, active page drives the (animated) height
+            // StackLayout or swipe area for the tabs
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: tabBar.currentIndex === 0 ? receivePage.implicitHeight : sendPage.implicitHeight
-                clip: true
+                implicitHeight: (tabBar.currentIndex === 0 ? recvPage.implicitHeight : sendPage.implicitHeight) + 4
+                Behavior on implicitHeight {
+                    animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
+                }
 
+                // ===================== RECEIVE PAGE =====================
                 ColumnLayout {
-                    id: receivePage
+                    id: recvPage
                     anchors { left: parent.left; right: parent.right; top: parent.top }
                     visible: tabBar.currentIndex === 0
                     spacing: 8
 
+                    // idle banner when no incoming requests
                     ColumnLayout {
                         Layout.fillWidth: true
+                        visible: LocalSend.inbound.length === 0
+                        spacing: 4
                         Layout.topMargin: 12
                         Layout.bottomMargin: 12
-                        visible: LocalSend.inbound.length === 0
-                        spacing: 6
 
                         MaterialSymbol {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "wifi_tethering"
+                            text: "downloading"
                             iconSize: 32
                             color: Appearance.m3colors.m3primary
                         }
@@ -181,7 +196,7 @@ PanelWindow {
                             color: Appearance.colors.colLayer2
                             radius: Appearance.rounding.small
                             // deterministic height per state so the actions row is never clipped
-                            implicitHeight: modelData.state === "pending" ? 104 : 76
+                            implicitHeight: (modelData.state === "pending" || modelData.state === "done") ? 104 : 76
                             ColumnLayout {
                                 id: inner
                                 anchors.fill: parent
@@ -254,6 +269,55 @@ PanelWindow {
                                             horizontalAlignment: Text.AlignHCenter
                                             text: "Accept"; color: "white"
                                             font.pixelSize: Appearance.font.pixelSize.small
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: modelData.state === "done"
+                                    spacing: 6
+                                    Item { Layout.fillWidth: true }
+                                    RippleButton {
+                                        Layout.preferredHeight: 26
+                                        Layout.preferredWidth: openTxt.implicitWidth + 24
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.colors.colLayer4
+                                        onClicked: LocalSend.openPath(modelData.path)
+                                        contentItem: RowLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+                                            MaterialSymbol { text: "visibility"; iconSize: 14; color: Appearance.colors.colOnLayer0 }
+                                            StyledText { id: openTxt; text: Translation.tr("Open"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                                        }
+                                    }
+                                    RippleButton {
+                                        Layout.preferredHeight: 26
+                                        Layout.preferredWidth: fldTxt.implicitWidth + 24
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.colors.colLayer4
+                                        onClicked: LocalSend.openContainingFolder(modelData.path)
+                                        contentItem: RowLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+                                            MaterialSymbol { text: "folder_open"; iconSize: 14; color: Appearance.colors.colOnLayer0 }
+                                            StyledText { id: fldTxt; text: Translation.tr("Folder"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
+                                        }
+                                    }
+                                    RippleButton {
+                                        Layout.preferredHeight: 26
+                                        Layout.preferredWidth: cpyTxt.implicitWidth + 24
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.colors.colLayer4
+                                        onClicked: {
+                                            if (LocalSend.copyReceivedItem(modelData)) {
+                                                root.setTransient(Translation.tr("Copied to clipboard!"));
+                                            }
+                                        }
+                                        contentItem: RowLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+                                            MaterialSymbol { text: "content_copy"; iconSize: 14; color: Appearance.colors.colOnLayer0 }
+                                            StyledText { id: cpyTxt; text: Translation.tr("Copy"); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer0 }
                                         }
                                     }
                                 }

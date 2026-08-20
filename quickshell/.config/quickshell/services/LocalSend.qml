@@ -250,7 +250,10 @@ Singleton {
                                 s.state = "done";
                                 s.pct = 1;
                                 s.path = m.path;
+                                s.isText = !!m.text;
                                 s.finishedAt = Date.now();
+                                if (!s.savedPaths) s.savedPaths = [];
+                                if (m.path && !s.savedPaths.includes(m.path)) s.savedPaths.push(m.path);
                             });
                             root._refreshPending();
                             break;
@@ -490,5 +493,40 @@ Singleton {
     function declineRequest(session) {
         ctlProc.command = ["curl", "-s", "--max-time", "3", `${root.control}/decline?session=${session}`];
         ctlProc.running = true;
+    }
+
+    function openPath(path) {
+        if (!path || !path.length) return;
+        Quickshell.execDetached(["xdg-open", path]);
+    }
+
+    function openContainingFolder(path) {
+        if (!path || !path.length) return;
+        const dir = path.substring(0, path.lastIndexOf("/"));
+        Quickshell.execDetached(["xdg-open", dir && dir.length ? dir : path]);
+    }
+
+    function openSaveDirectory() {
+        const dir = (Config.options.localsend && Config.options.localsend.savePath)
+            ? Config.options.localsend.savePath
+            : Directories.downloads.replace("file://", "");
+        Quickshell.execDetached(["xdg-open", dir]);
+    }
+
+    function copyReceivedItem(item) {
+        if (!item) return false;
+        if (item.isText && item.text && item.text.length) {
+            Quickshell.clipboardText = item.text;
+            return true;
+        }
+        const path = item.path || (item.savedPaths && item.savedPaths[0]);
+        if (!path) return false;
+        const ext = path.split(".").pop().toLowerCase();
+        if (["png", "jpg", "jpeg", "webp", "gif", "bmp"].includes(ext)) {
+            Quickshell.execDetached(["bash", "-c", `wl-copy -t image/png < "${path}" || wl-copy < "${path}"`]);
+        } else {
+            Quickshell.clipboardText = path;
+        }
+        return true;
     }
 }
