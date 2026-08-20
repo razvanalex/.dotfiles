@@ -679,12 +679,12 @@ PanelWindow {
                     // Manual IP input row
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 6
+                        spacing: 8
                         visible: sendPage.manualIpVisible
                         MaterialTextField {
                             id: manualIpInput
                             Layout.fillWidth: true
-                            placeholderText: Translation.tr("IP (e.g. 192.168.1.50)")
+                            placeholderText: Translation.tr("IP or Hostname")
                             Keys.onReturnPressed: {
                                 if (manualIpInput.text.trim().length) {
                                     LocalSend.addManualPeer(manualIpInput.text.trim(), parseInt(manualPortInput.text.trim()) || 53317);
@@ -695,13 +695,20 @@ PanelWindow {
                         }
                         MaterialTextField {
                             id: manualPortInput
-                            Layout.preferredWidth: 65
-                            placeholderText: "53317"
+                            Layout.preferredWidth: 95
+                            placeholderText: Translation.tr("Port")
                             text: "53317"
+                            Keys.onReturnPressed: {
+                                if (manualIpInput.text.trim().length) {
+                                    LocalSend.addManualPeer(manualIpInput.text.trim(), parseInt(manualPortInput.text.trim()) || 53317);
+                                    manualIpInput.text = "";
+                                    sendPage.manualIpVisible = false;
+                                }
+                            }
                         }
                         RippleButton {
-                            Layout.preferredHeight: 40
-                            Layout.preferredWidth: 50
+                            Layout.preferredHeight: manualIpInput.implicitHeight > 0 ? manualIpInput.implicitHeight : 44
+                            Layout.preferredWidth: 64
                             buttonRadius: Appearance.rounding.small
                             colBackground: Appearance.m3colors.m3primary
                             onClicked: {
@@ -715,6 +722,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 text: Translation.tr("Add"); color: "white"
                                 font.pixelSize: Appearance.font.pixelSize.small
+                                font.bold: true
                             }
                         }
                     }
