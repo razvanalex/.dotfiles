@@ -50,6 +50,9 @@ SAVE_DIR = os.path.expanduser(CONFIG['save_dir'])
 PIN = CONFIG['pin']
 AUTO_ACCEPT = CONFIG['auto_accept'].lower() == 'true'
 DEVICE_TYPE = 'desktop'
+DEVICE_MODEL = 'Linux'
+REQUIRE_PIN = False
+VERIFY_CHECKSUMS = True
 PROTOCOL = 'https'
 
 def _save_dest(fileName):
@@ -112,7 +115,7 @@ def prune_peers(ttl=300):
             del _peers[k]
 
 def advertise_body(announce=True):
-    return {'alias': ALIAS, 'version': '2.0', 'deviceModel': 'Linux',
+    return {'alias': ALIAS, 'version': '2.0', 'deviceModel': DEVICE_MODEL,
             'deviceType': DEVICE_TYPE, 'fingerprint': FINGERPRINT, 'port': PORT,
             'protocol': PROTOCOL, 'announce': announce}
 
@@ -208,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 self._send(400, {'error': 'invalid body'}); return
             qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            if PIN and (qs.get('pin') or [''])[0] != PIN:
+            if (REQUIRE_PIN or (PIN and len(PIN))) and (qs.get('pin') or [''])[0] != PIN:
                 self._send(401, {'error': 'PIN required'}); return
             files = body.get('files') or {}
             if not files:
@@ -339,7 +342,7 @@ class Handler(BaseHTTPRequestHandler):
             tmp.unlink(missing_ok=True)
             self._send(200, {})
             return
-        if fi.get('sha256') and hasher.hexdigest() != fi['sha256']:
+        if VERIFY_CHECKSUMS and fi.get('sha256') and hasher and hasher.hexdigest() != fi['sha256']:
             log.info('HASHMISMATCH size=%d expect=%s got=%s', size, fi['sha256'],
                      hasher.hexdigest())
             tmp.unlink(missing_ok=True)
@@ -360,15 +363,45 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 def main():
+    global ALIAS, SAVE_DIR, PIN, AUTO_ACCEPT, PORT, DEVICE_TYPE, DEVICE_MODEL, REQUIRE_PIN, VERIFY_CHECKSUMS, GROUP
     ap = argparse.ArgumentParser(description='LocalSend v2 agent sidecar')
     ap.add_argument('--send', nargs='+', metavar='ARG',
                     help='one-shot send: HOST FILE [FILE...] (no daemon)')
     ap.add_argument('--target', action='append', default=[],
                     help='target peer spec: HOST[:PIN] (repeatable for multi-target)')
     ap.add_argument('--text', default=None, help='text payload for --send')
-    ap.add_argument('--pin', default=None, help='optional PIN code for --send')
+    ap.add_argument('--pin', default=None, help='optional PIN code')
+    ap.add_argument('--alias', default=None, help='device alias')
+    ap.add_argument('--device-type', default=None, help='device type (desktop, laptop, mobile, headless)')
+    ap.add_argument('--device-model', default=None, help='device model (e.g. Linux, macOS)')
+    ap.add_argument('--require-pin', action='store_true', help='require PIN for incoming transfers')
+    ap.add_argument('--no-verify-checksums', action='store_true', help='disable checksum verification')
+    ap.add_argument('--group', default=None, help='multicast group IP')
+    ap.add_argument('--save-dir', default=None, help='directory to save received files')
+    ap.add_argument('--auto-accept', action='store_true', help='automatically accept incoming transfers')
+    ap.add_argument('--port', type=int, default=None, help='TCP/UDP port')
     ap.add_argument('files', nargs='*', default=[], help='files when using --target')
     args = ap.parse_args()
+    if args.alias:
+        ALIAS = args.alias
+    if args.device_type:
+        DEVICE_TYPE = args.device_type
+    if args.device_model:
+        DEVICE_MODEL = args.device_model
+    if args.require_pin:
+        REQUIRE_PIN = True
+    if args.no_verify_checksums:
+        VERIFY_CHECKSUMS = False
+    if args.group:
+        GROUP = args.group
+    if args.save_dir:
+        SAVE_DIR = os.path.expanduser(args.save_dir)
+    if args.pin is not None and len(args.pin):
+        PIN = args.pin
+    if args.auto_accept:
+        AUTO_ACCEPT = True
+    if args.port:
+        PORT = args.port
     if args.target:
         logging.basicConfig(level=logging.INFO)
         ensure_cert()

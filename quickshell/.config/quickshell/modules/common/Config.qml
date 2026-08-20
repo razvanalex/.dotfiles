@@ -366,6 +366,19 @@ Singleton {
                 property list<string> pinnedApps: [ "org.kde.dolphin", "kitty", "cmake-gui"]
             }
 
+            property JsonObject localsend: JsonObject {
+                property string alias: "Razvan PC"
+                property string deviceType: "desktop"
+                property string deviceModel: "Linux"
+                property string pin: ""
+                property bool requirePin: false
+                property string savePath: Directories.downloads.replace("file://","")
+                property bool autoAccept: false
+                property bool verifyChecksums: true
+                property int port: 53317
+                property string multicastGroup: "224.0.0.167"
+            }
+
             property JsonObject light: JsonObject {
                 property JsonObject night: JsonObject {
                     property bool automatic: true

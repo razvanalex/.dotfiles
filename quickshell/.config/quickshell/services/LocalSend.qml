@@ -153,11 +153,54 @@ Singleton {
         onTriggered: root._pruneTerminal()
     }
 
+    function buildDaemonCommand() {
+        let cmd = [root.script];
+        if (Config.options.localsend) {
+            const c = Config.options.localsend;
+            if (c.alias && c.alias.length) { cmd.push("--alias"); cmd.push(c.alias); }
+            if (c.deviceType && c.deviceType.length) { cmd.push("--device-type"); cmd.push(c.deviceType); }
+            if (c.deviceModel && c.deviceModel.length) { cmd.push("--device-model"); cmd.push(c.deviceModel); }
+            if (c.savePath && c.savePath.length) { cmd.push("--save-dir"); cmd.push(c.savePath); }
+            if (c.pin && c.pin.length) { cmd.push("--pin"); cmd.push(c.pin); }
+            if (c.requirePin) { cmd.push("--require-pin"); }
+            if (c.autoAccept) { cmd.push("--auto-accept"); }
+            if (c.verifyChecksums === false) { cmd.push("--no-verify-checksums"); }
+            if (c.port) { cmd.push("--port"); cmd.push(c.port.toString()); }
+            if (c.multicastGroup && c.multicastGroup.length) { cmd.push("--group"); cmd.push(c.multicastGroup); }
+        }
+        return cmd;
+    }
+
+    Connections {
+        target: Config.options.localsend || null
+        function onAliasChanged() { restartDaemonTimer.restart(); }
+        function onDeviceTypeChanged() { restartDaemonTimer.restart(); }
+        function onDeviceModelChanged() { restartDaemonTimer.restart(); }
+        function onSavePathChanged() { restartDaemonTimer.restart(); }
+        function onPinChanged() { restartDaemonTimer.restart(); }
+        function onRequirePinChanged() { restartDaemonTimer.restart(); }
+        function onAutoAcceptChanged() { restartDaemonTimer.restart(); }
+        function onVerifyChecksumsChanged() { restartDaemonTimer.restart(); }
+        function onPortChanged() { restartDaemonTimer.restart(); }
+        function onMulticastGroupChanged() { restartDaemonTimer.restart(); }
+    }
+
+    Timer {
+        id: restartDaemonTimer
+        interval: 1200
+        repeat: false
+        onTriggered: {
+            daemonProc.running = false;
+            daemonProc.command = root.buildDaemonCommand();
+            daemonProc.running = true;
+        }
+    }
+
     // ---- daemon (receive + discovery), runs for the whole session ----
     Process {
         id: daemonProc
         running: true
-        command: [root.script]
+        command: root.buildDaemonCommand()
         onStarted: root.daemonRunning = true
         onExited: (code, status) => root.daemonRunning = false
 

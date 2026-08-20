@@ -53,6 +53,115 @@ ContentPage {
     }
 
     ContentSection {
+        icon: "near_me"
+        title: Translation.tr("LocalSend")
+
+        ConfigRow {
+            uniform: true
+            MaterialTextArea {
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("Device Alias (Broadcast name)")
+                text: Config.options.localsend.alias
+                wrapMode: TextEdit.Wrap
+                onTextChanged: {
+                    Config.options.localsend.alias = text;
+                }
+            }
+            MaterialTextArea {
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("Device Model (e.g. Linux)")
+                text: Config.options.localsend.deviceModel
+                wrapMode: TextEdit.Wrap
+                onTextChanged: {
+                    Config.options.localsend.deviceModel = text;
+                }
+            }
+        }
+
+        ConfigRow {
+            uniform: true
+            MaterialTextArea {
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("Device Type (desktop, laptop, mobile)")
+                text: Config.options.localsend.deviceType
+                wrapMode: TextEdit.Wrap
+                onTextChanged: {
+                    Config.options.localsend.deviceType = text;
+                }
+            }
+            MaterialTextArea {
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("PIN code (optional)")
+                text: Config.options.localsend.pin
+                wrapMode: TextEdit.Wrap
+                onTextChanged: {
+                    Config.options.localsend.pin = text;
+                }
+            }
+        }
+
+        MaterialTextArea {
+            Layout.fillWidth: true
+            placeholderText: Translation.tr("Save directory for received files")
+            text: Config.options.localsend.savePath
+            wrapMode: TextEdit.Wrap
+            onTextChanged: {
+                Config.options.localsend.savePath = text;
+            }
+        }
+
+        ConfigRow {
+            uniform: true
+            ConfigSwitch {
+                text: Translation.tr("Quick Save (Auto-accept)")
+                checked: Config.options.localsend.autoAccept
+                onCheckedChanged: {
+                    Config.options.localsend.autoAccept = checked;
+                }
+            }
+            ConfigSwitch {
+                text: Translation.tr("Require PIN to receive")
+                checked: Config.options.localsend.requirePin
+                onCheckedChanged: {
+                    Config.options.localsend.requirePin = checked;
+                }
+            }
+        }
+
+        ConfigRow {
+            uniform: true
+            ConfigSwitch {
+                text: Translation.tr("Verify checksums (SHA-256)")
+                checked: Config.options.localsend.verifyChecksums
+                onCheckedChanged: {
+                    Config.options.localsend.verifyChecksums = checked;
+                }
+            }
+            ConfigSpinBox {
+                icon: "router"
+                text: Translation.tr("Port")
+                value: Config.options.localsend.port
+                from: 1024
+                to: 65535
+                stepSize: 1
+                onValueChanged: {
+                    Config.options.localsend.port = value;
+                }
+            }
+        }
+
+        MaterialTextArea {
+            Layout.fillWidth: true
+            placeholderText: Translation.tr("Multicast address (default: 224.0.0.167)")
+            text: Config.options.localsend.multicastGroup
+            wrapMode: TextEdit.Wrap
+            onTextChanged: {
+                Config.options.localsend.multicastGroup = text;
+            }
+        }
+    }
+
+    ContentSection {
         icon: "cell_tower"
         title: Translation.tr("Networking")
 
