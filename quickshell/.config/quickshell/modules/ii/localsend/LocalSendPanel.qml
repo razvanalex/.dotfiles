@@ -21,10 +21,10 @@ PanelWindow {
     exclusiveZone: 0
     color: "transparent"
     property real panelWidth: 420
-    anchors { bottom: true; right: true }
+    anchors { bottom: true; left: true }
     margins {
         bottom: Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
-        right: Appearance.sizes.hyprlandGapsOut
+        left: ((root.screen?.width ?? 1920) - panelWidth) / 2
     }
 
     implicitWidth: panelWidth
