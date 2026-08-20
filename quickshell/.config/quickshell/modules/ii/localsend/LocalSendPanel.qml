@@ -6,7 +6,6 @@ import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -45,17 +44,11 @@ PanelWindow {
         function onDismissed() { GlobalStates.localsendOpen = false }
     }
 
-    // Non-cached shadow: the shared StyledRectangularShadow uses cached:true,
-    // which leaves a stale dark rectangle below the card whenever it resizes
-    // (tab switch, queue add/remove). cached:false re-renders on every resize.
-    RectangularShadow {
-        anchors.fill: card
-        radius: card.radius
-        blur: 0.9 * Appearance.sizes.elevationMargin
-        offset: Qt.vector2d(0.0, 1.0)
-        spread: 1
-        color: Appearance.colors.colShadow
-        cached: false
+    // Cached shadow is fine here because the height is ANIMATED (the cache
+    // recomputes each frame). Non-cached re-blurs every animation frame and
+    // worsens the expand stutter; cached matches the search widget.
+    StyledRectangularShadow {
+        target: card
     }
 
     Rectangle {
@@ -142,6 +135,8 @@ PanelWindow {
                         clip: true
                         spacing: 6
                         visible: LocalSend.inbound.length > 0
+                        reuseItems: true
+                        cacheBuffer: 400
                         model: LocalSend.inbound
                         delegate: Rectangle {
                             required property var modelData
@@ -363,6 +358,8 @@ PanelWindow {
                         clip: true
                         spacing: 2
                         visible: stagedModel.count > 0
+                        reuseItems: true
+                        cacheBuffer: 200
                         model: stagedModel
                         delegate: Rectangle {
                             width: ListView.view.width
@@ -422,6 +419,8 @@ PanelWindow {
                         clip: true
                         spacing: 4
                         visible: LocalSend.peers.length > 0
+                        reuseItems: true
+                        cacheBuffer: 400
                         model: LocalSend.peers
                         delegate: Rectangle {
                             required property var modelData
