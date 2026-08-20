@@ -20,7 +20,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     exclusiveZone: 0
     color: "transparent"
-    property real panelWidth: 420
+    property real panelWidth: 440
     anchors { top: true; left: true }
     margins {
         top: Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
@@ -82,430 +82,444 @@ PanelWindow {
                 }
             }
 
-            // ---- RECEIVE ----
-            StyledText {
-                text: Translation.tr("Incoming (%1)").arg(LocalSend.inbound.length)
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.m3colors.m3onSurfaceVariant
+            // tab bar: Receive / Send (same pill style as the sidebar panes)
+            ToolbarTabBar {
+                id: tabBar
+                Layout.alignment: Qt.AlignHCenter
+                tabButtonList: [
+                    { "icon": "wifi", "name": root.receiveTabName },
+                    { "icon": "send", "name": Translation.tr("Send") }
+                ]
+                currentIndex: 1   // default to Send; receive is surfaced via the popup
             }
 
-            ListView {
+            // content: two pages (Receive / Send), active page drives height
+            Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 84 + 8, 200) : 0
+                Layout.preferredHeight: tabBar.currentIndex === 0 ? receivePage.implicitHeight : sendPage.implicitHeight
                 clip: true
-                spacing: 6
-                visible: LocalSend.inbound.length > 0
-                model: LocalSend.inbound
-                delegate: Rectangle {
-                    required property var modelData
-                    width: ListView.view.width
-                    color: Appearance.colors.colLayer2
-                    radius: Appearance.rounding.small
-                    implicitHeight: inner.implicitHeight + 16
-                    ColumnLayout {
-                        id: inner
-                        anchors.fill: parent
-                        anchors.margins: 8
+
+                ColumnLayout {
+                    id: receivePage
+                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                    visible: tabBar.currentIndex === 0
+                    spacing: 6
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: LocalSend.inbound.length === 0
+                        text: Translation.tr("No incoming transfers")
+                        color: Appearance.m3colors.m3onSurfaceVariant
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: LocalSend.inbound.length > 0 ? Math.min(LocalSend.inbound.length * 84 + 8, 220) : 0
+                        clip: true
                         spacing: 6
-                        RowLayout {
-                            Layout.fillWidth: true
-                            StyledText {
-                                text: modelData.sender
-                                color: Appearance.colors.colOnLayer0
-                                font.pixelSize: Appearance.font.pixelSize.normal
-                                elide: Text.ElideRight
-                            }
-                            Item { Layout.fillWidth: true }
-                            StyledText {
-                                text: {
-                                    if (modelData.state === "pending") return Translation.tr("Request")
-                                    if (modelData.state === "transferring") return Translation.tr("Receiving…")
-                                    if (modelData.state === "done") return Translation.tr("Saved")
-                                    return Translation.tr("Declined")
+                        visible: LocalSend.inbound.length > 0
+                        model: LocalSend.inbound
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: ListView.view.width
+                            color: Appearance.colors.colLayer2
+                            radius: Appearance.rounding.small
+                            implicitHeight: inner.implicitHeight + 16
+                            ColumnLayout {
+                                id: inner
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 6
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    StyledText {
+                                        text: modelData.sender
+                                        color: Appearance.colors.colOnLayer0
+                                        font.pixelSize: Appearance.font.pixelSize.normal
+                                        elide: Text.ElideRight
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    StyledText {
+                                        text: {
+                                            if (modelData.state === "pending") return Translation.tr("Request")
+                                            if (modelData.state === "transferring") return Translation.tr("Receiving…")
+                                            if (modelData.state === "done") return Translation.tr("Saved")
+                                            return Translation.tr("Declined")
+                                        }
+                                        color: modelData.state === "pending" ? Appearance.m3colors.m3primary
+                                             : modelData.state === "done" ? "#4caf50"
+                                             : modelData.state === "declined" ? Appearance.m3colors.m3error
+                                             : Appearance.m3colors.m3onSurfaceVariant
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                    }
                                 }
-                                color: modelData.state === "pending" ? Appearance.m3colors.m3primary
-                                     : modelData.state === "done" ? "#4caf50"
-                                     : modelData.state === "declined" ? Appearance.m3colors.m3error
-                                     : Appearance.m3colors.m3onSurfaceVariant
-                                font.pixelSize: Appearance.font.pixelSize.small
-                            }
-                        }
-                        StyledText {
-                            Layout.fillWidth: true
-                            text: modelData.files.map(f => f.fileName).join(", ")
-                            color: Appearance.m3colors.m3onSurfaceVariant
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            elide: Text.ElideRight
-                        }
-                        // progress
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 4
-                            radius: 2
-                            color: Appearance.colors.colLayer4
-                            opacity: modelData.state === "transferring" ? 1 : 0
-                            Rectangle {
-                                width: parent.width * Math.max(0, Math.min(1, modelData.pct || 0))
-                                height: parent.height
-                                radius: 2
-                                color: Appearance.m3colors.m3primary
-                            }
-                        }
-                        // actions
-                        RowLayout {
-                            Layout.fillWidth: true
-                            visible: modelData.state === "pending"
-                            Item { Layout.fillWidth: true }
-                            RippleButton {
-                                Layout.preferredWidth: 60; Layout.preferredHeight: 26
-                                buttonRadius: Appearance.rounding.full
-                                colBackground: Appearance.m3colors.m3error
-                                onClicked: LocalSend.declineRequest(modelData.session)
-                                contentItem: StyledText {
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: "Decline"; color: "white"
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: modelData.files.map(f => f.fileName).join(", ")
+                                    color: Appearance.m3colors.m3onSurfaceVariant
                                     font.pixelSize: Appearance.font.pixelSize.small
+                                    elide: Text.ElideRight
                                 }
-                            }
-                            RippleButton {
-                                Layout.preferredWidth: 60; Layout.preferredHeight: 26
-                                buttonRadius: Appearance.rounding.full
-                                colBackground: Appearance.m3colors.m3primary
-                                onClicked: LocalSend.acceptRequest(modelData.session)
-                                contentItem: StyledText {
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: "Accept"; color: "white"
-                                    font.pixelSize: Appearance.font.pixelSize.small
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 4
+                                    radius: 2
+                                    color: Appearance.colors.colLayer4
+                                    opacity: modelData.state === "transferring" ? 1 : 0
+                                    Rectangle {
+                                        width: parent.width * Math.max(0, Math.min(1, modelData.pct || 0))
+                                        height: parent.height
+                                        radius: 2
+                                        color: Appearance.m3colors.m3primary
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: modelData.state === "pending"
+                                    Item { Layout.fillWidth: true }
+                                    RippleButton {
+                                        Layout.preferredWidth: 60; Layout.preferredHeight: 26
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.m3colors.m3error
+                                        onClicked: LocalSend.declineRequest(modelData.session)
+                                        contentItem: StyledText {
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: "Decline"; color: "white"
+                                            font.pixelSize: Appearance.font.pixelSize.small
+                                        }
+                                    }
+                                    RippleButton {
+                                        Layout.preferredWidth: 60; Layout.preferredHeight: 26
+                                        buttonRadius: Appearance.rounding.full
+                                        colBackground: Appearance.m3colors.m3primary
+                                        onClicked: LocalSend.acceptRequest(modelData.session)
+                                        contentItem: StyledText {
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: "Accept"; color: "white"
+                                            font.pixelSize: Appearance.font.pixelSize.small
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // ---- SEND ----
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                Layout.topMargin: 2
-                Layout.bottomMargin: 2
-                opacity: 0.5
-                color: Appearance.colors.colLayer4
-            }
-            StyledText {
-                text: Translation.tr("Send")
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.m3colors.m3onSurfaceVariant
-            }
+                ColumnLayout {
+                    id: sendPage
+                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                    visible: tabBar.currentIndex === 1
+                    spacing: 10
 
-            StyledText {
-                Layout.fillWidth: true
-                visible: LocalSend.peers.length === 0
-                text: Translation.tr("No nearby devices — open LocalSend on another device to discover it")
-                color: Appearance.colors.colOnLayer0
-                font.pixelSize: Appearance.font.pixelSize.small
-                wrapMode: Text.Wrap
-            }
-
-            // peer picker: richer device cards (icon, badges, info), no Qt popup
-            ListView {
-                Layout.fillWidth: true
-                Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 56 + 8, 240) : 0
-                clip: true
-                spacing: 4
-                visible: LocalSend.peers.length > 0
-                model: LocalSend.peers
-                delegate: Rectangle {
-                    required property var modelData
-                    width: ListView.view.width
-                    radius: Appearance.rounding.small
-                    color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3primaryContainer : Appearance.colors.colLayer3
-                    implicitHeight: 52
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: root.selectedPeer = modelData
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: LocalSend.peers.length === 0
+                        text: Translation.tr("No nearby devices — open LocalSend on another device to discover it")
+                        color: Appearance.colors.colOnLayer0
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        wrapMode: Text.Wrap
                     }
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 6
-                        spacing: 10
-                        MaterialSymbol {
-                            Layout.preferredWidth: 24; Layout.preferredHeight: 24
-                            iconSize: 22
-                            text: root.peerIcon(modelData.deviceType || "")
-                            color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 3
-                            StyledText {
-                                Layout.fillWidth: true
-                                text: modelData.alias || modelData.ip
-                                color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer0
-                                font.pixelSize: Appearance.font.pixelSize.normal
-                                elide: Text.ElideRight
+
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: LocalSend.peers.length > 0 ? Math.min(LocalSend.peers.length * 56 + 8, 240) : 0
+                        clip: true
+                        spacing: 4
+                        visible: LocalSend.peers.length > 0
+                        model: LocalSend.peers
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: ListView.view.width
+                            radius: Appearance.rounding.small
+                            color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3primaryContainer : Appearance.colors.colLayer3
+                            implicitHeight: 52
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: root.selectedPeer = modelData
                             }
-                            // badges: protocol + device
                             RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 6
-                                Rectangle {
-                                    Layout.preferredHeight: 18
-                                    Layout.preferredWidth: protoTxt.implicitWidth + 12
-                                    radius: 9
-                                    color: Appearance.colors.colLayer4
+                                anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 6
+                                spacing: 10
+                                MaterialSymbol {
+                                    Layout.preferredWidth: 24; Layout.preferredHeight: 24
+                                    iconSize: 22
+                                    text: root.peerIcon(modelData.deviceType || "")
+                                    color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 3
                                     StyledText {
-                                        id: protoTxt
-                                        anchors.centerIn: parent
-                                        text: (modelData.protocol || "https").toUpperCase()
-                                        font.pixelSize: 10
-                                        color: Appearance.colors.colOnLayer0
+                                        Layout.fillWidth: true
+                                        text: modelData.alias || modelData.ip
+                                        color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.colors.colOnLayer0
+                                        font.pixelSize: Appearance.font.pixelSize.normal
+                                        elide: Text.ElideRight
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        Rectangle {
+                                            Layout.preferredHeight: 18
+                                            Layout.preferredWidth: protoTxt.implicitWidth + 12
+                                            radius: 9
+                                            color: Appearance.colors.colLayer4
+                                            StyledText {
+                                                id: protoTxt
+                                                anchors.centerIn: parent
+                                                text: (modelData.protocol || "https").toUpperCase()
+                                                font.pixelSize: 10
+                                                color: Appearance.colors.colOnLayer0
+                                            }
+                                        }
+                                        Rectangle {
+                                            visible: root.peerModel(modelData).length > 0
+                                            Layout.preferredHeight: 18
+                                            Layout.preferredWidth: devTxt.implicitWidth + 12
+                                            radius: 9
+                                            color: Appearance.colors.colLayer4
+                                            StyledText {
+                                                id: devTxt
+                                                anchors.centerIn: parent
+                                                text: root.peerModel(modelData)
+                                                font.pixelSize: 10
+                                                color: Appearance.colors.colOnLayer0
+                                            }
+                                        }
                                     }
                                 }
-                                Rectangle {
-                                    visible: root.peerModel(modelData).length > 0
-                                    Layout.preferredHeight: 18
-                                    Layout.preferredWidth: devTxt.implicitWidth + 12
-                                    radius: 9
-                                    color: Appearance.colors.colLayer4
-                                    StyledText {
-                                        id: devTxt
+                                RippleButton {
+                                    Layout.preferredWidth: 24; Layout.preferredHeight: 24
+                                    buttonRadius: Appearance.rounding.full
+                                    colBackground: "transparent"
+                                    onClicked: {
+                                        const fp = modelData.fingerprint || "";
+                                        root.transientMessage = Translation.tr("%1 · %2:%3 · fp %4…")
+                                            .arg(modelData.alias || modelData.ip).arg(modelData.ip)
+                                            .arg(modelData.port || 53317).arg(fp.slice(0, 12));
+                                    }
+                                    contentItem: MaterialSymbol {
                                         anchors.centerIn: parent
-                                        text: root.peerModel(modelData)
-                                        font.pixelSize: 10
-                                        color: Appearance.colors.colOnLayer0
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: "info"; iconSize: 16
+                                        color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
                                     }
                                 }
                             }
                         }
-                        // info button
-                        RippleButton {
-                            Layout.preferredWidth: 24; Layout.preferredHeight: 24
-                            buttonRadius: Appearance.rounding.full
-                            colBackground: "transparent"
-                            onClicked: {
-                                const fp = modelData.fingerprint || "";
-                                root.transientMessage = Translation.tr("%1 · %2:%3 · fp %4…")
-                                    .arg(modelData.alias || modelData.ip).arg(modelData.ip)
-                                    .arg(modelData.port || 53317).arg(fp.slice(0, 12));
+                    }
+
+                    // send selection: tile buttons (File / Folder / Text / Paste)
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 54
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                                enabled: !!root.selectedPeer
+                                onClicked: LocalSend.pickAndSend(root.selectedPeer, true)
                             }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: "upload_file"; iconSize: 22
+                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                                }
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: Translation.tr("File")
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer0
+                                }
+                            }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 54
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                                enabled: !!root.selectedPeer
+                                onClicked: LocalSend.pickAndSend(root.selectedPeer, false)
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: "create_new_folder"; iconSize: 22
+                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                                }
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: Translation.tr("Folder")
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer0
+                                }
+                            }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 54
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                                enabled: !!root.selectedPeer
+                                onClicked: root.toggleCompose()
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: "edit_note"; iconSize: 22
+                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                                }
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: Translation.tr("Text")
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer0
+                                }
+                            }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 54
+                            RippleButton {
+                                anchors.fill: parent
+                                buttonRadius: Appearance.rounding.small
+                                colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
+                                enabled: !!root.selectedPeer
+                                onClicked: root.pickTextPayload()
+                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 3
+                                MaterialSymbol {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: "content_paste"; iconSize: 22
+                                    color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
+                                }
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: Translation.tr("Paste")
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer0
+                                }
+                            }
+                        }
+                    }
+
+                    // inline text compose (Text tile)
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        visible: root.textComposeVisible && !!root.selectedPeer
+                        MaterialTextField {
+                            id: composeInput
+                            Layout.fillWidth: true
+                            placeholderText: Translation.tr("Type a message…")
+                            text: root.composeDraft
+                            onTextChanged: root.composeDraft = text
+                            Keys.onReturnPressed: { if (composeInput.text.trim().length) root.sendComposed() }
+                        }
+                        RippleButton {
+                            Layout.preferredWidth: 52; Layout.preferredHeight: 40
+                            buttonRadius: Appearance.rounding.small
+                            colBackground: Appearance.m3colors.m3primary
+                            enabled: composeInput.text.trim().length > 0
+                            onClicked: root.sendComposed()
                             contentItem: MaterialSymbol {
                                 anchors.centerIn: parent
                                 horizontalAlignment: Text.AlignHCenter
-                                text: "info"; iconSize: 16
-                                color: modelData.ip === root.selectedPeer?.ip ? Appearance.m3colors.m3onPrimaryContainer : Appearance.m3colors.m3onSurfaceVariant
+                                text: "send"; iconSize: 18; color: "white"
                             }
                         }
                     }
-                }
-            }
 
-            // send selection: tile buttons (File / Folder / Text / Paste)
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 6
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 54
-                    RippleButton {
-                        anchors.fill: parent
-                        buttonRadius: Appearance.rounding.small
-                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                        enabled: !!root.selectedPeer
-                        onClicked: LocalSend.pickAndSend(root.selectedPeer, true)
-                    }
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 3
-                        MaterialSymbol {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "upload_file"; iconSize: 22
-                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                        }
-                        StyledText {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: Translation.tr("File")
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: Appearance.colors.colOnLayer0
-                        }
-                    }
-                }
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 54
-                    RippleButton {
-                        anchors.fill: parent
-                        buttonRadius: Appearance.rounding.small
-                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                        enabled: !!root.selectedPeer
-                        onClicked: LocalSend.pickAndSend(root.selectedPeer, false)
-                    }
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 3
-                        MaterialSymbol {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "create_new_folder"; iconSize: 22
-                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                        }
-                        StyledText {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: Translation.tr("Folder")
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: Appearance.colors.colOnLayer0
-                        }
-                    }
-                }
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 54
-                    RippleButton {
-                        anchors.fill: parent
-                        buttonRadius: Appearance.rounding.small
-                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                        enabled: !!root.selectedPeer
-                        onClicked: root.toggleCompose()
-                    }
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 3
-                        MaterialSymbol {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "edit_note"; iconSize: 22
-                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                        }
-                        StyledText {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: Translation.tr("Text")
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: Appearance.colors.colOnLayer0
-                        }
-                    }
-                }
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 54
-                    RippleButton {
-                        anchors.fill: parent
-                        buttonRadius: Appearance.rounding.small
-                        colBackground: root.selectedPeer ? Appearance.colors.colLayer3 : Appearance.colors.colLayer2
-                        enabled: !!root.selectedPeer
-                        onClicked: root.pickTextPayload()
-                    }
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 3
-                        MaterialSymbol {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "content_paste"; iconSize: 22
-                            color: root.selectedPeer ? Appearance.m3colors.m3primary : Appearance.m3colors.m3onSurfaceVariant
-                        }
-                        StyledText {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: Translation.tr("Paste")
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: Appearance.colors.colOnLayer0
-                        }
-                    }
-                }
-            }
-
-            // inline text compose (Text tile): type a message, then send
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                visible: root.textComposeVisible && !!root.selectedPeer
-                MaterialTextField {
-                    id: composeInput
-                    Layout.fillWidth: true
-                    placeholderText: Translation.tr("Type a message…")
-                    text: root.composeDraft
-                    onTextChanged: root.composeDraft = text
-                    Keys.onReturnPressed: { if (composeInput.text.trim().length) root.sendComposed() }
-                }
-                RippleButton {
-                    Layout.preferredWidth: 52; Layout.preferredHeight: 40
-                    buttonRadius: Appearance.rounding.small
-                    colBackground: Appearance.m3colors.m3primary
-                    enabled: composeInput.text.trim().length > 0
-                    onClicked: root.sendComposed()
-                    contentItem: MaterialSymbol {
-                        anchors.centerIn: parent
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "send"; iconSize: 18; color: "white"
-                    }
-                }
-            }
-
-            StyledText {
-                Layout.fillWidth: true
-                visible: !root.selectedPeer
-                text: Translation.tr("Select a device to send to")
-                color: Appearance.m3colors.m3onSurfaceVariant
-                font.pixelSize: Appearance.font.pixelSize.small
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            // outbound transfer progress
-            Rectangle {
-                Layout.fillWidth: true
-                visible: LocalSend.sendTransfer != null
-                color: Appearance.colors.colLayer2
-                radius: Appearance.rounding.small
-                implicitHeight: outCol.implicitHeight + 16
-                ColumnLayout {
-                    id: outCol
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 6
-                    RowLayout {
-                        Layout.fillWidth: true
-                        StyledText {
-                            Layout.fillWidth: true
-                            text: LocalSend.sendTransfer ? (
-                                (LocalSend.sendTransfer.files && LocalSend.sendTransfer.files.length > 1
-                                    ? Translation.tr("File %1 of %2").arg((LocalSend.sendTransfer.index || 0) + 1).arg(LocalSend.sendTransfer.files.length) + " · "
-                                    : "")
-                                + Translation.tr("Sending to %1").arg(LocalSend.sendTransfer.peer || "")
-                                + (LocalSend.sendTransfer.fileName ? " · " + LocalSend.sendTransfer.fileName : "")
-                            ) : ""
-                            color: Appearance.colors.colOnLayer0
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            elide: Text.ElideRight
-                        }
-                        StyledText {
-                            text: LocalSend.sendTransfer ? (
-                                LocalSend.sendTransfer.state === "done" ? Translation.tr("Sent")
-                                : LocalSend.sendTransfer.state === "error" ? Translation.tr("Failed")
-                                : Translation.tr("Sending…")
-                            ) : ""
-                            color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error" ? Appearance.m3colors.m3error
-                                 : LocalSend.sendTransfer && LocalSend.sendTransfer.state === "done" ? "#4caf50"
-                                 : Appearance.m3colors.m3primary
-                            font.pixelSize: Appearance.font.pixelSize.small
-                        }
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 4
-                        radius: 2
-                        color: Appearance.colors.colLayer4
-                        Rectangle {
-                            width: parent.width * Math.max(0, Math.min(1, (LocalSend.sendTransfer && LocalSend.sendTransfer.pct) || 0))
-                            height: parent.height
-                            radius: 2
-                            color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error"
-                                ? Appearance.m3colors.m3error : Appearance.m3colors.m3primary
-                        }
-                    }
                     StyledText {
                         Layout.fillWidth: true
-                        visible: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error" && !!LocalSend.sendTransfer.message
-                        text: (LocalSend.sendTransfer && LocalSend.sendTransfer.message) || ""
-                        color: Appearance.m3colors.m3error
+                        visible: !root.selectedPeer
+                        text: Translation.tr("Select a device to send to")
+                        color: Appearance.m3colors.m3onSurfaceVariant
                         font.pixelSize: Appearance.font.pixelSize.small
-                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    // outbound transfer progress
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: LocalSend.sendTransfer != null
+                        color: Appearance.colors.colLayer2
+                        radius: Appearance.rounding.small
+                        implicitHeight: outCol.implicitHeight + 16
+                        ColumnLayout {
+                            id: outCol
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 6
+                            RowLayout {
+                                Layout.fillWidth: true
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: LocalSend.sendTransfer ? (
+                                        (LocalSend.sendTransfer.files && LocalSend.sendTransfer.files.length > 1
+                                            ? Translation.tr("File %1 of %2").arg((LocalSend.sendTransfer.index || 0) + 1).arg(LocalSend.sendTransfer.files.length) + " · "
+                                            : "")
+                                        + Translation.tr("Sending to %1").arg(LocalSend.sendTransfer.peer || "")
+                                        + (LocalSend.sendTransfer.fileName ? " · " + LocalSend.sendTransfer.fileName : "")
+                                    ) : ""
+                                    color: Appearance.colors.colOnLayer0
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    elide: Text.ElideRight
+                                }
+                                StyledText {
+                                    text: LocalSend.sendTransfer ? (
+                                        LocalSend.sendTransfer.state === "done" ? Translation.tr("Sent")
+                                        : LocalSend.sendTransfer.state === "error" ? Translation.tr("Failed")
+                                        : Translation.tr("Sending…")
+                                    ) : ""
+                                    color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error" ? Appearance.m3colors.m3error
+                                         : LocalSend.sendTransfer && LocalSend.sendTransfer.state === "done" ? "#4caf50"
+                                         : Appearance.m3colors.m3primary
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                }
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 4
+                                radius: 2
+                                color: Appearance.colors.colLayer4
+                                Rectangle {
+                                    width: parent.width * Math.max(0, Math.min(1, (LocalSend.sendTransfer && LocalSend.sendTransfer.pct) || 0))
+                                    height: parent.height
+                                    radius: 2
+                                    color: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error"
+                                        ? Appearance.m3colors.m3error : Appearance.m3colors.m3primary
+                                }
+                            }
+                            StyledText {
+                                Layout.fillWidth: true
+                                visible: LocalSend.sendTransfer && LocalSend.sendTransfer.state === "error" && !!LocalSend.sendTransfer.message
+                                text: (LocalSend.sendTransfer && LocalSend.sendTransfer.message) || ""
+                                color: Appearance.m3colors.m3error
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                wrapMode: Text.Wrap
+                            }
+                        }
                     }
                 }
             }
@@ -525,6 +539,20 @@ PanelWindow {
     property string transientMessage: ""
     property bool textComposeVisible: false
     property string composeDraft: ""
+    property string receiveTabName: {
+        const p = LocalSend.inboundPendingCount;
+        return p > 0 ? Translation.tr("Receive (%1)").arg(p) : Translation.tr("Receive");
+    }
+
+    // On a NEW pending request, surface it: switch to the Receive tab so the
+    // incoming Accept/Decline is visible (same as opening the popup).
+    Connections {
+        target: LocalSend
+        function onInboundChanged() {
+            const arr = LocalSend.inbound;
+            if (arr.length && arr[arr.length - 1].state === "pending") tabBar.currentIndex = 0;
+        }
+    }
 
     // Toggle the inline text-compose field (Text tile).
     function toggleCompose() {
