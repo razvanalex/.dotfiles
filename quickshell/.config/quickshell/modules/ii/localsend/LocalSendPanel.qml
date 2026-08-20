@@ -101,7 +101,7 @@ PanelWindow {
                     width: ListView.view.width
                     color: Appearance.colors.colLayer2
                     radius: Appearance.rounding.small
-                    implicitHeight: inner.implicitHeight + 12
+                    implicitHeight: inner.implicitHeight + 16
                     ColumnLayout {
                         id: inner
                         anchors.fill: parent
