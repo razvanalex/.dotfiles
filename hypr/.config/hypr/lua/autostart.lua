@@ -28,7 +28,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd(vars.scriptsDir .. "/Polkit.sh")
 
     -- Daemons (OpenRGB)
-    hl.exec_cmd("openrgb --server --mode static --color 000000 &")
+    hl.exec_cmd("flatpak run org.openrgb.OpenRGB --server --mode static --color 000000 &")
 
     -- Clipboard manager watchers (text & image via cliphist)
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
