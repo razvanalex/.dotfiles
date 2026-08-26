@@ -78,7 +78,6 @@ PanelWindow {
     property bool draggedAway: (dragDiffX !== 0 || dragDiffY !== 0)
     property bool dragging: false
     property list<point> points: []
-    property var mouseButton: null
     property var imageRegions: []
     readonly property list<var> windowRegions: RegionFunctions.filterWindowRegionsByLayers(
         root.windows.filter(w => w.workspace.id === root.activeWorkspaceId),
@@ -207,6 +206,20 @@ PanelWindow {
             root.recordingShouldStop = (exitCode === 0);
         }
     }
+    // Auto-dismiss the Post (recording) phase when wf-recorder exits,
+    // however it was stopped (HUD button, CLI, or crash)
+    Process {
+        id: postWatchProc
+        command: ["pidof", "wf-recorder"]
+        stdout: StdioCollector { onStreamFinished: if (text.trim().length === 0) root.dismiss() }
+    }
+    Timer {
+        running: root.phase === RegionSelection.Phase.Post
+        interval: 1000
+        repeat: true
+        onTriggered: postWatchProc.running = true
+    }
+
     property bool preparationDone: false
     onPreparationDoneChanged: {
         if (!preparationDone) return;
@@ -271,11 +284,11 @@ PanelWindow {
         root.regionWidth = Math.max(0, Math.min(root.regionWidth, root.screen.width - root.regionX));
         root.regionHeight = Math.max(0, Math.min(root.regionHeight, root.screen.height - root.regionY));
 
-        // Adjust action
-        if (root.action === RegionSelection.SnipAction.Copy || root.action === RegionSelection.SnipAction.Edit) {
+        // Copy-mode quick actions by finishing button: LMB = copy, RMB = edit. Explicitly picked modes are respected as-is.
+        if (root.action === RegionSelection.SnipAction.Copy) {
             root.action = root.mouseButton === Qt.RightButton ? RegionSelection.SnipAction.Edit : RegionSelection.SnipAction.Copy;
         }
-        
+
         const screenshotDir = Config.options.screenSnip.savePath !== "" ? //
             Config.options.screenSnip.savePath : "";
         var screenshotAction = root.getScreenshotAction();
@@ -318,6 +331,9 @@ PanelWindow {
             }
         }
     }
+
+    // Finishing mouse button (drives the Copy-mode quick action below)
+    property var mouseButton: null
 
     MouseArea {
         id: mouseArea

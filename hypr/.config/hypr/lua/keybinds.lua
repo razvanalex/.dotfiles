@@ -182,6 +182,15 @@ hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("qs ipc call brightness increment
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("qs ipc call brightness decrement"), { description = "Hardware: Decrease brightness", locked = true, repeating = true, ["repeat"] = true })
 
 -- Utilities
-hl.bind(mainMod .. " + S", hl.dsp.exec_cmd("grimblast --freeze copy area"), { description = "Utilities: Screen snip (copy area)" })
+hl.bind(mainMod .. " + S", hl.dsp.exec_cmd("qs -p ~/.config/quickshell ipc call region screenshot"), { description = "Shell: Screen snip (region selector)" })
+hl.bind("Print", hl.dsp.exec_cmd(vars.scriptsDir .. "/ScreenShot.sh --now"), { description = "Utilities: Screenshot (full, save+copy)" })
+hl.bind("SHIFT + Print", hl.dsp.exec_cmd(vars.scriptsDir .. "/ScreenShot.sh --area"), { description = "Utilities: Screenshot region (save+copy)" })
+hl.bind("CTRL + Print", hl.dsp.exec_cmd(vars.scriptsDir .. "/ScreenShot.sh --in5"), { description = "Utilities: Screenshot timer 5s" })
+hl.bind("CTRL + SHIFT + Print", hl.dsp.exec_cmd(vars.scriptsDir .. "/ScreenShot.sh --in10"), { description = "Utilities: Screenshot timer 10s" })
+hl.bind("ALT + Print", hl.dsp.exec_cmd(vars.scriptsDir .. "/ScreenShot.sh --active"), { description = "Utilities: Screenshot active window" })
+hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("qs -p ~/.config/quickshell ipc call region edit"), { description = "Shell: Screen snip → edit" })
+hl.bind("CTRL + " .. mainMod .. " + S", hl.dsp.exec_cmd("qs -p ~/.config/quickshell ipc call region ocr"), { description = "Shell: Screen snip → copy text (OCR)" })
+hl.bind(mainMod .. " + ALT + R", hl.dsp.exec_cmd("qs -p ~/.config/quickshell ipc call region record"), { description = "Shell: Screen record region" })
+hl.bind("CTRL + ALT + R", hl.dsp.exec_cmd("qs -p ~/.config/quickshell ipc call region recordWithSound"), { description = "Shell: Screen record region (with sound)" })
 hl.bind(mainMod .. " + ALT + F12", hl.dsp.exec_cmd('notify-send "Test notification" "Here\'s a message to test truncation" -a "Shell" -t 5000'), { description = "Utilities: Test notification" })
 hl.bind(mainMod .. " + ALT + Equal", hl.dsp.exec_cmd('notify-send "Urgent notification" "<b>Test notification</b>" -u critical'), { description = "Utilities: Urgent test notification" })

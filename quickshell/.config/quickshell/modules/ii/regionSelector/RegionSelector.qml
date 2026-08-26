@@ -48,6 +48,12 @@ Scope {
         GlobalStates.regionSelectorOpen = true
     }
 
+    function edit() {
+        root.action = RegionSelection.SnipAction.Edit
+        root.selectionMode = RegionSelection.SelectionMode.RectCorners
+        GlobalStates.regionSelectorOpen = true
+    }
+
     function ocr() {
         root.action = RegionSelection.SnipAction.CharRecognition
         root.selectionMode = RegionSelection.SelectionMode.RectCorners
@@ -79,6 +85,9 @@ Scope {
         function search() {
             root.search()
         }
+        function edit() {
+            root.edit()
+        }
         function ocr() {
             root.ocr()
         }
@@ -90,6 +99,7 @@ Scope {
         }
     }
 
+
     GlobalShortcut {
         name: "regionScreenshot"
         description: "Takes a screenshot of the selected region"
@@ -99,6 +109,11 @@ Scope {
         name: "regionSearch"
         description: "Searches the selected region"
         onPressed: root.search()
+    }
+    GlobalShortcut {
+        name: "regionEdit"
+        description: "Takes a screenshot of the selected region and opens the annotation editor"
+        onPressed: root.edit()
     }
     GlobalShortcut {
         name: "regionOcr"

@@ -46,6 +46,15 @@ hl.window_rule({
     float = true,
 })
 
+-- Screenshot annotation editor (satty): floats centered over the screen,
+-- like Omarchy's screenshot flow
+hl.window_rule({
+    name = "center-satty",
+    match = { class = "^(com.gabm.satty)$" },
+    center = true,
+    float = true,
+})
+
 -- Idle Inhibit
 hl.window_rule({
     name = "idle-inhibit-class",

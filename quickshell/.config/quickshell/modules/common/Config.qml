@@ -478,6 +478,7 @@ Singleton {
                     property int strokeWidth: 6
                     property int padding: 10
                 }
+                property bool includeCursor: false
                 property JsonObject annotation: JsonObject {
                     property bool useSatty: false
                 }

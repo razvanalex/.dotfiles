@@ -58,7 +58,7 @@ yad --width=$dynamic_width --height=$dynamic_height \
 " SHIFT N" "Launch Notification Panel" "swaync Notification Center" \
 " Print" "screenshot" "(grim)" \
 " Shift Print" "screenshot region" "(grim + slurp)" \
-" Shift S" "screenshot region" "(swappy)" \
+" Shift S" "screenshot region" "(satty)" \
 " CTRL Print" "screenshot timer 5 secs " "(grim)" \
 " CTRL SHIFT Print" "screenshot timer 10 secs " "(grim)" \
 "ALT Print" "Screenshot active window" "active window only" \

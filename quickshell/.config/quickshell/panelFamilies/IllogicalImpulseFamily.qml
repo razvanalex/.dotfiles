@@ -17,6 +17,7 @@ import qs.modules.ii.overview
 import qs.modules.ii.polkit
 import qs.modules.ii.regionSelector
 import qs.modules.ii.screenCorners
+import qs.modules.ii.screenRecorder
 import qs.modules.ii.screenTranslator
 import qs.modules.ii.sessionScreen
 import qs.modules.ii.sidebarLeft
@@ -42,6 +43,7 @@ Scope {
     PanelLoader { component: Polkit {} }
     PanelLoader { component: RegionSelector {} }
     PanelLoader { component: ScreenCorners {} }
+    PanelLoader { component: RecordingIndicator {} }
     PanelLoader { component: ScreenTranslator {} }
     PanelLoader { component: SessionScreen {} }
     PanelLoader { component: SidebarLeft {} }

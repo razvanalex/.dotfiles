@@ -6,6 +6,9 @@ iDIR="$HOME/.config/swaync/icons"
 sDIR="$HOME/.config/hypr/scripts"
 notify_cmd_shot="notify-send -h string:x-canonical-private-synchronous:shot-notify -u low -i ${iDIR}/picture.png"
 
+# Screenshot annotation editor (override with SHOT_EDITOR=satty|swappy)
+shot_editor="${SHOT_EDITOR:-swappy}"
+
 time=$(date "+%d-%b_%H-%M-%S")
 dir="$(xdg-user-dir)/Pictures/Screenshots"
 file="Screenshot_${time}_${RANDOM}.png"
@@ -100,7 +103,7 @@ shotactive() {
 shotswappy() {
 	tmpfile=$(mktemp)
 	grim -g "$(slurp)" - >"$tmpfile" && "${sDIR}/Sounds.sh" --screenshot && notify_view "swappy"
-	swappy -f - <"$tmpfile"
+	"$shot_editor" -f - <"$tmpfile"
 	rm "$tmpfile"
 }
 
