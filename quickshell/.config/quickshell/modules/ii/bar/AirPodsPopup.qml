@@ -49,7 +49,7 @@ PanelWindow {
         bottom: !Config.options.bar.vertical && Config.options.bar.bottom
     }
 
-    implicitWidth: 360 + Appearance.sizes.elevationMargin * 2
+    implicitWidth: 384 + Appearance.sizes.elevationMargin * 2
     implicitHeight: popupBackground.implicitHeight + Appearance.sizes.elevationMargin * 2
 
     // No input mask: outside interaction is handled by GlobalFocusGrab
@@ -104,7 +104,7 @@ PanelWindow {
             leftMargin: Appearance.sizes.elevationMargin
             rightMargin: Appearance.sizes.elevationMargin
         }
-        implicitWidth: 360
+        implicitWidth: 384
         implicitHeight: contentColumn.implicitHeight + root.padding * 2
         color: Appearance.m3colors.m3surfaceContainer
         radius: Appearance.rounding.small
@@ -271,7 +271,7 @@ PanelWindow {
                         },
                         {
                             label: "Adaptive",
-                            icon: "graphic_eq",
+                            icon: "__adaptive_audio",
                             value: "adaptive"
                         },
                         {
