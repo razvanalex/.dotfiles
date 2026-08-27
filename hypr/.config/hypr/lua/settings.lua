@@ -21,6 +21,9 @@ hl.config({
             respect_gaps = true,
         },
     },
+    dwindle = {
+        preserve_split = true,
+    },
     master = {
         new_status = "master",
         new_on_top = 1,

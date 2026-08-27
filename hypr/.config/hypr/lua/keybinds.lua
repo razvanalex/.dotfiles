@@ -90,6 +90,7 @@ hl.bind(mainMod .. " + SHIFT + ALT + Q", hl.dsp.exec_cmd("hyprctl kill"), { desc
 hl.bind(mainMod .. " + ALT + Space", hl.dsp.window.float({ action = "toggle" }), { description = "Window: Toggle float" })
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }), { description = "Window: Toggle fullscreen" })
 hl.bind(mainMod .. " + CTRL + F", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }), { description = "Window: Toggle maximized" })
+hl.bind(mainMod .. " + ALT + J", hl.dsp.layout("togglesplit"), { description = "Window: Toggle split (vertical/horizontal)" })
 hl.bind("CTRL + " .. mainMod .. " + Backslash", hl.dsp.window.resize({ x = 1024, y = 768, relative = false }), { description = "Window: Resize window to 1024x768" })
 
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { description = "Window: Drag window", mouse = true })
