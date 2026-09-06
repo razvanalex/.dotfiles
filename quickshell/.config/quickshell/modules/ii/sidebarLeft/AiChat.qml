@@ -65,6 +65,25 @@ Item {
             }
         },
         {
+            name: "profile",
+            description: Translation.tr("Get or set Hermes voice profile (e.g. /profile reviewer, /profile get)"),
+            execute: args => {
+                if (args.length === 0 || args[0] === "get") {
+                    voiceConfigProc.action = "get";
+                    voiceConfigProc.exec(["curl", "-s", "http://localhost:8080/api/config"]);
+                } else {
+                    const prof = args[0].trim();
+                    if (root.voiceActive) {
+                        voiceClientProc.write(`profile ${prof}\n`);
+                    }
+                    voiceConfigProc.action = "set";
+                    voiceConfigProc.exec(["curl", "-s", "-X", "POST", "http://localhost:8080/api/config",
+                                          "-H", "Content-Type: application/json",
+                                          "-d", JSON.stringify({agent: {profile: prof}, persist: true})]);
+                }
+            }
+        },
+        {
             name: "attach",
             description: Translation.tr("Attach a file. Only works with Gemini."),
             execute: args => {
@@ -274,6 +293,14 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 try {
                     const msg = JSON.parse(data)
                     switch (msg.type) {
+                        case "connected":
+                            Ai.addMessage(Translation.tr("🟢 Voice Call connected — speak into your microphone."), Ai.interfaceRole);
+                            break;
+                        case "session_info":
+                            if (msg.profile) {
+                                Ai.addMessage(`🎙️ Active Hermes Profile: **${msg.profile}** (Session: \`${msg.session_id}\`)`, Ai.interfaceRole);
+                            }
+                            break;
                         case "update_audio":
                             root.voiceRms = msg.rms ?? 0
                             break
@@ -313,6 +340,32 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                             break
                     }
                 } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: voiceConfigProc
+        property string action: "get"
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    const resp = JSON.parse(data);
+                    if (resp.status === "ok") {
+                        if (voiceConfigProc.action === "get") {
+                            const cur = resp.config?.agent?.profile ?? "default";
+                            const list = (resp.available_profiles ?? []).join(", ");
+                            Ai.addMessage(`🎙️ Hermes Voice Profile: **${cur}**\nAvailable profiles: \`${list}\`\n\nTo switch profile: \`/profile <name>\``, Ai.interfaceRole);
+                        } else {
+                            const cur = resp.config?.agent?.profile ?? "default";
+                            Ai.addMessage(`🎙️ Switched Hermes Voice Profile to: **${cur}**`, Ai.interfaceRole);
+                        }
+                    } else {
+                        Ai.addMessage(`🎙️ Error: ${resp.message ?? "Failed to update voice config"}`, Ai.interfaceRole);
+                    }
+                } catch(e) {
+                    Ai.addMessage("🎙️ Could not communicate with Hermes Voice service. Is it running?", Ai.interfaceRole);
+                }
             }
         }
     }
