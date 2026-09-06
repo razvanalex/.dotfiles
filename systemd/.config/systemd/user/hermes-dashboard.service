@@ -1,0 +1,14 @@
+[Unit]
+Description=Hermes Agent Dashboard
+After=network.target
+
+[Service]
+Type=simple
+Environment="DISPLAY=:0"
+Environment="CUA_DRIVER_RS_ENABLE_WAYLAND=1"
+ExecStart=%h/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main dashboard --no-open --host 0.0.0.0 --port 9119 --tui
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

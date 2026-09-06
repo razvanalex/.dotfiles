@@ -288,8 +288,8 @@ install_dotfiles() {
     
     log_info "Installing new dotfiles"
     for dir in *; do
-        if [ -f "$dir" ]; then 
-            # Only directories
+        if [ -f "$dir" ] || [ "$dir" == "ai" ]; then 
+            # Skip files and non-stow package directories
             continue
         fi
         log_info "stow $dir"
@@ -327,6 +327,11 @@ main() {
         install_fonts
     fi
     install_dotfiles
+
+    if [ "${INSTALL_AI:-0}" = "1" ] || [[ "$*" == *"--ai"* ]]; then
+        log_info "Installing AI services and tools..."
+        "$DOTFILES_PATH/ai/install.sh"
+    fi
 }
 
-main
+main "$@"

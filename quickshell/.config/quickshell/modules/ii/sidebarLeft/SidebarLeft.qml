@@ -58,6 +58,25 @@ Scope { // Scope
         else root.pin = !root.pin;
     }
 
+    // Register the sidebar as persistent (stays up, not closed by click-outside)
+    // when pinned; otherwise as dismissable (closes on click-outside).
+    function registerFocusMode(win) {
+        if (!win) return
+        GlobalFocusGrab.removeDismissable(win);
+        GlobalFocusGrab.removePersistent(win);
+        if (GlobalStates.sidebarLeftOpen) {
+            if (root.pin) {
+                GlobalFocusGrab.addPersistent(win);
+            } else {
+                GlobalFocusGrab.addDismissable(win);
+            }
+        }
+    }
+
+    onPinChanged: {
+        if (sidebarLoader.item) root.registerFocusMode(sidebarLoader.item)
+    }
+
     Component.onCompleted: {
         root.sidebarContent = contentComponent.createObject(null, {
             "scopeRoot": root,
@@ -68,6 +87,7 @@ Scope { // Scope
     onDetachChanged: {
         if (root.detach) {
             GlobalFocusGrab.removeDismissable(sidebarLoader.item) // Remove sidebar from the focus grab system
+            GlobalFocusGrab.removePersistent(sidebarLoader.item)
             sidebarContent.parent = null; // Detach content from sidebar
             sidebarLoader.active = false; // Unload sidebar
             detachedSidebarLoader.active = true; // Load detached window
@@ -116,15 +136,16 @@ Scope { // Scope
 
             onVisibleChanged: {
                 if (visible) {
-                    GlobalFocusGrab.addDismissable(panelWindow);
+                    root.registerFocusMode(panelWindow)
                 } else {
                     GlobalFocusGrab.removeDismissable(panelWindow);
+                    GlobalFocusGrab.removePersistent(panelWindow);
                 }
             }
             Connections {
                 target: GlobalFocusGrab
                 function onDismissed() {
-                    panelWindow.hide();
+                    if (!root.pin) panelWindow.hide();
                 }
             }
 

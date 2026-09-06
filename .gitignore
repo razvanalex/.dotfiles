@@ -1,2 +1,8 @@
 hypr/.config/hypr/hyprlock_colors.conf
 hypr/.config/hypr/custom/scripts/__restore_video_wallpaper.sh
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.log

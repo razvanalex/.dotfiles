@@ -212,7 +212,7 @@ PanelWindow {
 
     Process {
         id: sidecarProc
-        command: ["/home/razvan/Workspace/ai/tts-read/stt_dictate_sidecar.py"]
+        command: [Quickshell.env("HOME") + "/.dotfiles/ai/stt/stt_dictate_sidecar.py"]
         running: GlobalStates.dictationOpen
         stdout: SplitParser {
             onRead: data => {

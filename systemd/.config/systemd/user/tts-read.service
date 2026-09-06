@@ -1,0 +1,12 @@
+[Unit]
+Description=tts-read warm daemon (CosyVoice3 text-to-speech via unix socket)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env python3 %h/.dotfiles/ai/tts/tts_read.py --daemon
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

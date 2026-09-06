@@ -1,0 +1,14 @@
+[Unit]
+Description=Hermes Voice Call Server
+After=network.target sound.target
+
+[Service]
+Environment=PYTHONUNBUFFERED=1
+Type=simple
+WorkingDirectory=%h/Workspace/ai/voice-call
+ExecStart=%h/Workspace/ai/voice-call/.venv/bin/python -m voice_call.web_app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

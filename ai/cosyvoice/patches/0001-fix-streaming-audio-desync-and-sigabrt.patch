@@ -1,0 +1,78 @@
+diff --git a/src/cosyvoice-llm-job.cpp b/src/cosyvoice-llm-job.cpp
+index 86662a6..0199a8c 100644
+--- a/src/cosyvoice-llm-job.cpp
++++ b/src/cosyvoice-llm-job.cpp
+@@ -127,13 +127,6 @@ bool cosyvoice_model_3::llm_job_ext(const int* text, uint32_t text_len, cosyvoic
+         const auto max_len = static_cast<uint32_t>(text_len * worker->config.max_token_text_ratio);
+         const auto limit = std::min(llm_get_n_accepted_tokens() + max_new_tokens, max_len);
+ 
+-        // FSQ silent/breath token filtering: allow up to 5 consecutive silent tokens,
+-        // then drop any further consecutive ones to avoid generating long silence.
+-        // Reset the counter whenever a non-silent token appears.
+-        uint32_t cur_silent_token_num = 0;
+-        constexpr uint32_t max_silent_token_num = 5;
+-        const auto& silent_tokens = cv3_shared->silent_tokens;
+-
+         for (uint32_t n = llm_get_n_accepted_tokens(); n != limit; ++n)
+         {
+             if (is_stop_requested())
+@@ -158,23 +151,13 @@ bool cosyvoice_model_3::llm_job_ext(const int* text, uint32_t text_len, cosyvoic
+                 break;
+             }
+ 
+-            if (silent_tokens.count(token_id))
+-            {
+-                ++cur_silent_token_num;
+-                if (cur_silent_token_num > max_silent_token_num)
+-                {
+-                    // Drop excess silent tokens — the token is already in the
+-                    // KV cache (from llm_decode), so update cur to keep the
+-                    // model state consistent, but skip llm_accept_token so
+-                    // it does not appear in the output.
+-                    cur = speech_emb + token_id * speech_row_size;
+-                    --n;
+-                    continue;
+-                }
+-            }
+-            else
+-                cur_silent_token_num = 0;
+-
++            // NOTE: ALL sampled tokens (including FSQ silent/breath tokens) are
++            // accepted. The token stream fed to token2wav must stay contiguous
++            // and position-aligned with the LLM KV cache: skipping tokens from
++            // the accepted array desyncs chunk boundaries (n_tokens vs accepted)
++            // and the resume point (last accepted token), causing repeated
++            // audio (observed: 5s sentence -> 27s). Silent tokens become
++            // natural pauses in the audio, which is what the model intends.
+             llm_accept_token(token_id);
+             cur = speech_emb + token_id * speech_row_size;
+         }
+diff --git a/src/cosyvoice.cpp b/src/cosyvoice.cpp
+index d0fafef..e799eb2 100644
+--- a/src/cosyvoice.cpp
++++ b/src/cosyvoice.cpp
+@@ -463,16 +463,22 @@ bool cosyvoice_tts_stream_ext(cosyvoice_context_t ctx, const int* text, uint32_t
+         {
+             if (!ctx->llm_job_ext(text, text_len, prompt, chunk_tokens + 1, &final, prev_text, prev_text_len, prev_speech, prev_speech_len))
+             {
++                // llm_job_ext returned false. Distinguish the failure modes:
++                //  - user stop: is_stop_requested() is set -> clean exit, no retry
++                //  - decode/sample failure: retry with the ORIGINAL text by
++                //    re-prefilling (do NOT null it — clearing accepted tokens
++                //    forces the prefill path, which GGML_ASSERTs on null text).
++                if (ctx->is_stop_requested())
++                    return false;
+                 if (++overflow_retries > 3)
+                 {
+                     fprintf(stderr, "[ERROR] LLM generation failed permanently after retries\n");
+                     return false;
+                 }
+-                fprintf(stderr, "[WARN] LLM KV cache overflow — resetting to prompt prefix\n");
++                fprintf(stderr, "[WARN] LLM KV cache overflow \u2014 resetting to prompt prefix\n");
+                 ctx->llm_clear_accepted_tokens();
+                 ctx->llm_set_kv_cache_len(1 + static_cast<uint32_t>(prompt->prompt_text.size()));
+                 ctx->llm_offload_kv_cache();
+-                text = nullptr;
+                 continue;
+             }
+         }

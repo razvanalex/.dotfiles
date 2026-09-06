@@ -1,0 +1,623 @@
+diff --git a/app.py b/app.py
+index baef995..7b4e6dd 100644
+--- a/app.py
++++ b/app.py
+@@ -1,7 +1,9 @@
+-host = "0.0.0.0"
++host = "127.0.0.1"   # loopback only: LAN-exposed unauthenticated model server is a DoS/abuse vector (M10)
+ port = 5092
+ threads = 8  # Optimized for 8 P-cores
+ CHUNK_MINUTE = 1.5  # Target 90-second chunks with intelligent silence-based splitting
++MAX_SENTENCE_GAP_S = 25.0  # sentence-commit fallback: force a boundary if no
++                           # period within this long (used by flush/finalize too)
+ 
+ # Intelligent chunking configuration
+ SILENCE_THRESHOLD = "-40dB"  # Silence detection threshold
+@@ -17,6 +19,7 @@ sys.stdout = sys.stderr
+ import os, sys, json, math, re, threading
+ import shutil
+ import uuid
++import time
+ import subprocess
+ import datetime
+ import psutil
+@@ -24,7 +27,7 @@ from typing import List, Tuple, Optional
+ from werkzeug.utils import secure_filename
+ 
+ import flask
+-from flask import Flask, request, jsonify, render_template, Response
++from flask import Flask, request, jsonify, render_template, Response, stream_with_context
+ from waitress import serve
+ from pathlib import Path
+ 
+@@ -185,7 +188,323 @@ app.config["MAX_CONTENT_LENGTH"] = 2000 * 1024 * 1024
+ progress_tracker = {}
+ 
+ 
++# ---- streaming sessions ----
++STREAM_SESSIONS = {}          # session_id -> dict
++
++SESSION_TIMEOUT_S = 600       # idle timeout: 10 min (dictation pauses can be long)
++STREAM_WINDOW_S = 12          # sliding window: transcribe last N seconds
++STREAM_MIN_CHUNK_S = 0.5      # minimum new audio before re-transcribing
++STREAM_SAMPLE_RATE = 16000
++_stream_lock = threading.Lock()
++_MODEL_LOCK = threading.Lock()   # serializes model.recognize (poll/flush/finalize)
++
++def _new_stream_session():
++    sid = str(uuid.uuid4())
++    with _stream_lock:
++        STREAM_SESSIONS[sid] = {
++            "buffer": bytearray(),      # raw s16le mono 16k PCM
++            "committed_text": "",
++            "last_partial": "",
++            "last_chunk_time": time.time(),
++            "last_transcribe": 0.0,
++            "bytes_committed": 0,       # how much of buffer is already committed
++            "word_spans": [],             # (text, start, end) of committed words (absolute s)
++            "prev_tail": [],               # words shown as provisional in the last pass (consensus)
++            "flushed_upto": 0,            # buffer bytes covered by the last /flush
++            "transcribe_lock": threading.Lock(),  # per-session serialization of model calls
++        }
++    return sid
++
++def _cleanup_stale_sessions():
++    now = time.time()
++    with _stream_lock:
++        for sid, s in list(STREAM_SESSIONS.items()):
++            if now - s["last_chunk_time"] > SESSION_TIMEOUT_S:
++                del STREAM_SESSIONS[sid]
++                print(f"[stream:{sid[:8]}] CLEANUP deleted (age {now - s['last_chunk_time']:.0f}s)", flush=True)
++
++
++def _word_start_times(text, words, timestamps):
++    """Map per-token timestamps to per-word start times (seconds, window-relative).
++
++    Parakeet returns one timestamp per BPE token (often several per word), so
++    words cannot be matched 1:1 to timestamps. Approximate each token's character
++    span by equal share of the text, then a word's start time is the timestamp of
++    the token covering its first character. Returns a list aligned with `words`.
++    """
++    n_tokens = len(timestamps)
++    text_len = len(text)
++    if n_tokens == 0 or text_len == 0:
++        return []
++    starts = []
++    idx = 0
++    for w in words:
++        o = text.find(w, idx)
++        if o < 0:
++            o = idx
++        idx = o + len(w)
++        t = int(o * n_tokens / text_len)
++        if t >= n_tokens:
++            t = n_tokens - 1
++        starts.append(timestamps[t])
++    # guard: word start times must be non-decreasing
++    for i in range(1, len(starts)):
++        if starts[i] < starts[i - 1]:
++            starts[i] = starts[i - 1]
++    return starts
++
++
++
++
++def _tokens_to_words(tokens, timestamps):
++    """Exact token->word map with time spans.
++
++    Parakeet tokens are BPE subwords: a leading space starts a new word,
++    continuation tokens (no leading space) extend it. Each token has a
++    timestamp, so every word gets an exact (start, end) span.
++    tokens: [' The',' qu','ick',' br','o','wn', ...]
++    returns: [(text, start, end), ...]  -- times in seconds
++    """
++    words = []
++    cur = None
++    cur_start = None
++    cur_end = None
++    for tok, t in zip(tokens, timestamps):
++        if tok.startswith(' '):
++            if cur is not None:
++                words.append((cur, cur_start, cur_end))
++            cur = tok.strip()
++            cur_start = t
++            cur_end = t
++        else:
++            cur = (cur or '') + tok
++            cur_end = t
++    if cur is not None:
++        words.append((cur, cur_start, cur_end))
++    return words
++
++
++
++def _overlap_merge_pair(prev: str, new: str, max_overlap: int = 15) -> str:
++    """Merge prev and new by removing word-level overlap between the TAIL of prev
++    and the HEAD of new. Does not alter internal repetitions inside prev or new."""
++    prev_str = (prev or "").strip()
++    new_str = (new or "").strip()
++    if not prev_str:
++        return new_str
++    if not new_str:
++        return prev_str
++
++    pw = prev_str.split()
++    nw = new_str.split()
++    if not pw or not nw:
++        return f"{prev_str} {new_str}".strip()
++
++    def norm(w):
++        return re.sub(r"[^\w]", "", w).lower()
++
++    norm_pw = [norm(w) for w in pw]
++    norm_nw = [norm(w) for w in nw]
++
++    best = 0
++    max_k = min(len(pw), len(nw), max_overlap)
++    for k in range(max_k, 0, -1):
++        if norm_pw[-k:] == norm_nw[:k]:
++            best = k
++            break
++
++    if best > 0:
++        merged = pw + nw[best:]
++        return " ".join(merged)
++    return f"{prev_str} {new_str}"
++
++
++def _overlap_merge(joined: str) -> str:
++    """Merge "prev new" text by removing the longest word-level overlap
++    between prev's tail and new's head (streaming-ASR seam strategy).
++    "a b c" + "b c d" -> "a b c d". Text-based: robust to the model's
++    per-pass segmentation drift (start times shift 0.1-0.4s)."""
++    words = joined.split()
++    n = len(words)
++    if n < 2:
++        return joined
++    best = (0, 0)  # (overlap_len, seam_index)
++    for seam in range(1, n):
++        left, right = words[:seam], words[seam:]
++        m = 0
++        for o in range(min(len(left), len(right)), 0, -1):
++            if left[-o:] == right[:o]:
++                m = o
++                break
++        if m > best[0]:
++            best = (m, seam)
++    if best[0]:
++        seam = best[1]
++        words = words[:seam] + words[seam + best[0]:]
++    return " ".join(words)
++
++def _transcribe_stream_session(sid):
++    """Transcribe the un-committed region for a session; returns (partial, committed_new).
++
++    NVIDIA-style timestamped streaming:
++    - context prefix (1s committed audio) + window (<=15s) transcribed as one
++      continuous input, so the model sees the sentence in progress.
++    - every word carries an absolute time span (token->word map, exact).
++    - COMMIT: whole SENTENCES are locked when they end with .!? AND are
++      settled (END >1.5s behind the buffer end) AND have >=3 words (filler
++      like "Yeah." stays in the tail). A time fallback (25s) forces a
++      sentence-aligned boundary for continuous monologues.
++    - CONTEXT WINS: locked sentences never change; only the provisional tail
++      (incomplete last sentence) may revise.
++    """
++    with _stream_lock:
++        s = STREAM_SESSIONS.get(sid)
++        if s is None:
++            return None, ""
++        if not s["transcribe_lock"].acquire(blocking=False):
++            return s["last_partial"], ""
++        # mark the current buffer length as transcribed-so-far: the /status
++        # poller only re-transcribes when NEW bytes arrive (F9 CPU fix)
++        s["last_transcribed_len"] = len(s["buffer"])
++        try:
++            buf = bytes(s["buffer"])
++            bytes_committed = s["bytes_committed"]
++            s["last_chunk_time"] = time.time()
++        except Exception:
++            s["transcribe_lock"].release()
++            raise
++
++    try:
++        window_bytes = STREAM_WINDOW_S * STREAM_SAMPLE_RATE * 2
++        if bytes_committed >= len(buf):
++            return s["last_partial"], ""
++        # Transcribe from bytes_committed to the end of the buffer so no audio
++        # is ever skipped. With time_expired committing settled words every ~10s,
++        # uncommitted audio naturally stays around 10-12 seconds.
++        window_start = bytes_committed
++        window = buf[window_start:]
++        if len(window) < STREAM_MIN_CHUNK_S * STREAM_SAMPLE_RATE * 2:
++            return s["last_partial"], ""
++
++        # context prefix: up to 1s of committed audio BEFORE the window
++        context_bytes = 1 * STREAM_SAMPLE_RATE * 2
++        ctx_start = max(0, window_start - context_bytes)
++        context = buf[ctx_start:window_start]
++        context_duration = len(context) / (STREAM_SAMPLE_RATE * 2)
++        window_duration = len(window) / (STREAM_SAMPLE_RATE * 2)
++        # absolute time of the window start in the session buffer
++        window_abs_start = window_start / (STREAM_SAMPLE_RATE * 2) - context_duration
++
++        try:
++            with _MODEL_LOCK:
++                model = get_model("parakeet-tdt-0.6b-v3")
++                import numpy as np
++                pcm = np.frombuffer(context + window, dtype=np.int16).astype(np.float32) / 32768.0
++                result = model.recognize(pcm, sample_rate=16000)
++            text = result.text.strip() if result and result.text else ""
++            tokens = list(result.tokens) if result and getattr(result, "tokens", None) else []
++            timestamps = (
++                list(result.timestamps)
++                if result and getattr(result, "timestamps", None) else []
++            )
++        except Exception as e:
++            print(f"[stream:{sid}] transcription error: {e}")
++            return s["last_partial"], ""
++
++        committed_new = ""
++        advance = 0
++        tail_text = text
++
++        if tokens and len(timestamps) == len(tokens):
++            # words with spans, absolute-ized
++            new_words = []
++            for w, ws, we in _tokens_to_words(tokens, timestamps):
++                # strip context words: word starts before the window start.
++                if ws >= context_duration:
++                    new_words.append((w, window_abs_start + ws, window_abs_start + we))
++
++            if new_words:
++                TAIL_MARGIN = 1.5          # settled margin: word END >1.5s behind buffer end
++                MIN_SENTENCE_WORDS = 3     # ignore filler ("Yeah.", "Okay.")
++                buffer_end = len(buf) / (STREAM_SAMPLE_RATE * 2)
++                settled_line = buffer_end - TAIL_MARGIN
++
++                with _stream_lock:
++                    s2 = STREAM_SESSIONS.get(sid)
++                    if s2 is None:
++                        return s["last_partial"], ""
++                    committed_words = []
++                    new_tail = []
++                    # sentence buffer: accumulate words until a sentence ends
++                    sent_words = []        # (word, start, end) in current sentence
++                    sent_start = None
++                    last_boundary_word = None  # index into new_words of last locked end
++
++                    def flush_sentence():
++                        nonlocal sent_words, sent_start
++                        if len(sent_words) >= MIN_SENTENCE_WORDS:
++                            committed_words.extend(sent_words)
++                        else:
++                            # too short ("Yeah.") -> keep as tail; it merges into
++                            # the next real sentence
++                            new_tail.extend(sent_words)
++                        sent_words = []
++                        sent_start = None
++
++                    for w, ws, we in new_words:
++                        if sent_start is None:
++                            sent_start = ws
++                        sent_words.append((w, ws, we))
++                        is_end = w.endswith((".", "!", "?"))
++                        settled = we <= settled_line
++                        # time-based fallback: if speech continues for >10s without
++                        # punctuation, commit settled words so bytes_committed advances
++                        time_expired = (ws - sent_start) > 10.0
++                        short_buf = buffer_end <= TAIL_MARGIN * 2
++                        if (is_end and (settled or short_buf)) or (time_expired and settled):
++                            flush_sentence()
++
++                    # whatever remains is the provisional tail
++                    new_tail.extend(sent_words)
++
++                    committed_new = " ".join(w for w, _, _ in committed_words).strip()
++                    # monotonic committed_text via overlap-merge (no dupes)
++                    if committed_new:
++                        if s2["committed_text"]:
++                            s2["committed_text"] = _overlap_merge_pair(
++                                s2["committed_text"].rstrip(), committed_new)
++                        else:
++                            s2["committed_text"] = committed_new
++                        # advance past the last locked sentence end (even bytes)
++                        if committed_words:
++                            last_end = committed_words[-1][2]
++                            absolute_bytes = int(last_end * STREAM_SAMPLE_RATE * 2)
++                            s2["bytes_committed"] = absolute_bytes - (absolute_bytes % 2)
++                    tail_text = " ".join(w for w, _, _ in new_tail).strip()
++                    partial = (s2["committed_text"] + " " + tail_text).strip()
++                    s2["last_partial"] = partial
++                    s2["last_transcribe"] = time.time()
++                return partial, committed_new
++        # safety: mapping failed -> commit nothing; whole text is the tail
++        with _stream_lock:
++            s2 = STREAM_SESSIONS.get(sid)
++            if s2 is None:
++                return s["last_partial"], ""
++            partial = (s2["committed_text"] + " " + text).strip()
++            s2["last_partial"] = partial
++        return partial, ""
++    finally:
++        s["transcribe_lock"].release()
+ def get_audio_duration(file_path: str) -> float:
++    if file_path.endswith(".wav"):
++        try:
++            import wave
++            with wave.open(file_path, "rb") as w:
++                return w.getnframes() / float(w.getframerate())
++        except Exception as e:
++            print(f"Native WAV reader failed for '{file_path}': {e}")
++            pass
++
+     command = [
+         "ffprobe",
+         "-v",
+@@ -497,6 +816,187 @@ def get_status():
+     return jsonify({"status": "idle"})
+ 
+ 
++@app.route("/v1/audio/stream/start", methods=["POST"])
++def stream_start():
++    _cleanup_stale_sessions()
++    return jsonify({"session_id": _new_stream_session()})
++
++
++@app.route("/v1/audio/stream/<session_id>/chunk", methods=["POST"])
++def stream_chunk(session_id):
++    """Append a raw s16le 16k mono PCM chunk to the session buffer."""
++    with _stream_lock:
++        s = STREAM_SESSIONS.get(session_id)
++        if s is None:
++            return jsonify({"error": "session not found"}), 404
++        data = request.get_data()
++        if not data:
++            return jsonify({"error": "empty chunk"}), 400
++        s["buffer"] += data
++        s["last_chunk_time"] = time.time()
++
++    partial, _ = _transcribe_stream_session(session_id)
++    return jsonify({"ok": True, "partial_text": partial or ""})
++
++
++@app.route("/v1/audio/stream/<session_id>/status", methods=["GET"])
++def stream_status(session_id):
++    with _stream_lock:
++        s = STREAM_SESSIONS.get(session_id)
++        if s is None:
++            return jsonify({"error": "session not found"}), 404
++        s["last_chunk_time"] = time.time()  # status polls keep the session alive
++        # transcribe only when NEW audio arrived since the last pass (bytes
++        # not yet transcribed). The old dirty check (bytes_committed < len)
++        # stayed True forever with trailing non-sentence audio -> the poller
++        # drove full ONNX inference every 0.5s indefinitely while silent.
++        last_done = s.get("last_transcribed_len", 0)
++        dirty = len(s["buffer"]) > last_done
++        due = time.time() - s.get("last_transcribe", 0.0) >= 0.5
++    if dirty and due:
++        _transcribe_stream_session(session_id)
++    with _stream_lock:
++        s2 = STREAM_SESSIONS.get(session_id)
++        if s2 is None:
++            return jsonify({"error": "session not found"}), 404
++        return jsonify({
++            "partial_text": s2["last_partial"],
++            "committed_text": s2["committed_text"],
++            "committed_seconds": s2["bytes_committed"] / (STREAM_SAMPLE_RATE * 2),
++            "buffered_seconds": len(s2["buffer"]) / (STREAM_SAMPLE_RATE * 2),
++        })
++
++@app.route("/v1/audio/stream/<session_id>/flush", methods=["POST"])
++def stream_flush(session_id):
++    """End-of-utterance flush: transcribe the WHOLE buffer (full quality,
++    same as finalize) and make it the committed text.
++
++    The streaming preview's tail (last ~1.5-2s) is provisional by design; at
++    the end of an utterance (VAD silence) there is no next pass to confirm it,
++    so those words would stay uncommitted. Flush closes that gap: the preview
++    becomes full-buffer quality == what finalize/commit will produce.
++    """
++    with _stream_lock:
++        s = STREAM_SESSIONS.get(session_id)
++        if s is None:
++            return jsonify({"error": "session not found"}), 404
++        # NON-BLOCKING acquire: a blocking acquire would hold a waitress worker
++        # thread while waiting for an in-flight transcription, and with few
++        # workers that saturates the queue (seen: "task queue depth 90",
++        # "connection limit reached" -> full deadlock). If busy, tell the
++        # client to retry instead of blocking.
++        if not s["transcribe_lock"].acquire(blocking=False):
++            return jsonify({"error": "session busy, retry"}), 409
++        try:
++            buf = bytes(s["buffer"])
++        except Exception:
++            s["transcribe_lock"].release()
++            raise
++
++    text = ""
++    if len(buf) > 0:
++        try:
++            with _stream_lock:
++                fs = STREAM_SESSIONS.get(session_id)
++                tail_start = max(fs.get("flushed_upto", 0), fs.get("bytes_committed", 0)) if fs else 0
++                committed_so_far = fs.get("committed_text", "") if fs else ""
++            tail = buf[tail_start:]
++            if len(tail) > 0:
++                with _MODEL_LOCK:
++                    import numpy as np
++                    pcm = np.frombuffer(tail, dtype=np.int16).astype(np.float32) / 32768.0
++                    model = get_model("parakeet-tdt-0.6b-v3")
++                    result = model.recognize(pcm, sample_rate=16000)
++                tail_text = result.text.strip() if result and result.text else ""
++                text = _overlap_merge_pair(committed_so_far, tail_text) if committed_so_far else tail_text
++            else:
++                text = committed_so_far
++        except Exception as e:
++            print(f"[stream:{session_id}] flush error: {e}")
++            text = committed_so_far
++
++    try:
++        with _stream_lock:
++            s2 = STREAM_SESSIONS.get(session_id)
++            if s2 is None:
++                return jsonify({"error": "session not found"}), 404
++            s2["committed_text"] = text
++            s2["last_partial"] = text
++            s2["bytes_committed"] = len(buf)
++            s2["word_spans"] = []
++            s2["prev_tail"] = []
++            s2["flushed_upto"] = len(buf)
++        return jsonify({"text": text, "committed_text": text, "partial_text": text})
++    finally:
++        s["transcribe_lock"].release()
++
++
++@app.route("/v1/audio/stream/<session_id>/finalize", methods=["POST"])
++def stream_finalize(session_id):
++    """Final transcription of the full buffer, then delete the session.
++
++    Fast path: if the last /flush already covered the whole buffer (no new
++    audio since the last pause), return its text instead of re-transcribing
++    the entire buffer (which can take ~10s on long dictations)."""
++    with _stream_lock:
++        s = STREAM_SESSIONS.get(session_id)
++        if s is None:
++            return jsonify({"error": "session not found"}), 404
++        buf = bytes(s["buffer"])
++        flushed = s.get("flushed_upto", 0)
++        flushed_text = s.get("committed_text", "")
++        del STREAM_SESSIONS[session_id]
++        print(f"[stream:{session_id[:8]}] FINALIZE deleted (buf {len(buf)}b, flushed {flushed}b)", flush=True)
++
++    if flushed >= len(buf) and flushed_text:
++        return jsonify({"text": flushed_text})
++
++    # Slow path: transcribe uncommitted tail without arbitrary truncation.
++    text = flushed_text
++    tail_start = max(flushed, s.get("bytes_committed", 0))
++    tail = buf[tail_start:]
++    if len(tail) > 0:
++        if _MODEL_LOCK.acquire(timeout=15.0):
++            try:
++                import numpy as np
++                pcm = np.frombuffer(tail, dtype=np.int16).astype(np.float32) / 32768.0
++                model = get_model("parakeet-tdt-0.6b-v3")
++                result = model.recognize(pcm, sample_rate=16000)
++                tail_text = result.text.strip() if result and result.text else ""
++                if tail_text:
++                    if text:
++                        text = _overlap_merge_pair(text, tail_text)
++                    else:
++                        text = tail_text
++            except Exception as e:
++                print(f"[stream:{session_id}] finalize error: {e}")
++            finally:
++                _MODEL_LOCK.release()
++        else:
++            print(f"[stream:{session_id[:8]}] finalize: model busy, using flushed text ({len(text)} chars)", flush=True)
++    return jsonify({"text": text})
++
++
++@app.route("/v1/audio/stream/<session_id>/events")
++def stream_events(session_id):
++    """SSE: push transcript.text.delta events as partial text grows."""
++    def gen():
++        last_text = ""
++        for _ in range(600):  # up to ~60s of idle watching
++            with _stream_lock:
++                s = STREAM_SESSIONS.get(session_id)
++                if s is None:
++                    yield "event: done\ndata: {}\n\n"
++                    return
++                partial = s["last_partial"]
++            if partial != last_text and partial:
++                last_text = partial
++                yield f"event: transcript.text.delta\ndata: {{\"delta\": {json.dumps(partial)}}}\n\n"
++            time.sleep(0.3)
++        yield "event: done\ndata: {}\n\n"
++    return Response(stream_with_context(gen()), mimetype="text/event-stream")
++
++
+ @app.route("/metrics")
+ def get_metrics():
+     """Get real-time CPU and RAM metrics"""
+@@ -548,31 +1048,36 @@ def transcribe_audio():
+     temp_files_to_clean = []
+ 
+     try:
+-        file.save(temp_original_path)
+-        temp_files_to_clean.append(temp_original_path)
++        if original_filename.endswith(".wav"):
++            file.save(target_wav_path)
++            temp_files_to_clean.append(target_wav_path)
++            print(f"[{unique_id}] Bypassing ffmpeg conversion for direct WAV upload.")
++        else:
++            file.save(temp_original_path)
++            temp_files_to_clean.append(temp_original_path)
+ 
+-        print(
+-            f"[{unique_id}] Converting '{original_filename}' to standard WAV format..."
+-        )
+-        ffmpeg_command = [
+-            "ffmpeg",
+-            "-nostdin",
+-            "-y",
+-            "-i",
+-            temp_original_path,
+-            "-ac",
+-            "1",
+-            "-ar",
+-            "16000",
+-            target_wav_path,
+-        ]
+-        result = subprocess.run(ffmpeg_command, capture_output=True, text=True)
+-        if result.returncode != 0:
+-            print(f"FFmpeg error: {result.stderr}")
+-            return jsonify(
+-                {"error": "File conversion failed", "details": result.stderr}
+-            ), 500
+-        temp_files_to_clean.append(target_wav_path)
++            print(
++                f"[{unique_id}] Converting '{original_filename}' to standard WAV format..."
++            )
++            ffmpeg_command = [
++                "ffmpeg",
++                "-nostdin",
++                "-y",
++                "-i",
++                temp_original_path,
++                "-ac",
++                "1",
++                "-ar",
++                "16000",
++                target_wav_path,
++            ]
++            result = subprocess.run(ffmpeg_command, capture_output=True, text=True)
++            if result.returncode != 0:
++                print(f"FFmpeg error: {result.stderr}")
++                return jsonify(
++                    {"error": "File conversion failed", "details": result.stderr}
++                ), 500
++            temp_files_to_clean.append(target_wav_path)
+ 
+         CHUNK_DURATION_SECONDS = CHUNK_MINUTE * 60
+         total_duration = get_audio_duration(target_wav_path)
+@@ -690,7 +1195,8 @@ def transcribe_audio():
+             })
+             print(f"[{unique_id}] Transcribing chunk {i + 1}/{num_chunks}...")
+ 
+-            result = model_to_use.recognize(chunk_path)
++            with _MODEL_LOCK:
++                result = model_to_use.recognize(chunk_path)
+ 
+             if result and result.text:
+                 start_time = result.timestamps[0] if result.timestamps else 0
+@@ -745,6 +1251,7 @@ def transcribe_audio():
+ 
+         # Formatting Output
+         full_text = " ".join([seg["segment"] for seg in all_segments])
++        print(f"[{unique_id}] STT Result: \"{full_text}\"")
+ 
+         if response_format == "srt" or model_name == "parakeet_srt_words":
+             srt_output = segments_to_srt(all_segments)

@@ -26,7 +26,7 @@ hl.define_submap("vm", function()
 end)
 
 -- AI (dictation, TTS, voice)
-hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("/home/razvan/Workspace/ai/tts-read/tts_read.sh"), { description = "AI: Read text aloud (TTS)" })
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd(vars.home .. "/.dotfiles/ai/tts/tts_read.sh"), { description = "AI: Read text aloud (TTS)" })
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("qs ipc call dictation toggle"), { description = "AI: Start dictation", release = true })
 -- Escape closes the dictation panel WITHOUT committing (cancel, like the
 -- close button). NON-CONSUMING: the key still reaches the focused app

@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Services Launcher (LLM Router, Embeddings, Proxy)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Workspace/ai/ai_launcher
+ExecStart=%h/Workspace/ai/ai_launcher/launch.sh
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

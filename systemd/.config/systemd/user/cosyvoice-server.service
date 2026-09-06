@@ -1,0 +1,23 @@
+[Unit]
+Description=CosyVoice3 TTS Server (GPU)
+After=network.target
+
+[Service]
+Type=simple
+Environment=GGML_CUDA_ENABLE_UNIFIED_MEMORY=1
+WorkingDirectory=%h/Workspace/ai/cosyvoice.cpp
+ExecStart=%h/Workspace/ai/cosyvoice.cpp/build/bin/cosyvoice-server \
+    --model %h/Workspace/ai/cosyvoice.cpp/CosyVoice3-2512_Q8_0.gguf \
+    --voice-prompt adam=%h/Workspace/ai/chatterbox/voices/adam.gguf \
+    --voice-prompt cosyvoice3=%h/Workspace/ai/chatterbox/voices/cosyvoice3.gguf \
+    --api \
+    --host 0.0.0.0 \
+    --port 59451 \
+    --max-llm-len 8192 \
+    --cuda \
+    -j 8
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

@@ -26,7 +26,7 @@ Scope {
             // transcribes the final audio, emits "commit", and exits.
             Quickshell.execDetached([
                 "bash", "-c",
-                "pkill -USR1 -f '/home/razvan/Workspace/ai/tts-read/stt_dictate_sidecar.py' 2>/dev/null || true"
+                "pkill -USR1 -f 'stt_dictate_sidecar.py' 2>/dev/null || true"
             ])
         } else {
             GlobalStates.dictationOpen = true

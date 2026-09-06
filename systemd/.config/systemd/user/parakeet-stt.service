@@ -1,0 +1,14 @@
+[Unit]
+Description=Parakeet TDT 0.6B v3 STT Server (CPU)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Workspace/ai/parakeet-python
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=%h/Workspace/ai/parakeet-python/.venv/bin/python app.py
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

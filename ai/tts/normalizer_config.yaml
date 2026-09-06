@@ -1,0 +1,37 @@
+# Configuration file for tts_read.py text normalizer
+# You can customize these rules to control how text is preprocessed before it is sent to the TTS server.
+
+# 1. Basic Filters
+strip_emojis: true
+strip_kaomoji: true
+strip_non_speech_chars: true  # Strip out exotic symbols/scripts (like Thai, Arabic, or math symbols) from English/Chinese text
+use_wetext: true  # Use WeTextProcessing for high-quality English/Chinese numbers and abbreviations if available
+
+# 2. Regular Expression Replacements (Applied in order)
+# Format: "pattern": "replacement"
+regex_rules:
+  # Split letters and numbers in technical sizes (e.g. 0.5B -> 0.5 B, 300M -> 300 M)
+  "(\\d+)(B|M)(?![a-zA-Z])": "\\1 \\2"
+
+  # Convert equal signs to words
+  "=": " equals "
+
+  # Convert path separators and underscores to spaces for natural reading
+  "/": " "
+  "_": " "
+
+  # Convert common file extensions to spoken format (e.g. grub.cfg -> grub dot cfg)
+  "\\.([a-zA-Z0-9]{2,4})\\b": " dot \\1"
+
+  # Remove other raw code punctuation that causes repeating/stuttering
+  "[\\#\\$\\^\\*\\(\\)\\[\\]\\{\\}\\<\\>\\~\\`\\|]+": " "
+
+  # Replace multiple spaces with a single space
+  "\\s+": " "
+
+# 3. Literal Word-for-Word Replacements (Case-insensitive)
+literal_rules:
+  "ttsfrd": "tts F R D"
+  "dmesg": "dee mesg"
+  "asus": "Asus"
+  "hyprland": "hyper land"
