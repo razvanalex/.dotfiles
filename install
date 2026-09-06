@@ -90,18 +90,31 @@ clone_or_pull() {
     fi
 }
 
-# Install packages for Ubuntu systems.
-install_ubuntu_packages() {
+# Install core packages for Ubuntu systems.
+install_ubuntu_core_packages() {
+    log_info "Installing core Ubuntu packages..."
+    sudo apt update && sudo apt install -y software-properties-common curl wget git
+
+    # PPAs
+    sudo add-apt-repository -y ppa:neovim-ppa/unstable
+
     local apt_packages=(
         trash-cli
         ripgrep
+        fd-find
         git
+        git-lfs
+        gh
         gcc
+        g++
         make
+        cmake
         zsh
         wget
         curl
         htop
+        btop
+        fastfetch
         stow
         nvim
     )
@@ -110,16 +123,163 @@ install_ubuntu_packages() {
         apt_packages+=(tmux)
     fi
 
-    sudo add-apt-repository ppa:neovim-ppa/unstable
+    sudo apt update && \
+    sudo apt install -y "${apt_packages[@]}"
+    log_if_failed "failed installing core packages"
+
+    # Ensure fd is available as fd if only fdfind is installed
+    if command -v fdfind &>/dev/null && ! command -v fd &>/dev/null; then
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$(which fdfind)" "$HOME/.local/bin/fd"
+    fi
+
+    # Install uv (Python package manager)
+    if ! command -v uv &>/dev/null && [ ! -f "$HOME/.local/bin/uv" ]; then
+        log_info "Installing uv (Python package manager)..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        log_if_failed "failed installing uv"
+    fi
+
+    if [ "$SHELL" != "$(which zsh)" ]; then
+        log_info "Setting default shell to zsh..."
+        sudo chsh -s "$(which zsh)" "$USER"
+        log_if_failed "could not set default shell to zsh"
+    fi
+}
+
+# Install desktop packages for Ubuntu systems.
+install_ubuntu_desktop_packages() {
+    log_info "Installing desktop and Wayland packages..."
+    sudo apt update && sudo apt install -y software-properties-common
+
+    # Add custom PPA for Hyprland ecosystem tools
+    sudo add-apt-repository -y ppa:razvanalex/hyprland-ppa
+
+    local desktop_packages=(
+        # Wayland & Clipboard
+        wl-clipboard
+        wtype
+        xclip
+        xdotool
+
+        # Hyprland custom tools (from ppa:razvanalex/hyprland-ppa)
+        quickshell
+        satty
+        cliphist
+        matugen
+        mpvpaper
+        swww
+        airpods-tui
+
+        # Desktop utilities & media tools
+        grim
+        slurp
+        swappy
+        brightnessctl
+        playerctl
+        pavucontrol
+        mpv
+        cava
+        imagemagick
+        zathura
+        rofi
+        libportaudio2
+    )
 
     sudo apt update && \
-    sudo apt install -y "${apt_packages[@]}" && \
-
-    log_if_failed "failed installing packages"
-
-    sudo chsh -s "$(which zsh)" "$USER"
-    log_if_failed "could not set default shell to zsh"
+    sudo apt install -y "${desktop_packages[@]}"
+    log_if_failed "failed installing desktop packages"
 }
+
+# Install GUI applications via Flatpak and Snap.
+install_apps() {
+    log_info "=========================================="
+    log_info "  Installing GUI Apps (Snaps & Flatpaks)  "
+    log_info "=========================================="
+
+    # Snaps
+    if command -v snap &>/dev/null; then
+        log_info "Installing Snaps..."
+        local classic_snaps=(code-insiders yazi)
+        local standard_snaps=(bitwarden inkscape)
+
+        for snap_pkg in "${classic_snaps[@]}"; do
+            if ! snap list "$snap_pkg" &>/dev/null; then
+                log_info "Installing snap: $snap_pkg (--classic)"
+                sudo snap install "$snap_pkg" --classic
+                log_if_failed "failed installing snap $snap_pkg"
+            else
+                log_info "Snap $snap_pkg is already installed."
+            fi
+        done
+
+        for snap_pkg in "${standard_snaps[@]}"; do
+            if ! snap list "$snap_pkg" &>/dev/null; then
+                log_info "Installing snap: $snap_pkg"
+                sudo snap install "$snap_pkg"
+                log_if_failed "failed installing snap $snap_pkg"
+            else
+                log_info "Snap $snap_pkg is already installed."
+            fi
+        done
+    else
+        log_warn "snapd not found, skipping snap installations."
+    fi
+
+    # Flatpaks
+    if ! command -v flatpak &>/dev/null; then
+        log_info "Installing Flatpak..."
+        sudo apt update && sudo apt install -y flatpak
+        log_if_failed "failed installing flatpak"
+    fi
+
+    if command -v flatpak &>/dev/null; then
+        log_info "Configuring Flathub remote..."
+        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true
+
+        local flatpak_apps=(
+            ca.desrt.dconf-editor
+            com.github.tchx84.Flatseal
+            com.github.xournalpp.xournalpp
+            com.jgraph.drawio.desktop
+            com.rawtherapee.RawTherapee
+            com.vivaldi.Vivaldi
+            md.obsidian.Obsidian
+            org.audacityteam.Audacity
+            org.blender.Blender
+            org.chromium.Chromium
+            org.darktable.Darktable
+            org.gimp.GIMP
+            org.gnome.NetworkDisplays
+            org.openrgb.OpenRGB
+            org.videolan.VLC
+        )
+
+        for app in "${flatpak_apps[@]}"; do
+            if flatpak list --app 2>/dev/null | grep -q "$app"; then
+                log_info "Flatpak $app is already installed."
+            else
+                log_info "Installing Flatpak: $app"
+                flatpak install -y flathub "$app"
+                log_if_failed "failed installing flatpak $app"
+            fi
+        done
+    fi
+}
+
+# Provision AI services
+install_ai() {
+    log_info "=========================================="
+    log_info "  Provisioning AI Workstation Services    "
+    log_info "=========================================="
+    if [ -f "$DOTFILES_PATH/ai/install.sh" ]; then
+        bash "$DOTFILES_PATH/ai/install.sh"
+        log_if_failed "AI services provisioning failed"
+    else
+        log_warn "AI installer not found at $DOTFILES_PATH/ai/install.sh"
+    fi
+}
+
 
 # Install packages for RHEL systems.
 install_rhel_packages() {
@@ -305,10 +465,47 @@ install_dotfiles() {
     fi
 }
 
+show_help() {
+    echo "Usage: ./install [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  (no flags)     Install Core CLI + Desktop Tools + Dotfiles (Default)"
+    echo "  --apps         Also install Desktop GUI Apps (Flatpaks & Snaps)"
+    echo "  --ai           Also provision AI models & services"
+    echo "  --all          Complete workstation setup (Core + Desktop + Apps + AI)"
+    echo "  -h, --help     Show this help message"
+}
+
 main() {
+    local install_apps_flag=0
+    local install_ai_flag=0
+
+    for arg in "$@"; do
+        case "$arg" in
+            --apps)
+                install_apps_flag=1
+                ;;
+            --ai)
+                install_ai_flag=1
+                ;;
+            --all)
+                install_apps_flag=1
+                install_ai_flag=1
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_warn "Unknown option: $arg"
+                ;;
+        esac
+    done
+
     source /etc/os-release
     if [ "$ID" == "ubuntu" ]; then
-        install_ubuntu_packages
+        install_ubuntu_core_packages
+        install_ubuntu_desktop_packages
     elif [ "$ID" == "almalinux" ] || [ "$ID" == "rhel" ] || [ "$ID" == "fedora" ]; then
         install_rhel_packages
     else
@@ -328,10 +525,16 @@ main() {
     fi
     install_dotfiles
 
-    if [ "${INSTALL_AI:-0}" = "1" ] || [[ "$*" == *"--ai"* ]]; then
-        log_info "Installing AI services and tools..."
-        "$DOTFILES_PATH/ai/install.sh"
+    if [ $install_apps_flag -eq 1 ]; then
+        install_apps
     fi
+
+    if [ $install_ai_flag -eq 1 ] || [ "${INSTALL_AI:-0}" = "1" ]; then
+        install_ai
+    fi
+
+    log_info "Installation completed successfully!"
 }
 
 main "$@"
+
