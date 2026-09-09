@@ -41,7 +41,7 @@ PanelWindow {
         bottom: !Config.options.bar.vertical && Config.options.bar.bottom
     }
 
-    implicitWidth: 384 + Appearance.sizes.elevationMargin * 2
+    implicitWidth: 389 + Appearance.sizes.elevationMargin * 2
     implicitHeight: popupBackground.implicitHeight + Appearance.sizes.elevationMargin * 2
 
     margins {
@@ -81,8 +81,10 @@ PanelWindow {
             leftMargin: Appearance.sizes.elevationMargin
             rightMargin: Appearance.sizes.elevationMargin
         }
-        implicitWidth: 384
-        implicitHeight: contentColumn.implicitHeight + root.padding * 2
+        implicitWidth: 389
+        // once content exceeds ~85% of screen height the Flickable below scrolls
+        readonly property real maxContentHeight: (root.screen?.height ?? 1440) * 0.85 - root.padding * 2
+        implicitHeight: Math.min(contentColumn.implicitHeight, maxContentHeight) + root.padding * 2
         color: Appearance.m3colors.m3surfaceContainer
         radius: Appearance.rounding.small
         border.width: 1
@@ -102,6 +104,7 @@ PanelWindow {
 
             // ---- header -------------------------------------------------
             RowLayout {
+                id: headerRow
                 Layout.fillWidth: true
                 spacing: 8
 
@@ -116,40 +119,75 @@ PanelWindow {
                     font.pixelSize: Appearance.font.pixelSize.large
                     color: Appearance.colors.colOnLayer2
                 }
-                // refresh
+                // refresh (hover ring driven by containsMouse — Button.hovered
+                // doesn't fire inside the layer-shell popup)
                 ButtonMouseArea {
                     id: refreshButton
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 28
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitWidth: 28
+                    implicitHeight: 28
                     onClicked: AiUsage.requestRefresh()
-                    Item {
-                        implicitWidth: 22
-                        implicitHeight: 22
-                        MaterialSymbol {
-                            anchors.centerIn: parent
-                            text: AiUsage.refreshing ? "progress_activity" : "refresh"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: Appearance.colors.colOnLayer2
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: refreshButton.containsMouse ? Appearance.colors.colLayer2Hover : "transparent"
+                        Behavior on color {
+                            animation: Appearance?.animation.elementMoveFast.colorAnimation.createObject(this)
                         }
+                    }
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: AiUsage.refreshing ? "progress_activity" : "refresh"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: Appearance.colors.colOnLayer2
                     }
                 }
                 // close
                 ButtonMouseArea {
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 28
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitWidth: 28
+                    implicitHeight: 28
                     onClicked: root.closeRequested()
-                    Item {
-                        implicitWidth: 22
-                        implicitHeight: 22
-                        MaterialSymbol {
-                            anchors.centerIn: parent
-                            text: "close"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: Appearance.colors.colOnLayer2
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: parent.containsMouse ? Appearance.colors.colLayer2Hover : "transparent"
+                        Behavior on color {
+                            animation: Appearance?.animation.elementMoveFast.colorAnimation.createObject(this)
                         }
+                    }
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: "close"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: Appearance.colors.colOnLayer2
                     }
                 }
             }
 
-            // ---- provider cards -----------------------------------------
-            Repeater {
-                model: AiUsage.providers
+            // ---- scrollable content: providers (scrolls when tall) -------
+            Flickable {
+                id: providersFlick
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(providersColumn.implicitHeight, flickMax)
+                readonly property real flickMax: (root.screen?.height ?? 1440) * 0.85 - root.padding * 2 - headerRow.implicitHeight
+                clip: true
+                contentWidth: width
+                contentHeight: providersColumn.implicitHeight
+
+                ScrollIndicator.vertical: ScrollIndicator { }
+
+                ColumnLayout {
+                    id: providersColumn
+                    width: providersFlick.width
+                    spacing: 10
+
+                Repeater {
+                    model: AiUsage.providers
 
                 delegate: Rectangle {
                     id: providerCard
@@ -200,53 +238,73 @@ PanelWindow {
                         Repeater {
                             model: providerCard.metrics
 
-                            delegate: RowLayout {
+                            delegate: ColumnLayout {
                                 id: metricRow
                                 required property var modelData
 
+                                readonly property bool hasPct: metricRow.modelData.percentage !== null && metricRow.modelData.percentage !== undefined
                                 readonly property real pct: metricRow.modelData.percentage ?? 0
-                                readonly property bool credit: metricRow.modelData.type === "credits"
+                                readonly property string rowLabel: metricRow.modelData.name ?? metricRow.modelData.type ?? ""
+                                readonly property string rowDetail: {
+                                    const m = metricRow.modelData;
+                                    if (m.detail) return m.detail;
+                                    if (m.resets_at) return Qt.formatDateTime(new Date(m.resets_at), "d MMM HH:mm");
+                                    const secs = m.reset_in_seconds;
+                                    return secs ? AiUsage.formatReset(secs) : "";
+                                }
 
                                 Layout.fillWidth: true
-                                spacing: 8
+                                spacing: 2
 
-                                ColumnLayout {
+                                // line 1: label + bar + pct on one baseline (skipped when the
+                                // metric has no quota percentage, e.g. OpenRouter balance)
+                                RowLayout {
+                                    visible: metricRow.hasPct
                                     Layout.fillWidth: true
-                                    spacing: 2
+                                    spacing: 6
 
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-                                        StyledText {
-                                            Layout.fillWidth: true
-                                            text: metricRow.modelData.name ?? metricRow.modelData.type ?? ""
-                                            font.pixelSize: Appearance.font.pixelSize.small
-                                            color: Appearance.colors.colOnLayer1
-                                        }
-                                        StyledText {
-                                            text: {
-                                                const m = metricRow.modelData;
-                                                if (m.detail) return m.detail;
-                                                const reset = m.resets_at ? Qt.formatDateTime(new Date(m.resets_at), "d MMM HH:mm") : "";
-                                                return reset ? ("resets " + reset) : "";
-                                            }
-                                            font.pixelSize: Appearance.font.pixelSize.small
-                                            color: Appearance.colors.colSubtext
-                                        }
+                                    StyledText {
+                                        Layout.preferredWidth: 76
+                                        text: metricRow.rowLabel
+                                        elide: Text.ElideRight
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: Appearance.colors.colOnLayer1
                                     }
 
                                     StyledProgressBar {
                                         Layout.fillWidth: true
                                         value: metricRow.pct / 100
                                     }
+
+                                    StyledText {
+                                        Layout.preferredWidth: 34
+                                        text: metricRow.pct + "%"
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: metricRow.pct >= (Config.options.aiUsage?.alarmPercent ?? 80) ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
+                                    }
                                 }
 
+                                // pct-less metrics (OpenRouter): balance text as the single
+                                // line, right-aligned (no fillWidth — that would stretch and
+                                // defeat the alignment)
                                 StyledText {
-                                    Layout.preferredWidth: 40
-                                    text: metricRow.pct + "%"
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                    color: metricRow.pct >= (Config.options.aiUsage?.alarmPercent ?? 80) ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
+                                    visible: !metricRow.hasPct
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignTrailing
                                     horizontalAlignment: Text.AlignRight
+                                    text: metricRow.modelData.detail || ""
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer1
+                                }
+
+                                // line 2: detail hint, right-aligned under the pct
+                                StyledText {
+                                    visible: metricRow.hasPct
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignTrailing
+                                    horizontalAlignment: Text.AlignRight
+                                    text: metricRow.rowDetail
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    color: Appearance.colors.colSubtext
                                 }
                             }
                         }
@@ -271,46 +329,84 @@ PanelWindow {
                                 Repeater {
                                     model: groupBlock.modelData.metrics ?? []
 
-                                    delegate: RowLayout {
-                                        id: groupMetricRow
-                                        required property var modelData
+                            delegate: ColumnLayout {
+                                id: groupMetricRow
+                                required property var modelData
 
-                                        readonly property real pct: groupMetricRow.modelData.percentage ?? 0
-                                        readonly property string windowLabel: groupMetricRow.modelData.type === "rolling" ? "5-hour" : "weekly"
+                                readonly property bool hasPct: groupMetricRow.modelData.percentage !== null && groupMetricRow.modelData.percentage !== undefined
+                                readonly property real pct: groupMetricRow.modelData.percentage ?? 0
+                                readonly property string rowLabel: groupMetricRow.modelData.name ?? groupMetricRow.modelData.type ?? ""
+                                readonly property string rowDetail: {
+                                    const m = groupMetricRow.modelData;
+                                    if (m.detail) return m.detail;
+                                    if (m.resets_at) return Qt.formatDateTime(new Date(m.resets_at), "d MMM HH:mm");
+                                    const secs = m.reset_in_seconds;
+                                    return secs ? AiUsage.formatReset(secs) : "";
+                                }
 
-                                        Layout.fillWidth: true
-                                        spacing: 8
+                                Layout.fillWidth: true
+                                spacing: 2
 
-                                        StyledText {
-                                            Layout.preferredWidth: 52
-                                            text: groupMetricRow.windowLabel
-                                            font.pixelSize: Appearance.font.pixelSize.small
-                                            color: Appearance.colors.colSubtext
-                                        }
+                                // line 1: label + bar + pct on one baseline (skipped when the
+                                // metric has no quota percentage, e.g. OpenRouter balance)
+                                RowLayout {
+                                    visible: groupMetricRow.hasPct
+                                    Layout.fillWidth: true
+                                    spacing: 6
 
-                                        StyledProgressBar {
-                                            Layout.fillWidth: true
-                                            value: groupMetricRow.pct / 100
-                                        }
-
-                                        StyledText {
-                                            Layout.preferredWidth: 70
-                                            text: {
-                                                const secs = groupMetricRow.modelData.reset_in_seconds;
-                                                const reset = secs ? (" " + AiUsage.formatReset(secs)) : "";
-                                                return groupMetricRow.pct + "%" + reset;
-                                            }
-                                            font.pixelSize: Appearance.font.pixelSize.small
-                                            color: groupMetricRow.pct >= (Config.options.aiUsage?.alarmPercent ?? 80) ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
-                                            horizontalAlignment: Text.AlignRight
-                                        }
+                                    StyledText {
+                                        Layout.preferredWidth: 76
+                                        text: groupMetricRow.rowLabel
+                                        elide: Text.ElideRight
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: Appearance.colors.colOnLayer1
                                     }
+
+                                    StyledProgressBar {
+                                        Layout.fillWidth: true
+                                        value: groupMetricRow.pct / 100
+                                    }
+
+                                    StyledText {
+                                        Layout.preferredWidth: 34
+                                        text: groupMetricRow.pct + "%"
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: groupMetricRow.pct >= (Config.options.aiUsage?.alarmPercent ?? 80) ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
+                                    }
+                                }
+
+                                // pct-less metrics (OpenRouter): balance text as the single
+                                // line, right-aligned (no fillWidth — that would stretch and
+                                // defeat the alignment)
+                                StyledText {
+                                    visible: !groupMetricRow.hasPct
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignTrailing
+                                    horizontalAlignment: Text.AlignRight
+                                    text: groupMetricRow.modelData.detail || ""
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer1
+                                }
+
+                                // line 2: detail hint, right-aligned under the pct
+                                StyledText {
+                                    visible: groupMetricRow.hasPct
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignTrailing
+                                    horizontalAlignment: Text.AlignRight
+                                    text: groupMetricRow.rowDetail
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    color: Appearance.colors.colSubtext
+                                }
+                            }
                                 }
                             }
                         }
                     }
                 }
             }
+
+            }   // providersColumn (flick content)
+            }   // providersFlick
 
             // empty state
             StyledText {

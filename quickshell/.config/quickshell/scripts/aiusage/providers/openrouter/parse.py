@@ -14,14 +14,14 @@ def parse(raw_output):
     total = float(data.get("total_credits") or 0)
     usage = float(data.get("total_usage") or 0)
     remaining = max(total - usage, 0.0)
-    pct = round(100 * usage / total) if total > 0 else 0
-
+    # no percentage: total_* are lifetime-cumulative, so a pct would mean
+    # lifetime utilization and would never reset on top-up. Dollar detail only.
     return {
         "provider": "OpenRouter",
         "metrics": [
             {
                 "type": "credits",
-                "percentage": pct,
+                "percentage": None,
                 "remaining": round(remaining, 2),
                 "detail": f"${remaining:.2f} of ${total:.2f} left",
             }

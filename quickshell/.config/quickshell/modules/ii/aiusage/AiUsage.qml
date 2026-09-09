@@ -15,7 +15,9 @@ Scope {
     Loader {
         id: panelLoader
         active: GlobalStates.aiUsageOpen
-        sourceComponent: AiUsagePopup {}
+        sourceComponent: AiUsagePopup {
+            onCloseRequested: GlobalStates.aiUsageOpen = false
+        }
     }
 
     IpcHandler {
