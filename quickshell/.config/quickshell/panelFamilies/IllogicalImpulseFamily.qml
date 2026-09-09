@@ -9,6 +9,7 @@ import qs.modules.ii.dictation
 import qs.modules.ii.dock
 import qs.modules.ii.lock
 import qs.modules.ii.mediaControls
+import qs.modules.ii.aiusage
 import qs.modules.ii.localsend
 import qs.modules.ii.notificationPopup
 import qs.modules.ii.onScreenDisplay
@@ -35,6 +36,7 @@ Scope {
     PanelLoader { component: Lock {} }
     PanelLoader { component: MediaControls {} }
     PanelLoader { component: LocalSend {} }
+    PanelLoader { component: AiUsage {} }
     PanelLoader { component: NotificationPopup {} }
     PanelLoader { component: OnScreenDisplay {} }
     PanelLoader { component: OnScreenKeyboard {} }
