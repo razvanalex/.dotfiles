@@ -114,6 +114,12 @@ Singleton {
             }
         },
         {
+            action: "aiusage",
+            execute: () => {
+                GlobalStates.aiUsageOpen = !GlobalStates.aiUsageOpen;
+            }
+        },
+        {
             action: "wipeclipboard",
             execute: () => {
                 Cliphist.wipe();
