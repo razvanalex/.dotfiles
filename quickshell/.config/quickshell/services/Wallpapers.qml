@@ -5,6 +5,7 @@ import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 pragma Singleton
 pragma ComponentBehavior: Bound
 
@@ -37,15 +38,45 @@ Singleton {
         initWallpaperTimer.restart();
     }
 
+    property bool initialized: false
+
+    function applyToScreen(screenName: string): void {
+        if (!screenName || screenName.length === 0) return;
+        Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--screen", screenName]);
+    }
+
+    Connections {
+        target: Hyprland
+
+        function onRawEvent(event) {
+            if (event.name === "monitoradded") {
+                root.applyToScreen(event.data);
+            }
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        Scope {
+            required property var modelData
+            Component.onCompleted: {
+                if (root.initialized) {
+                    root.applyToScreen(modelData.name);
+                }
+            }
+        }
+    }
+
     Timer {
         id: initWallpaperTimer
         interval: 300
         repeat: false
         onTriggered: {
+            root.initialized = true;
             const currentWall = Config.options?.background?.wallpaperPath;
             if (!currentWall || currentWall.length === 0) return;
 
-            const isVideo = currentWall.endsWith(".gif") || currentWall.endsWith(".mp4") || currentWall.endsWith(".webm") || currentWall.endsWith(".mkv") || currentWall.endsWith(".avi") || currentWall.endsWith(".mov");
+            const isVideo = currentWall.endsWith(".mp4") || currentWall.endsWith(".webm") || currentWall.endsWith(".mkv") || currentWall.endsWith(".avi") || currentWall.endsWith(".mov");
             const targetDaemon = isVideo ? "mpvpaper" : "awww-daemon";
 
             Quickshell.execDetached(["bash", "-c", `pgrep -x "${targetDaemon}" >/dev/null || ${Directories.wallpaperSwitchScriptPath} --noswitch`]);
@@ -278,6 +309,10 @@ Singleton {
 
         function setTheme(themeName: string): void {
             root.setTheme(themeName);
+        }
+
+        function applyToScreen(screenName: string): void {
+            root.applyToScreen(screenName);
         }
     }
 }

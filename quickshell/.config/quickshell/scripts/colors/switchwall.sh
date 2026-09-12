@@ -186,6 +186,54 @@ set_thumbnail_path() {
     fi
 }
 
+sync_awww_cache() {
+    local img="$1"
+    local cache_base="$HOME/.cache/awww"
+    [ -d "$cache_base" ] || return 0
+    for vdir in "$cache_base"/*; do
+        [ -d "$vdir" ] || continue
+        for cfile in "$vdir"/*; do
+            [ -f "$cfile" ] || continue
+            local fname
+            fname=$(basename "$cfile")
+            if [[ "$fname" != _* && "$fname" != *__* ]]; then
+                echo "crop Lanczos3 $img" > "$cfile"
+            fi
+        done
+    done
+}
+
+apply_to_screen() {
+    local target="$1"
+    local imgpath
+    imgpath=$(jq -r '.background.wallpaperPath' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "")
+    [ -n "$imgpath" ] || return 0
+
+    if is_video "$imgpath"; then
+        if ! pgrep -f "mpvpaper.*${target}" >/dev/null; then
+            mpvpaper -o "$VIDEO_OPTS" "$target" "$imgpath" &
+        fi
+    else
+        if command -v awww &>/dev/null; then
+            if ! pgrep -x "awww-daemon" &>/dev/null; then
+                awww-daemon --format xrgb &
+                sleep 0.2
+            fi
+            for _ in {1..15}; do
+                if awww query 2>/dev/null | grep -q "^: ${target}:"; then
+                    break
+                fi
+                sleep 0.1
+            done
+            local current_disp
+            current_disp=$(awww query 2>/dev/null | grep "^: ${target}:" | sed -n 's/.*currently displaying: image: //p')
+            if [ "$current_disp" != "$imgpath" ]; then
+                awww img "$imgpath" -o "$target" --transition-type none &
+            fi
+        fi
+    fi
+}
+
 categorize_wallpaper() {
     img_cat=$("$SCRIPT_DIR/../ai/gemini-categorize-wallpaper.sh" "$1")
     # notify-send "Wallpaper category" "$img_cat"
@@ -300,6 +348,7 @@ switch() {
             generate_colors_material_args=(--path "$imgpath")
             # Update wallpaper path in config
             set_wallpaper_path "$imgpath"
+            sync_awww_cache "$imgpath" &
             if [[ "$imgpath" =~ \.gif$ ]]; then
                 mkdir -p "$THUMBNAIL_DIR"
                 thumbnail="$THUMBNAIL_DIR/$(basename "$imgpath").jpg"
@@ -444,6 +493,10 @@ main() {
                 imgpath=$(jq -r '.background.wallpaperPath' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "")
                 shift
                 ;;
+            --screen)
+                screen_target="$2"
+                shift 2
+                ;;
             *)
                 if [[ -z "$imgpath" ]]; then
                     imgpath="$1"
@@ -452,6 +505,11 @@ main() {
                 ;;
         esac
     done
+
+    if [[ -n "$screen_target" ]]; then
+        apply_to_screen "$screen_target"
+        return 0
+    fi
 
     # If accentColor is set in config, use it
     config_color="$(get_accent_color_from_config)"
