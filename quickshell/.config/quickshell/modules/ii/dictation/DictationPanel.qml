@@ -253,6 +253,11 @@ PanelWindow {
                 } catch(e) {}
             }
         }
+        stderr: SplitParser {
+            onRead: data => {
+                console.error("[sidecar stderr]", data)
+            }
+        }
         onExited: (code, status) => {
             // if we're showing an error, let the timer close the panel so the
             // user actually sees it; otherwise close immediately.
@@ -266,6 +271,11 @@ PanelWindow {
                     root.displayState = "Listening"
                     sidecarProc.running = true
                 }
+            } else if (code !== 0 && !root.hasError && GlobalStates.dictationOpen) {
+                root.errorMessage = "Sidecar exited (code " + code + ")"
+                root.hasError = true
+                root.displayState = "Error"
+                errorTimer.restart()
             } else if (GlobalStates.dictationOpen && !root.hasError) {
                 GlobalStates.dictationOpen = false
             }

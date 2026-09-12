@@ -39,9 +39,27 @@ import urllib.request
 
 import logging
 
-import numpy as np
-import onnxruntime
-import sounddevice as sd
+# Auto-detect virtual environment if required dependencies are missing
+try:
+    import numpy as np
+    import onnxruntime
+    import sounddevice as sd
+except ImportError:
+    candidates = [
+        os.path.expanduser("~/Workspace/ai/voice-call/.venv/bin/python"),
+        os.path.expanduser("~/Workspace/ai/tts-read/voice_call/.venv/bin/python"),
+        os.path.expanduser("~/.local/share/tts-read/venv/bin/python"),
+    ]
+    for py in candidates:
+        if os.path.isfile(py) and os.path.realpath(py) != os.path.realpath(sys.executable):
+            try:
+                os.execv(py, [py] + sys.argv)
+            except OSError:
+                continue
+    msg = "Missing dependencies (onnxruntime, sounddevice). Virtualenv not found."
+    sys.stderr.write(msg + "\n")
+    print(json.dumps({"type": "error", "message": msg}), flush=True)
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------- config
