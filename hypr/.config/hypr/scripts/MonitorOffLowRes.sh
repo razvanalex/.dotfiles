@@ -11,3 +11,6 @@ fi
 # Low-res headless mode: native 2016x1260 (the 1.5-scaled logical size), no scaling
 hyprctl eval 'hl.monitor({ output = "sunshine_mon", disabled = false, mode = "2016x1260@60", position = "auto", scale = 1 })'
 hyprctl eval 'hl.monitor({ output = "HDMI-A-1", disabled = true })'
+
+# Sync wallpaper to the headless display
+~/.config/quickshell/scripts/colors/switchwall.sh --screen sunshine_mon &

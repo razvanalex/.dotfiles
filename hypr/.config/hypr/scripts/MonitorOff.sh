@@ -16,3 +16,6 @@ fi
 # Match the headless to the client's stream resolution, then remove the physical LG
 hyprctl eval 'hl.monitor({ output = "sunshine_mon", disabled = false, mode = "'"${WIDTH}x${HEIGHT}@${FPS}"'", position = "auto", scale = "'"${SCALE}"'" })'
 hyprctl eval 'hl.monitor({ output = "HDMI-A-1", disabled = true })'
+
+# Sync wallpaper to the headless display
+~/.config/quickshell/scripts/colors/switchwall.sh --screen sunshine_mon &
