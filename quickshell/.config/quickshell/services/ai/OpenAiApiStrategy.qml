@@ -27,7 +27,7 @@ ApiStrategy {
     }
 
     function buildAuthorizationHeader(apiKeyEnvVarName: string): string {
-        return `-H "Authorization: Bearer \$\{${apiKeyEnvVarName}\}"`;
+        return `-H "Authorization: Bearer \$\{${apiKeyEnvVarName}:-sk-notused\}"`;
     }
 
     function parseResponseLine(line, message) {

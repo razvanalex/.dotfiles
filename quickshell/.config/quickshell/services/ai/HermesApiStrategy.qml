@@ -15,7 +15,10 @@ ApiStrategy {
             }
         }
         return {
-            "prompt": lastUserMessage
+            "prompt": lastUserMessage,
+            "model": model ? (model.model || "") : "",
+            "provider": model?.extraParams?.provider || "",
+            "base_url": model?.extraParams?.base_url || "",
         };
     }
 
@@ -25,12 +28,22 @@ ApiStrategy {
 
     function finalizeScriptContent(scriptContent: string): string {
         try {
-            const match = scriptContent.match(/--data '(.*)'/);
-            if (match && match[1]) {
-                const data = JSON.parse(match[1]);
+            const dataPrefix = " --data '";
+            const idx = scriptContent.indexOf(dataPrefix);
+            if (idx !== -1) {
+                let jsonStr = scriptContent.substring(idx + dataPrefix.length);
+                if (jsonStr.endsWith("'\n")) jsonStr = jsonStr.slice(0, -2);
+                else if (jsonStr.endsWith("'")) jsonStr = jsonStr.slice(0, -1);
+                jsonStr = jsonStr.replace(/'\\''/g, "'");
+                const data = JSON.parse(jsonStr);
                 const prompt = data.prompt || "";
                 const escapedPrompt = CF.StringUtils.shellSingleQuoteEscape(prompt);
-                return `#!/usr/bin/env bash\n/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py text ${escapedPrompt}\n`;
+                let cmd = `/home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/ai/quickshell_hermes_service.py text`;
+                if (data.model) cmd += ` --model ${CF.StringUtils.shellSingleQuoteEscape(data.model)}`;
+                if (data.provider) cmd += ` --provider ${CF.StringUtils.shellSingleQuoteEscape(data.provider)}`;
+                if (data.base_url) cmd += ` --base-url ${CF.StringUtils.shellSingleQuoteEscape(data.base_url)}`;
+                cmd += ` -- ${escapedPrompt}`;
+                return `#!/usr/bin/env bash\n${cmd}\n`;
             }
         } catch(e) {
             console.log("[HermesApiStrategy] Parse error: ", e);

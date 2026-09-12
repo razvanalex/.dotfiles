@@ -81,7 +81,7 @@ Singleton {
 
     // Gemini: https://ai.google.dev/gemini-api/docs/function-calling
     // OpenAI: https://platform.openai.com/docs/guides/function-calling
-    property string currentTool: Config?.options.ai.tool ?? "search"
+    property string currentTool: Config?.options.ai.tool ?? "none"
     property var tools: {
         "gemini": {
             "functions": [{"functionDeclarations": [
@@ -260,60 +260,19 @@ Singleton {
     // - key_get_description: Description of pricing and how to get an API key
     // - api_format: The API format of the model. Can be "openai" or "gemini". Default is "openai".
     // - extraParams: Extra parameters to be passed to the model. This is a JSON object.
-    property var models: Config.options.policies.ai === 2 ? {} : {
-        "gemini-2.5-flash": aiModelComponent.createObject(this, {
-            "name": "Gemini 2.5 Flash",
-            "icon": "google-gemini-symbolic",
-            "description": Translation.tr("Online | Google's model\nNewer model that's slower than its predecessor but should deliver higher quality answers"),
-            "homepage": "https://aistudio.google.com",
-            "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent",
-            "model": "gemini-2.5-flash",
-            "requires_key": true,
-            "key_id": "gemini",
-            "key_get_link": "https://aistudio.google.com/app/apikey",
-            "key_get_description": Translation.tr("**Pricing**: free. Data used for training.\n\n**Instructions**: Log into Google account, allow AI Studio to create Google Cloud project or whatever it asks, go back and click Get API key"),
-            "api_format": "gemini",
-        }),
-        "gemini-3-flash": aiModelComponent.createObject(this, {
-            "name": "Gemini 3 Flash",
-            "icon": "google-gemini-symbolic",
-            "description": Translation.tr("Online | Google's model\nPro-level intelligence at the speed and pricing of Flash."),
-            "homepage": "https://aistudio.google.com",
-            "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent",
-            "model": "gemini-3-flash-preview",
-            "requires_key": true,
-            "key_id": "gemini",
-            "key_get_link": "https://aistudio.google.com/app/apikey",
-            "key_get_description": Translation.tr("**Pricing**: free. Data used for training.\n\n**Instructions**: Log into Google account, allow AI Studio to create Google Cloud project or whatever it asks, go back and click Get API key"),
-            "api_format": "gemini",
-        }),
-        "mistral-medium-3": aiModelComponent.createObject(this, {
-            "name": "Mistral Medium 3",
-            "icon": "mistral-symbolic",
-            "description": Translation.tr("Online | %1's model | Delivers fast, responsive and well-formatted answers. Disadvantages: not very eager to do stuff; might make up unknown function calls").arg("Mistral"),
-            "homepage": "https://mistral.ai/news/mistral-medium-3",
-            "endpoint": "https://api.mistral.ai/v1/chat/completions",
-            "model": "mistral-medium-2505",
-            "requires_key": true,
-            "key_id": "mistral",
-            "key_get_link": "https://console.mistral.ai/api-keys",
-            "key_get_description": Translation.tr("**Instructions**: Log into Mistral account, go to Keys on the sidebar, click Create new key"),
-            "api_format": "mistral",
-        }),
-        "hermes-agent": aiModelComponent.createObject(this, {
-            "name": "Hermes Agent (Local)",
-            "icon": "terminal-symbolic",
-            "description": Translation.tr("Local | Hermes Agent | Full tool execution, bash, skills, memory & local workstation LLM"),
-            "homepage": "https://github.com/nousresearch/hermes-agent",
-            "endpoint": "hermes",
-            "model": "hermes-agent",
-            "requires_key": false,
-            "api_format": "hermes",
-        }),
-    }
+    property var providers: ({})
+    property list<string> providerList: []
+    property string currentProviderId: Persistent.states?.ai?.provider || "hermes"
+    property var providerModelsMap: ({})
+
+    property string currentProfile: "default"
+    property list<string> profileList: ["default", "custom-agent", "general-chat", "reviewer"]
+    property var profilesData: []
+
+    property var models: ({})
     property var modelList: Object.keys(root.models)
-    property string selectedModelId: Persistent.states?.ai?.model || Config.options?.ai?.defaultModel || "hermes-agent"
-    property var currentModelId: (selectedModelId && root.models[selectedModelId]) ? selectedModelId : (Config.options?.ai?.defaultModel || "hermes-agent")
+    property string selectedModelId: Persistent.states?.ai?.model || ""
+    property var currentModelId: (selectedModelId && root.models[selectedModelId]) ? selectedModelId : (modelList[0] || "")
 
     property var apiStrategies: {
         "openai": openaiApiStrategy.createObject(this),
@@ -322,6 +281,220 @@ Singleton {
         "hermes": hermesApiStrategy.createObject(this),
     }
     property ApiStrategy currentApiStrategy: apiStrategies[models[currentModelId]?.api_format || "openai"]
+
+    function initFallbackProviders() {
+        const wsModels = {
+            "qwen-3.6": aiModelComponent.createObject(root, {
+                name: "Qwen 3.6",
+                icon: "computer-symbolic",
+                description: "Qwen 3.6 on Local Workstation",
+                endpoint: "http://lx.workstation.lan:11435/v1/chat/completions",
+                model: "qwen-3.6",
+                requires_key: false,
+                api_format: "openai"
+            }),
+            "qwen-3.6-fast": aiModelComponent.createObject(root, {
+                name: "Qwen 3.6 Fast",
+                icon: "computer-symbolic",
+                description: "Qwen 3.6 Fast on Local Workstation",
+                endpoint: "http://lx.workstation.lan:11435/v1/chat/completions",
+                model: "qwen-3.6-fast",
+                requires_key: false,
+                api_format: "openai"
+            }),
+            "qwen-3.8-27b": aiModelComponent.createObject(root, {
+                name: "Qwen 3.8 27B",
+                icon: "computer-symbolic",
+                description: "Qwen 3.8 27B on Local Workstation",
+                endpoint: "http://lx.workstation.lan:11435/v1/chat/completions",
+                model: "qwen-3.8-27b",
+                requires_key: false,
+                api_format: "openai"
+            })
+        };
+
+        const hermesModels = {
+            "qwen-3.6": aiModelComponent.createObject(root, {
+                name: "Qwen 3.6 (Workstation)",
+                icon: "terminal-symbolic",
+                description: "Qwen 3.6 on Workstation via Hermes Agent",
+                endpoint: "hermes",
+                model: "qwen-3.6",
+                requires_key: false,
+                api_format: "hermes",
+                extraParams: { provider: "custom:Lx.workstation.lan:11435", base_url: "http://lx.workstation.lan:11435/v1" }
+            }),
+            "qwen-3.6-fast": aiModelComponent.createObject(root, {
+                name: "Qwen 3.6 Fast (Workstation)",
+                icon: "terminal-symbolic",
+                description: "Qwen 3.6 Fast on Workstation via Hermes Agent",
+                endpoint: "hermes",
+                model: "qwen-3.6-fast",
+                requires_key: false,
+                api_format: "hermes",
+                extraParams: { provider: "custom:Lx.workstation.lan:11435", base_url: "http://lx.workstation.lan:11435/v1" }
+            }),
+            "deepseek-v4-flash": aiModelComponent.createObject(root, {
+                name: "DeepSeek V4 Flash (OpenCode)",
+                icon: "terminal-symbolic",
+                description: "DeepSeek V4 Flash on OpenCode Go via Hermes",
+                endpoint: "hermes",
+                model: "deepseek-v4-flash",
+                requires_key: false,
+                api_format: "hermes",
+                extraParams: { provider: "opencode-go", base_url: "https://opencode.ai/zen/go/v1" }
+            }),
+            "default": aiModelComponent.createObject(root, {
+                name: "Hermes Default",
+                icon: "terminal-symbolic",
+                description: "Default configured model in Hermes",
+                endpoint: "hermes",
+                model: "default",
+                requires_key: false,
+                api_format: "hermes"
+            })
+        };
+
+        root.providerModelsMap = {
+            "hermes": hermesModels,
+            "workstation": wsModels
+        };
+
+        root.providers = {
+            "hermes": {
+                id: "hermes",
+                name: "Hermes Agent",
+                icon: "terminal-symbolic",
+                description: "Hermes Agent with tools, bash, memory & skills",
+                default_model: "qwen-3.6"
+            },
+            "workstation": {
+                id: "workstation",
+                name: "Local Workstation",
+                icon: "computer-symbolic",
+                description: "Direct connection to local LLM server (lx.workstation.lan:11435)",
+                default_model: "qwen-3.6"
+            }
+        };
+
+        root.providerList = ["hermes", "workstation"];
+        updateActiveModels();
+    }
+
+    function updateActiveModels() {
+        if (!providerList || providerList.length === 0) return;
+        if (providerList.indexOf(currentProviderId) === -1) {
+            currentProviderId = providerList[0];
+        }
+        root.models = providerModelsMap[currentProviderId] || {};
+        root.modelList = Object.keys(root.models);
+
+        const savedModel = Persistent.states?.ai?.[`model_${currentProviderId}`] || Persistent.states?.ai?.model;
+        if (savedModel && root.models[savedModel]) {
+            root.selectedModelId = savedModel;
+        } else {
+            const defM = providers[currentProviderId]?.default_model;
+            root.selectedModelId = (defM && root.models[defM]) ? defM : (modelList[0] || "");
+        }
+    }
+
+    function loadDiscoveredProviders(data) {
+        let newProviderModelsMap = {};
+        let newProviders = {};
+        let newProviderList = [];
+
+        for (let provKey in data) {
+            const pInfo = data[provKey];
+            newProviders[provKey] = {
+                id: provKey,
+                name: pInfo.name,
+                icon: pInfo.icon || "ai-symbolic",
+                description: pInfo.description || "",
+                default_model: pInfo.default_model || (pInfo.models && pInfo.models[0]?.id) || "default"
+            };
+            newProviderList.push(provKey);
+
+            let pModels = {};
+            (pInfo.models || []).forEach(m => {
+                pModels[m.id] = aiModelComponent.createObject(root, {
+                    name: m.name,
+                    icon: m.icon || pInfo.icon || "ai-symbolic",
+                    description: m.description || "",
+                    endpoint: m.endpoint || pInfo.endpoint || "",
+                    model: m.model,
+                    requires_key: m.requires_key || false,
+                    api_format: m.api_format || pInfo.api_format || "openai",
+                    extraParams: {
+                        provider: m.provider || "",
+                        base_url: m.base_url || ""
+                    }
+                });
+            });
+            newProviderModelsMap[provKey] = pModels;
+        }
+
+        // Only add Gemini or Mistral if an API key is actually present in keyring!
+        if (root.apiKeysLoaded && root.apiKeys["gemini"] && root.apiKeys["gemini"].length > 0) {
+            newProviders["gemini"] = {
+                id: "gemini",
+                name: "Google Gemini",
+                icon: "google-gemini-symbolic",
+                description: "Google Gemini models (online)",
+                default_model: "gemini-2.5-flash"
+            };
+            newProviderList.push("gemini");
+            newProviderModelsMap["gemini"] = {
+                "gemini-2.5-flash": aiModelComponent.createObject(root, {
+                    name: "Gemini 2.5 Flash",
+                    icon: "google-gemini-symbolic",
+                    description: "Gemini 2.5 Flash",
+                    endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent",
+                    model: "gemini-2.5-flash",
+                    requires_key: true,
+                    key_id: "gemini",
+                    api_format: "gemini"
+                }),
+                "gemini-3-flash": aiModelComponent.createObject(root, {
+                    name: "Gemini 3 Flash",
+                    icon: "google-gemini-symbolic",
+                    description: "Gemini 3 Flash",
+                    endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent",
+                    model: "gemini-3-flash-preview",
+                    requires_key: true,
+                    key_id: "gemini",
+                    api_format: "gemini"
+                })
+            };
+        }
+
+        if (root.apiKeysLoaded && root.apiKeys["mistral"] && root.apiKeys["mistral"].length > 0) {
+            newProviders["mistral"] = {
+                id: "mistral",
+                name: "Mistral AI",
+                icon: "mistral-symbolic",
+                description: "Mistral AI models (online)",
+                default_model: "mistral-medium-3"
+            };
+            newProviderList.push("mistral");
+            newProviderModelsMap["mistral"] = {
+                "mistral-medium-3": aiModelComponent.createObject(root, {
+                    name: "Mistral Medium 3",
+                    icon: "mistral-symbolic",
+                    description: "Mistral Medium 3",
+                    endpoint: "https://api.mistral.ai/v1/chat/completions",
+                    model: "mistral-medium-2505",
+                    requires_key: true,
+                    key_id: "mistral",
+                    api_format: "mistral"
+                })
+            };
+        }
+
+        root.providerModelsMap = newProviderModelsMap;
+        root.providers = newProviders;
+        root.providerList = newProviderList;
+        updateActiveModels();
+    }
 
     function addUserModels() {
         (Config?.options.ai?.extraModels ?? []).forEach(model => {
@@ -342,8 +515,9 @@ Singleton {
     property string pendingFilePath: ""
 
     Component.onCompleted: {
-        setModel(currentModelId, false, false); // Do necessary setup for model
-        root.addUserModels() // Config onReadyChanged above might not fire if config is loaded before this service
+        initFallbackProviders();
+        root.addUserModels();
+        refreshProfiles();
     }
 
     function guessModelLogo(model) {
@@ -362,7 +536,7 @@ Singleton {
             return (word.charAt(0).toUpperCase() + word.slice(1))
         });
         if (words[words.length - 1] === "Latest") words.pop();
-        else words[words.length - 1] = `(${words[words.length - 1]})`; // Surround the last word with square brackets
+        else words[words.length - 1] = `(${words[words.length - 1]})`;
         const result = words.join(' ');
         return result;
     }
@@ -371,35 +545,65 @@ Singleton {
         root.models = Object.assign({}, root.models, {
             [modelName]: aiModelComponent.createObject(this, data)
         });
+        root.modelList = Object.keys(root.models);
     }
 
     Process {
-        id: getOllamaModels
+        id: getAiProviders
         running: true
-        command: ["bash", "-c", `${Directories.scriptPath}/ai/show-installed-ollama-models.sh`.replace(/file:\/\//, "")]
-        stdout: SplitParser {
-            onRead: data => {
+        command: [
+            "/home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python",
+            `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
+            "providers"
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.length === 0) return;
                 try {
-                    if (data.length === 0) return;
-                    const dataJson = JSON.parse(data);
-                    root.modelList = [...root.modelList, ...dataJson];
-                    dataJson.forEach(model => {
-                        const safeModelName = root.safeModelName(model);
-                        root.addModel(safeModelName, {
-                            "name": guessModelName(model),
-                            "icon": guessModelLogo(model),
-                            "description": Translation.tr("Local Ollama model | %1").arg(model),
-                            "homepage": `https://ollama.com/library/${model}`,
-                            "endpoint": "http://localhost:11434/v1/chat/completions",
-                            "model": model,
-                            "requires_key": false,
-                        })
-                    });
-
-                    root.modelList = Object.keys(root.models);
-
+                    const data = JSON.parse(text);
+                    root.loadDiscoveredProviders(data);
                 } catch (e) {
-                    console.log("Could not fetch Ollama models:", e);
+                    console.log("[Ai] Failed to parse providers data:", e);
+                }
+            }
+        }
+    }
+
+    Process {
+        id: hermesProfileProc
+        property string action: "list"
+        property string requestedProfile: ""
+        property bool feedback: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.length === 0) return;
+                try {
+                    const data = JSON.parse(text);
+                    if (hermesProfileProc.action === "list" || hermesProfileProc.action === "get") {
+                        if (data.active) root.currentProfile = data.active;
+                        if (data.profiles && Array.isArray(data.profiles)) {
+                            root.profilesData = data.profiles;
+                            root.profileList = data.profiles.map(p => p.name);
+                        }
+                    } else if (hermesProfileProc.action === "set") {
+                        if (data.status === "ok") {
+                            root.currentProfile = data.active;
+                            if (hermesProfileProc.feedback) {
+                                root.addMessage(Translation.tr("Switched Hermes Profile to: **%1**%2")
+                                    .arg(data.active)
+                                    .arg(data.model ? ` (Default model: \`${data.model}\`)` : ""),
+                                    root.interfaceRole
+                                );
+                            }
+                            refreshProfiles();
+                        } else {
+                            if (hermesProfileProc.feedback) {
+                                root.addMessage(Translation.tr("⚠️ %1").arg(data.message || "Failed to set profile"), root.interfaceRole);
+                            }
+                        }
+                    }
+                } catch(e) {
+                    console.log("[Ai] Failed to parse profile data:", e);
                 }
             }
         }
@@ -499,33 +703,210 @@ Singleton {
     }
 
     function getModel() {
-        return models[currentModelId];
+        return models[currentModelId] || null;
+    }
+
+    function printProviders(isError = false) {
+        let lines = [];
+        if (isError) {
+            lines.push(Translation.tr("⚠️ Invalid provider specified."));
+        }
+        lines.push(Translation.tr("### Available AI Providers"));
+        if (!providerList || providerList.length === 0) {
+            lines.push(Translation.tr("No providers available."));
+        } else {
+            providerList.forEach(pId => {
+                const p = providers[pId] || {};
+                const active = (pId === currentProviderId) ? " **[active]**" : "";
+                lines.push(`- \`${pId}\`${active}: **${p.name || pId}** — ${p.description || ""}`);
+            });
+        }
+        lines.push(Translation.tr("\nUse `/provider <name>` to switch."));
+        lines.push(Translation.tr("Use `/model` to view or select models for the active provider."));
+        root.addMessage(lines.join("\n"), root.interfaceRole);
+    }
+
+    function setProvider(providerId, feedback = true) {
+        if (!providerId || providerId.trim() === "") {
+            printProviders(false);
+            return false;
+        }
+        providerId = providerId.trim().toLowerCase();
+
+        let matchedId = providerList.find(p => p.toLowerCase() === providerId);
+        if (!matchedId) {
+            if (feedback) printProviders(true);
+            return false;
+        }
+
+        root.currentProviderId = matchedId;
+        if (Persistent.states?.ai) {
+            Persistent.states.ai.provider = matchedId;
+        }
+        updateActiveModels();
+
+        const prov = providers[matchedId] || {};
+        const curM = models[currentModelId];
+        if (feedback) {
+            root.addMessage(
+                Translation.tr("Switched to provider **%1** (`%2`)\nActive model: **%3** (`%4`)\n\nType `/model` to see all models for this provider.")
+                    .arg(prov.name || matchedId)
+                    .arg(matchedId)
+                    .arg(curM?.name || currentModelId)
+                    .arg(currentModelId),
+                root.interfaceRole
+            );
+        }
+        return true;
+    }
+
+    function refreshProfiles() {
+        hermesProfileProc.action = "list";
+        hermesProfileProc.command = [
+            "/home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python",
+            `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
+            "profile",
+            "list"
+        ];
+        hermesProfileProc.running = true;
+    }
+
+    function printProfiles() {
+        let lines = [];
+        lines.push(Translation.tr("### Hermes Profiles"));
+        if (!profilesData || profilesData.length === 0) {
+            profileList.forEach(p => {
+                const active = (p === currentProfile) ? " **[active]**" : "";
+                lines.push(`- \`${p}\`${active}`);
+            });
+        } else {
+            profilesData.forEach(p => {
+                const active = (p.name === currentProfile) ? " **[active]**" : "";
+                lines.push(`- \`${p.name}\`${active}: Model \`${p.model}\` — ${p.description || ""}`);
+            });
+        }
+        lines.push(Translation.tr("\nTo switch profile: `/profile <name>`"));
+        root.addMessage(lines.join("\n"), root.interfaceRole);
+    }
+
+    function setProfile(name, feedback = true) {
+        if (!name || name.trim() === "" || name === "get" || name === "list") {
+            printProfiles();
+            return;
+        }
+        name = name.trim().toLowerCase();
+        hermesProfileProc.action = "set";
+        hermesProfileProc.requestedProfile = name;
+        hermesProfileProc.feedback = feedback;
+        hermesProfileProc.command = [
+            "/home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python",
+            `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
+            "profile",
+            "set",
+            name
+        ];
+        hermesProfileProc.running = true;
+    }
+
+    function printModels() {
+        const prov = providers[currentProviderId] || {};
+        let lines = [];
+        lines.push(Translation.tr("### Models for Provider: **%1** (`%2`)").arg(prov.name || currentProviderId).arg(currentProviderId));
+
+        if (!modelList || modelList.length === 0) {
+            lines.push(Translation.tr("No models available for this provider."));
+        } else {
+            modelList.forEach(mId => {
+                const m = models[mId];
+                const active = (mId === currentModelId) ? " **[active]**" : "";
+                lines.push(`- \`${mId}\`${active}: **${m.name}** — ${m.description}`);
+            });
+        }
+
+        const otherProviders = providerList.filter(p => p !== currentProviderId);
+        if (otherProviders.length > 0) {
+            lines.push(Translation.tr("\nOther available providers: %1 (switch with `/provider <name>`)").arg(otherProviders.map(p => `\`${p}\``).join(", ")));
+        }
+        lines.push(Translation.tr("To select a model: `/model <name>`"));
+
+        root.addMessage(lines.join("\n"), root.interfaceRole);
     }
 
     function setModel(modelId, feedback = true, setPersistentState = true) {
-        if (!modelId) modelId = ""
-        modelId = modelId.toLowerCase()
-        if (modelList.indexOf(modelId) !== -1) {
-            const model = models[modelId]
-            // See if policy prevents online models
-            if (Config.options.policies.ai === 2 && !model.endpoint.includes("localhost")) {
+        if (!modelId || modelId.trim() === "") {
+            printModels();
+            return;
+        }
+        modelId = modelId.trim().toLowerCase();
+
+        // Check if model exists in current provider
+        let targetModelId = modelList.find(m => m.toLowerCase() === modelId);
+
+        if (targetModelId) {
+            const model = models[targetModelId];
+            if (Config.options.policies.ai === 2 && !model.endpoint.includes("localhost") && !model.endpoint.includes("11435") && model.endpoint !== "hermes") {
                 root.addMessage(
                     Translation.tr("Online models disallowed\n\nControlled by `policies.ai` config option"),
                     root.interfaceRole
                 );
                 return;
             }
-            root.selectedModelId = modelId;
-            if (setPersistentState) Persistent.states.ai.model = modelId;
-            if (feedback) root.addMessage(Translation.tr("Model set to %1").arg(model.name), root.interfaceRole);
+            root.selectedModelId = targetModelId;
+            if (setPersistentState && Persistent.states?.ai) {
+                Persistent.states.ai.model = targetModelId;
+            }
+            if (feedback) {
+                root.addMessage(
+                    Translation.tr("Model set to **%1** (`%2`) on provider **%3**")
+                        .arg(model.name)
+                        .arg(targetModelId)
+                        .arg(providers[currentProviderId]?.name || currentProviderId),
+                    root.interfaceRole
+                );
+            }
             if (model.requires_key) {
-                // If key not there show advice
                 if (root.apiKeysLoaded && (!root.apiKeys[model.key_id] || root.apiKeys[model.key_id].length === 0)) {
-                    root.addApiKeyAdvice(model)
+                    root.addApiKeyAdvice(model);
                 }
             }
-        } else {
-            if (feedback) root.addMessage(Translation.tr("Invalid model. Supported: \n```\n") + modelList.join("\n```\n```\n"), Ai.interfaceRole) + "\n```"
+            return;
+        }
+
+        // Check if model exists in another provider
+        for (let provId of providerList) {
+            if (provId === currentProviderId) continue;
+            const pModels = providerModelsMap[provId] || {};
+            const altModelId = Object.keys(pModels).find(m => m.toLowerCase() === modelId);
+            if (altModelId) {
+                setProvider(provId, false);
+                root.selectedModelId = altModelId;
+                if (setPersistentState && Persistent.states?.ai) {
+                    Persistent.states.ai.model = altModelId;
+                }
+                const model = models[altModelId];
+                if (feedback) {
+                    root.addMessage(
+                        Translation.tr("Switched provider to **%1** (`%2`) and selected model **%3** (`%4`)")
+                            .arg(providers[provId]?.name || provId)
+                            .arg(provId)
+                            .arg(model?.name || altModelId)
+                            .arg(altModelId),
+                        root.interfaceRole
+                    );
+                }
+                return;
+            }
+        }
+
+        // Not found
+        if (feedback) {
+            let errorMsg = Translation.tr("⚠️ Invalid model `%1` for provider **%2**.\n\n").arg(modelId).arg(providers[currentProviderId]?.name || currentProviderId);
+            errorMsg += Translation.tr("Supported models for this provider:\n```\n") + modelList.join("\n") + "\n```\n";
+            const otherProviders = providerList.filter(p => p !== currentProviderId);
+            if (otherProviders.length > 0) {
+                errorMsg += Translation.tr("\nTo see models for other providers (%1), switch with `/provider <name>`").arg(otherProviders.map(p => `\`${p}\``).join(", "));
+            }
+            root.addMessage(errorMsg, root.interfaceRole);
         }
     }
 

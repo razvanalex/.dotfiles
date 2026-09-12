@@ -59,7 +59,8 @@ Singleton {
             property string hyprlandInstanceSignature: ""
 
             property JsonObject ai: JsonObject {
-                property string model: "hermes-agent"
+                property string provider: "hermes"
+                property string model: "qwen-3.6"
                 property real temperature: 0.5
             }
 

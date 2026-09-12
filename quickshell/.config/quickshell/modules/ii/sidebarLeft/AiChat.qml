@@ -66,20 +66,16 @@ Item {
         },
         {
             name: "profile",
-            description: Translation.tr("Get or set Hermes voice profile (e.g. /profile reviewer, /profile get)"),
+            description: Translation.tr("Choose or list Hermes profiles (e.g. /profile reviewer, /profile default)"),
             execute: args => {
-                if (args.length === 0 || args[0] === "get") {
-                    voiceConfigProc.action = "get";
-                    voiceConfigProc.exec(["curl", "-s", "http://localhost:8080/api/config"]);
+                if (args.length === 0 || args[0] === "get" || args[0] === "list") {
+                    Ai.printProfiles();
                 } else {
                     const prof = args[0].trim();
                     if (root.voiceActive) {
                         voiceClientProc.write(`profile ${prof}\n`);
                     }
-                    voiceConfigProc.action = "set";
-                    voiceConfigProc.exec(["curl", "-s", "-X", "POST", "http://localhost:8080/api/config",
-                                          "-H", "Content-Type: application/json",
-                                          "-d", JSON.stringify({agent: {profile: prof}, persist: true})]);
+                    Ai.setProfile(prof);
                 }
             }
         },
@@ -91,10 +87,25 @@ Item {
             }
         },
         {
-            name: "model",
-            description: Translation.tr("Choose model"),
+            name: "provider",
+            description: Translation.tr("Choose or list AI providers (e.g. hermes, workstation, ollama)"),
             execute: args => {
-                Ai.setModel(args[0]);
+                if (args.length === 0 || args[0] === "get" || args[0] === "list") {
+                    Ai.printProviders();
+                } else {
+                    Ai.setProvider(args[0].trim());
+                }
+            }
+        },
+        {
+            name: "model",
+            description: Translation.tr("Choose or list models for the active provider"),
+            execute: args => {
+                if (args.length === 0 || args[0] === "get" || args[0] === "list") {
+                    Ai.printModels();
+                } else {
+                    Ai.setModel(args.join(" ").trim());
+                }
             }
         },
         {
@@ -793,7 +804,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             anchors.top: parent.top
             radius: Appearance.rounding.normal - root.padding
             color: Appearance.colors.colLayer2
-            implicitHeight: Math.max(inputFieldRowLayout.implicitHeight + inputFieldRowLayout.anchors.topMargin + commandButtonsRow.implicitHeight + commandButtonsRow.anchors.bottomMargin + spacing, 45) + (attachedFileIndicator.implicitHeight + spacing + attachedFileIndicator.anchors.topMargin)
+            implicitHeight: (attachedFileIndicator.visible ? attachedFileIndicator.implicitHeight + spacing : 0)
+                + Math.max(inputScrollView.implicitHeight, 40)
+                + commandButtonsRow.implicitHeight
+                + 18
             opacity: root.voiceActive ? 0 : 1
             visible: opacity > 0
             Behavior on opacity {
@@ -820,17 +834,20 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             RowLayout { // Input field and send button
                 id: inputFieldRowLayout
                 anchors {
+                    top: attachedFileIndicator.visible ? attachedFileIndicator.bottom : parent.top
+                    topMargin: attachedFileIndicator.visible ? 5 : 4
                     bottom: commandButtonsRow.top
                     left: parent.left
                     right: parent.right
-                    bottomMargin: 5
+                    bottomMargin: 4
                 }
                 spacing: 0
 
                 ScrollView {
                     id: inputScrollView
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Math.min(root.height * 3/5, messageInputField.height)
+                    implicitHeight: Math.min(root.height * 3/5, Math.max(messageInputField.contentHeight + 20, 38))
+                    Layout.preferredHeight: implicitHeight
                     clip: true
                     ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
@@ -850,6 +867,44 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                                 root.suggestionQuery = "";
                                 root.suggestionList = [];
                                 return;
+                            } else if (messageInputField.text.startsWith(`${root.commandPrefix}provider`)) {
+                                root.suggestionQuery = messageInputField.text.split(" ")[1] ?? "";
+                                const provResults = Fuzzy.go(root.suggestionQuery, Ai.providerList.map(prov => {
+                                    return {
+                                        name: Fuzzy.prepare(prov),
+                                        obj: prov
+                                    };
+                                }), {
+                                    all: true,
+                                    key: "name"
+                                });
+                                root.suggestionList = provResults.map(prov => {
+                                    const p = Ai.providers[prov.target] || {};
+                                    return {
+                                        name: `${messageInputField.text.trim().split(" ").length == 1 ? (root.commandPrefix + "provider ") : ""}${prov.target}`,
+                                        displayName: `${p.name || prov.target}`,
+                                        description: `${p.description || ""}`
+                                    };
+                                });
+                            } else if (messageInputField.text.startsWith(`${root.commandPrefix}profile`)) {
+                                root.suggestionQuery = messageInputField.text.split(" ")[1] ?? "";
+                                const profResults = Fuzzy.go(root.suggestionQuery, Ai.profileList.map(p => {
+                                    return {
+                                        name: Fuzzy.prepare(p),
+                                        obj: p
+                                    };
+                                }), {
+                                    all: true,
+                                    key: "name"
+                                });
+                                root.suggestionList = profResults.map(p => {
+                                    const pObj = (Ai.profilesData || []).find(x => x.name === p.target) || {};
+                                    return {
+                                        name: `${messageInputField.text.trim().split(" ").length == 1 ? (root.commandPrefix + "profile ") : ""}${p.target}`,
+                                        displayName: `${p.target}${pObj.model ? " (" + pObj.model + ")" : ""}`,
+                                        description: pObj.description || Translation.tr("Switch to Hermes profile %1").arg(p.target)
+                                    };
+                                });
                             } else if (messageInputField.text.startsWith(`${root.commandPrefix}model`)) {
                                 root.suggestionQuery = messageInputField.text.split(" ")[1] ?? "";
                                 const modelResults = Fuzzy.go(root.suggestionQuery, Ai.modelList.map(model => {
@@ -864,8 +919,8 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                                 root.suggestionList = modelResults.map(model => {
                                     return {
                                         name: `${messageInputField.text.trim().split(" ").length == 1 ? (root.commandPrefix + "model ") : ""}${model.target}`,
-                                        displayName: `${Ai.models[model.target].name}`,
-                                        description: `${Ai.models[model.target].description}`
+                                        displayName: `${Ai.models[model.target]?.name || model.target}`,
+                                        description: `${Ai.models[model.target]?.description || ""}`
                                     };
                                 });
                             } else if (messageInputField.text.startsWith(`${root.commandPrefix}prompt`)) {
@@ -1070,17 +1125,25 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 ]
 
                 ApiInputBoxIndicator {
-                    // Model indicator
-                    icon: "api"
-                    text: Ai.getModel().name
-                    tooltipText: Translation.tr("Current model: %1\nSet it with %2model MODEL").arg(Ai.getModel().name).arg(root.commandPrefix)
+                    // Provider indicator
+                    icon: "dns"
+                    text: Ai.currentProviderId
+                    tooltipText: Translation.tr("Current provider: %1\nSwitch with %2provider PROVIDER").arg(Ai.providers[Ai.currentProviderId]?.name || Ai.currentProviderId).arg(root.commandPrefix)
                 }
 
                 ApiInputBoxIndicator {
-                    // Tool indicator
-                    icon: "service_toolbox"
-                    text: Ai.currentTool.charAt(0).toUpperCase() + Ai.currentTool.slice(1)
-                    tooltipText: Translation.tr("Current tool: %1\nSet it with %2tool TOOL").arg(Ai.currentTool).arg(root.commandPrefix)
+                    // Profile indicator
+                    visible: Ai.currentProviderId === "hermes"
+                    icon: "account_circle"
+                    text: Ai.currentProfile
+                    tooltipText: Translation.tr("Current Hermes profile: %1\nSwitch with %2profile PROFILE").arg(Ai.currentProfile).arg(root.commandPrefix)
+                }
+
+                ApiInputBoxIndicator {
+                    // Model indicator
+                    icon: "api"
+                    text: Ai.currentModelId
+                    tooltipText: Translation.tr("Current model: %1\nSet it with %2model MODEL").arg(Ai.getModel()?.name || Ai.currentModelId).arg(root.commandPrefix)
                 }
 
                 Item {
