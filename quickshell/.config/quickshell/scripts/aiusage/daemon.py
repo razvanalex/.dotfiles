@@ -23,11 +23,23 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+# Ensure user binary paths are present in PATH for systemd services
+USER_BIN_DIRS = [
+    os.path.expanduser("~/.local/bin"),
+    os.path.expanduser("~/.gemini/antigravity-cli/bin"),
+    os.path.expanduser("~/.cargo/bin"),
+    os.path.expanduser("~/.opencode/bin"),
+]
+current_paths = os.environ.get("PATH", "").split(os.pathsep)
+paths_to_add = [p for p in USER_BIN_DIRS if p not in current_paths and os.path.isdir(p)]
+if paths_to_add:
+    os.environ["PATH"] = os.pathsep.join(paths_to_add) + os.pathsep + os.environ.get("PATH", "")
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROVIDERS_DIR = os.path.join(SCRIPT_DIR, "providers")
 
 DEFAULT_INTERVAL = 300          # 5 min between refresh rounds
-PROVIDER_TIMEOUT = 25           # per-provider subprocess timeout (s)
+PROVIDER_TIMEOUT = 30           # per-provider subprocess timeout (s)
 STAGGER = 1.5                   # seconds between provider launches
 
 _all_providers = ["antigravity", "opencode", "copilot", "openrouter"]
@@ -47,10 +59,11 @@ def run_provider(name):
         return None
     try:
         res = subprocess.run([query], capture_output=True, text=True,
-                             timeout=PROVIDER_TIMEOUT)
+                             timeout=PROVIDER_TIMEOUT, env=os.environ.copy())
         raw = (res.stdout or "").strip()
         if not raw:
-            return {"id": name, "error": "empty output"}
+            err = (res.stderr or "").strip()
+            return {"id": name, "error": err or f"empty output (code {res.returncode})"}
         if os.path.exists(parse_path):
             spec = importlib.util.spec_from_file_location(f"parse_{name}", parse_path)
             mod = importlib.util.module_from_spec(spec)

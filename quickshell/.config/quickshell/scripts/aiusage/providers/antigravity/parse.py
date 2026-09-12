@@ -1,11 +1,73 @@
 import json
 import re
+from datetime import datetime, timezone
+
 
 def parse(raw_output):
     if not raw_output:
         return []
 
-    providers = parse_agy_output(raw_output)
+    trimmed = raw_output.strip()
+    if trimmed.startswith("{"):
+        parsed = parse_agy_json(trimmed)
+        if parsed:
+            return parsed
+
+    return parse_agy_output(raw_output)
+
+
+def parse_agy_json(text):
+    try:
+        data = json.loads(text)
+    except Exception:
+        return None
+
+    cmd_data = data.get("command", {}).get("data", {})
+    groups_data = cmd_data.get("groups") if isinstance(cmd_data, dict) else None
+    if not groups_data and isinstance(data, dict):
+        groups_data = data.get("groups")
+    if not groups_data:
+        return None
+
+    now = datetime.now(timezone.utc)
+    providers = []
+    for group in groups_data:
+        gname = group.get("name", "")
+        if "gemini" in gname.lower():
+            prefix = "Gemini"
+        elif any(k in gname.lower() for k in ("claude", "gpt")):
+            prefix = "Claude/GPT"
+        else:
+            prefix = gname
+
+        metrics = []
+        for bucket in group.get("buckets", []):
+            rem_frac = bucket.get("remaining_fraction", 1.0)
+            used_pct = max(0, min(100, round(100.0 - rem_frac * 100.0)))
+            w = bucket.get("window", "")
+            m_type = "rolling" if w in ("5h", "rolling") else "weekly"
+
+            reset_secs = None
+            reset_time_str = bucket.get("reset_time")
+            if reset_time_str and rem_frac < 1.0:
+                try:
+                    dt = datetime.fromisoformat(reset_time_str.replace("Z", "+00:00"))
+                    reset_secs = max(0, int((dt - now).total_seconds()))
+                except Exception:
+                    reset_secs = None
+
+            metrics.append({
+                "type": m_type,
+                "percentage": used_pct,
+                "reset_in_seconds": reset_secs
+            })
+
+        if metrics:
+            providers.append({
+                "provider": f"{prefix} (Antigravity)",
+                "metrics": metrics
+            })
+
     return providers
 
 
