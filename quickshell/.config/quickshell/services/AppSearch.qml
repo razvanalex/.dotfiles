@@ -100,7 +100,7 @@ Singleton {
 
         // Quickshell's desktop entry lookup
         const entry = DesktopEntries.byId(str);
-        if (entry) return entry.icon;
+        if (entry && entry.icon && entry.icon.length > 0) return entry.icon;
 
         // Normal substitutions
         if (substitutions[str]) return substitutions[str];
