@@ -1,11 +1,12 @@
-#!/usr/bin/env /home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python
+#!/usr/bin/env /home/razvan/Workspace/ai/voice-call/.venv/bin/python
 """
 Quickshell Voice Client Sidecar
 - Connects to ws://localhost:8080/ws (Hermes web_app.py)
 - Streams mic PCM in  : 16kHz, Int16, 512-sample chunks via WS binary frames
 - Plays TTS audio back: 24kHz, Int16 chunks received as WS binary frames
 - Listens to STDIN for QML commands ('mute', 'unmute', 'text <prompt>')
-- Auto-mutes mic during agent speech (hardware echo suppression)
+- Mic stays live during agent speech (barge-in is decided server-side); queued mic
+  frames are dropped whenever the agent state changes
 - Forwards JSON status events to STDOUT for QML SplitParser
 """
 import asyncio
@@ -24,9 +25,8 @@ MIC_SAMPLE_RATE = 16000
 MIC_CHUNK_SAMPLES = 512   # server expects exactly 512 int16 samples = 1024 bytes
 PLAY_SAMPLE_RATE = 24000
 
-# Thread-safe state & queues
 mic_buffer: queue.Queue = queue.Queue(maxsize=300)
-play_buffer: queue.Queue = queue.Queue(maxsize=1000)
+play_buffer: queue.Queue = queue.Queue()  # Unbounded queue: buffers all synthesized chunks in real-time without dropping
 stdin_queue: queue.Queue = queue.Queue()
 
 shutdown_event = threading.Event()
@@ -185,6 +185,9 @@ async def main() -> None:
             # Send initial config
             await ws.send_json({
                 "type": "config",
+                "client": "quickshell",
+                # 12 dB matches the web client's default and is the level the STT has
+                # been tuned on (measured speech peaks ~0.7 after gain; no clipping).
                 "gain": 12.0,
                 "threshold": 0.5,
                 "voice": "cosyvoice3",
@@ -245,10 +248,7 @@ async def main() -> None:
                         try:
                             msg = await ws.receive(timeout=0.02)
                             if msg.type == aiohttp.WSMsgType.BINARY:
-                                try:
-                                    play_buffer.put_nowait(msg.data)
-                                except queue.Full:
-                                    pass
+                                play_buffer.put_nowait(msg.data)
 
                             elif msg.type == aiohttp.WSMsgType.TEXT:
                                 try:
