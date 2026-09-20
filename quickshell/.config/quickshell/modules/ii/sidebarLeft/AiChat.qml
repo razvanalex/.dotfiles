@@ -26,6 +26,8 @@ Item {
     property string voiceTranscript: ""
     property string voiceAgentOutput: ""
     property string voiceAgentState: "Idle"
+    property var voiceInfo: ({}) // last session_info: the call's EFFECTIVE identity + overrides
+    property string voiceInfoKey: ""
 
     onFocusChanged: focus => {
         if (focus) {
@@ -60,6 +62,8 @@ Item {
                     Ai.addMessage(Translation.tr("Voice Call ended."), Ai.interfaceRole);
                 } else {
                     root.voiceActive = true;
+                    root.voiceInfo = ({});
+                    root.voiceInfoKey = "";
                     Ai.addMessage(Translation.tr("Voice Call started — connecting to Hermes…"), Ai.interfaceRole);
                 }
             }
@@ -116,9 +120,8 @@ Item {
                     const modelName = args.join(" ").trim().toLowerCase();
                     Ai.setModel(modelName);
                     if (root.voiceActive) {
-                        // Live switch: same session-scoped override path as at call start
-                        // (sends model + its provider/base_url, or clears them for `default`).
-                        root.pushVoiceSelection();
+                        // Live switch: send whatever now differs from the call's reported state.
+                        root.syncVoiceSelection();
                     }
                 }
             }
@@ -272,29 +275,31 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         return null;
     }
 
-    // Push the pane's current selection to a live call as per-session overrides (the server writes
-    // nothing to disk). Used when a call connects — so /profile and /model set BEFORE the call still
-    // apply — and by the /model command for live switches. "default" clears an override.
-    function pushVoiceSelection() {
-        if (Ai.currentProfile) {
-            voiceClientProc.write(`profile ${Ai.currentProfile}\n`);
-        }
-        const mid = Ai.currentModelId;
-        if (!mid || mid === "default") {
-            voiceClientProc.write("model -\n");
-            voiceClientProc.write("base_url -\n");
-            voiceClientProc.write("provider -\n");
+    // Bring a live call in line with the pane's selection, sending ONLY the differences against the
+    // last session_info the server reported (it carries the raw overrides). A call that already
+    // matches stays silent — no needless frames, no needless agent rebuilds, no message spam.
+    function syncVoiceSelection() {
+        if (!root.voiceActive || !voiceClientProc.running) {
             return;
         }
-        voiceClientProc.write(`model ${mid}\n`);
-        const m = root.findModel(mid);
-        const bu = m?.extraParams?.base_url || "";
-        const prov = m?.extraParams?.provider || "";
-        if (bu) {
-            voiceClientProc.write(`base_url ${bu}\n`);
+        const info = root.voiceInfo || {};
+        const ov = info.overrides || {};
+        const prof = Ai.currentProfile || "";
+        if (prof && prof !== (info.profile || "")) {
+            voiceClientProc.write(`profile ${prof}\n`);
         }
-        if (prov) {
-            voiceClientProc.write(`provider ${prov}\n`);
+        const mid = (Ai.currentModelId && Ai.currentModelId !== "default") ? Ai.currentModelId : "";
+        if (mid !== (ov.model || "")) {
+            voiceClientProc.write(mid ? `model ${mid}\n` : "model -\n");
+        }
+        const m = mid ? root.findModel(mid) : null;
+        const desiredBase = m?.extraParams?.base_url || "";
+        if (desiredBase !== (ov.base_url || "")) {
+            voiceClientProc.write(desiredBase ? `base_url ${desiredBase}\n` : "base_url -\n");
+        }
+        const desiredProv = m?.extraParams?.provider || "";
+        if (desiredProv !== (ov.provider || "")) {
+            voiceClientProc.write(desiredProv ? `provider ${desiredProv}\n` : "provider -\n");
         }
     }
 
@@ -356,15 +361,20 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                     switch (msg.type) {
                         case "connected":
                             Ai.addMessage(Translation.tr("🟢 Voice Call connected — speak into your microphone."), Ai.interfaceRole);
-                            // Apply the pane's profile/model selection to this call — so a choice
-                            // made BEFORE the call started still takes effect (session-scoped).
-                            root.pushVoiceSelection();
+                            // The server's effective identity arrives in the next session_info;
+                            // syncVoiceSelection() then sends only what differs from the pane.
+                            root.voiceInfo = ({});
                             break;
-                        case "session_info":
-                            if (msg.profile) {
-                                Ai.addMessage(`🎙️ Active Hermes Profile: **${msg.profile}** (Session: \`${msg.session_id}\`)`, Ai.interfaceRole);
+                        case "session_info": {
+                            root.voiceInfo = msg;
+                            const key = `${msg.session_id}|${msg.profile}|${msg.model ?? ""}|${msg.provider ?? ""}|${msg.base_url ?? ""}`;
+                            if (key !== root.voiceInfoKey) {
+                                root.voiceInfoKey = key;
+                                Ai.addMessage(`🎙️ Voice session: **${msg.profile}** — model \`${msg.model ?? "?"}\`${msg.provider ? ` on ${msg.provider}` : ""}`, Ai.interfaceRole);
                             }
+                            root.syncVoiceSelection();
                             break;
+                        }
                         case "update_audio":
                             root.voiceRms = msg.rms ?? 0
                             break
