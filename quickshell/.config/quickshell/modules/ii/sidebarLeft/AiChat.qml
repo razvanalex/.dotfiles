@@ -71,10 +71,19 @@ Item {
                 if (args.length === 0 || args[0] === "get" || args[0] === "list") {
                     Ai.printProfiles();
                 } else {
-                    const prof = args[0].trim();
+                    const prof = args[0].trim().toLowerCase();
+                    // Validate here as well: a bogus name must not be pushed to the live voice call
+                    // (the server would silently fall back to the default profile's config).
+                    const known = Ai.profileList || [];
+                    if (known.length > 0 && known.indexOf(prof) === -1) {
+                        Ai.addMessage(Translation.tr("⚠️ Unknown profile: %1\n\nAvailable: %2").arg(prof).arg(known.join(", ")), Ai.interfaceRole);
+                        return;
+                    }
                     if (root.voiceActive) {
+                        // Live call: per-session override on the voice socket (nothing persisted).
                         voiceClientProc.write(`profile ${prof}\n`);
                     }
+                    // Pane-local selection, passed to chat requests as an explicit --profile.
                     Ai.setProfile(prof);
                 }
             }
@@ -104,7 +113,14 @@ Item {
                 if (args.length === 0 || args[0] === "get" || args[0] === "list") {
                     Ai.printModels();
                 } else {
-                    Ai.setModel(args.join(" ").trim());
+                    const modelName = args.join(" ").trim();
+                    Ai.setModel(modelName);
+                    if (root.voiceActive && modelName.toLowerCase() !== "default") {
+                        // Live call: session-scoped override on the voice socket ("default" is not
+                        // forwarded — the server cannot clear an override back to the profile's own
+                        // default model, and a literal model named "default" would be passed through).
+                        voiceClientProc.write(`model ${modelName}\n`);
+                    }
                 }
             }
         },

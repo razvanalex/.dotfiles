@@ -1,16 +1,15 @@
-#!/usr/bin/env /home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python
+#!/usr/bin/env /home/razvan/Workspace/ai/voice-call/.venv/bin/python
 import sys
 import os
 import json
 import subprocess
 import signal
 
-# Ensure search paths include tts-read and hermes-agent
-TTS_READ_DIR = "/home/razvan/Workspace/ai/tts-read"
-VOICE_CALL_DIR = "/home/razvan/Workspace/ai/tts-read/voice_call"
+# Ensure search paths include voice-call and hermes-agent
+VOICE_CALL_DIR = "/home/razvan/Workspace/ai/voice-call"
 HERMES_DIR = "/home/razvan/.hermes/hermes-agent"
 
-for path in [TTS_READ_DIR, VOICE_CALL_DIR, HERMES_DIR]:
+for path in [VOICE_CALL_DIR, os.path.join(VOICE_CALL_DIR, "src"), HERMES_DIR]:
     if path not in sys.path:
         sys.path.insert(0, path)
 
@@ -211,61 +210,12 @@ def get_profiles_info():
         "profiles": profiles
     }
 
-def set_profile(name: str):
-    info = get_profiles_info()
-    valid_names = [p["name"] for p in info["profiles"]]
-    if name not in valid_names:
-        return {
-            "status": "error",
-            "message": f"Invalid profile '{name}'. Valid profiles: {', '.join(valid_names)}"
-        }
-
-    hermes_dir = os.path.expanduser("~/.hermes")
-    active_profile_file = os.path.join(hermes_dir, "active_profile")
-    try:
-        if name == "default":
-            if os.path.exists(active_profile_file):
-                os.remove(active_profile_file)
-        else:
-            with open(active_profile_file, "w") as f:
-                f.write(name + "\n")
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to write active profile: {e}"}
-
-    # Also update voice_call/config.yaml if it exists
-    vc_cfg = "/home/razvan/Workspace/ai/tts-read/voice_call/config.yaml"
-    if os.path.exists(vc_cfg):
-        try:
-            with open(vc_cfg, "r") as f:
-                vcfg = yaml.safe_load(f) or {}
-            if "agent" not in vcfg:
-                vcfg["agent"] = {}
-            vcfg["agent"]["profile"] = name
-            with open(vc_cfg, "w") as f:
-                yaml.dump(vcfg, f, default_flow_style=False)
-        except Exception:
-            pass
-
-    # If voice server is running on 8080, notify it
-    try:
-        req = urllib.request.Request(
-            "http://localhost:8080/api/config",
-            data=json.dumps({"agent": {"profile": name}, "persist": True}).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=0.5):
-            pass
-    except Exception:
-        pass
-
-    target_model = next((p["model"] for p in info["profiles"] if p["name"] == name), "")
-    return {
-        "status": "ok",
-        "active": name,
-        "model": target_model,
-        "message": f"Switched Hermes Profile to: {name}"
-    }
+# `profile set <name>` used to live here. It wrote ~/.hermes/active_profile — the GLOBAL sticky
+# default that every new `hermes` invocation follows — and additionally rewrote
+# voice-call/config.yaml and POSTed /api/config with persist=true (which hot-reloads every live
+# voice session, browser or pane). Removed: a UI pane must not mutate global Hermes state. The
+# pane keeps its own selection and passes it per request as `text --profile <name>` —
+# session-scoped, like `hermes -p <name>`.
 
 def run_text_query(prompt: str, model: str = None, provider: str = None, base_url: str = None, profile: str = None):
     try:
@@ -327,7 +277,7 @@ def voice_status():
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: quickshell_hermes_service.py [text <prompt> | providers | profile [list | set <name>] | voice start | voice stop | voice status]")
+        print("Usage: quickshell_hermes_service.py [text <prompt> [--model M] [--provider P] [--base-url U] [--profile NAME] | providers | profile list | voice start | voice stop | voice status]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -335,6 +285,7 @@ if __name__ == "__main__":
         model = None
         provider = None
         base_url = None
+        profile = None
         args = sys.argv[2:]
         i = 0
         prompt_parts = []
@@ -348,6 +299,9 @@ if __name__ == "__main__":
             elif args[i] == "--base-url" and i + 1 < len(args):
                 base_url = args[i + 1]
                 i += 2
+            elif args[i] == "--profile" and i + 1 < len(args):
+                profile = args[i + 1]
+                i += 2
             elif args[i] == "--":
                 prompt_parts.extend(args[i + 1:])
                 break
@@ -355,18 +309,12 @@ if __name__ == "__main__":
                 prompt_parts.append(args[i])
                 i += 1
         prompt = " ".join(prompt_parts)
-        run_text_query(prompt, model=model, provider=provider, base_url=base_url)
+        run_text_query(prompt, model=model, provider=provider, base_url=base_url, profile=profile)
     elif cmd == "providers":
         print(json.dumps(get_providers_data()))
     elif cmd == "profile":
         subcmd = sys.argv[2] if len(sys.argv) > 2 else "list"
-        if subcmd in ("get", "list"):
-            print(json.dumps(get_profiles_info()))
-        elif subcmd == "set":
-            pname = sys.argv[3] if len(sys.argv) > 3 else "default"
-            print(json.dumps(set_profile(pname)))
-        else:
-            print(json.dumps(get_profiles_info()))
+        print(json.dumps(get_profiles_info()))
     elif cmd == "voice":
         subcmd = sys.argv[2] if len(sys.argv) > 2 else "status"
         if subcmd == "start":

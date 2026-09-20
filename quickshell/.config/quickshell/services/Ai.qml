@@ -265,7 +265,7 @@ Singleton {
     property string currentProviderId: Persistent.states?.ai?.provider || "hermes"
     property var providerModelsMap: ({})
 
-    property string currentProfile: "default"
+    property string currentProfile: Persistent.states?.ai?.profile || "default"
     property list<string> profileList: ["default", "custom-agent", "general-chat", "reviewer"]
     property var profilesData: []
 
@@ -518,6 +518,7 @@ Singleton {
         initFallbackProviders();
         root.addUserModels();
         refreshProfiles();
+        syncHermesProfile();
     }
 
     function guessModelLogo(model) {
@@ -552,7 +553,7 @@ Singleton {
         id: getAiProviders
         running: true
         command: [
-            "/home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python",
+            "/home/razvan/Workspace/ai/voice-call/.venv/bin/python",
             `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
             "providers"
         ]
@@ -572,36 +573,22 @@ Singleton {
     Process {
         id: hermesProfileProc
         property string action: "list"
-        property string requestedProfile: ""
-        property bool feedback: true
         stdout: StdioCollector {
             onStreamFinished: {
                 if (text.length === 0) return;
                 try {
                     const data = JSON.parse(text);
-                    if (hermesProfileProc.action === "list" || hermesProfileProc.action === "get") {
-                        if (data.active) root.currentProfile = data.active;
-                        if (data.profiles && Array.isArray(data.profiles)) {
-                            root.profilesData = data.profiles;
-                            root.profileList = data.profiles.map(p => p.name);
-                        }
-                    } else if (hermesProfileProc.action === "set") {
-                        if (data.status === "ok") {
+                    if (data.profiles && Array.isArray(data.profiles)) {
+                        root.profilesData = data.profiles;
+                        root.profileList = data.profiles.map(p => p.name);
+                        // Keep the pane's own selection; fall back to the reported default only when
+                        // the stored profile no longer exists on disk.
+                        if (root.profileList.indexOf(root.currentProfile) === -1 && data.active) {
                             root.currentProfile = data.active;
-                            if (hermesProfileProc.feedback) {
-                                root.addMessage(Translation.tr("Switched Hermes Profile to: **%1**%2")
-                                    .arg(data.active)
-                                    .arg(data.model ? ` (Default model: \`${data.model}\`)` : ""),
-                                    root.interfaceRole
-                                );
-                            }
-                            refreshProfiles();
-                        } else {
-                            if (hermesProfileProc.feedback) {
-                                root.addMessage(Translation.tr("⚠️ %1").arg(data.message || "Failed to set profile"), root.interfaceRole);
-                            }
+                            if (Persistent.states?.ai) Persistent.states.ai.profile = data.active;
                         }
                     }
+                    syncHermesProfile();
                 } catch(e) {
                     console.log("[Ai] Failed to parse profile data:", e);
                 }
@@ -763,7 +750,7 @@ Singleton {
     function refreshProfiles() {
         hermesProfileProc.action = "list";
         hermesProfileProc.command = [
-            "/home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python",
+            "/home/razvan/Workspace/ai/voice-call/.venv/bin/python",
             `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
             "profile",
             "list"
@@ -785,27 +772,41 @@ Singleton {
                 lines.push(`- \`${p.name}\`${active}: Model \`${p.model}\` — ${p.description || ""}`);
             });
         }
-        lines.push(Translation.tr("\nTo switch profile: `/profile <name>`"));
+        lines.push(Translation.tr("
+To switch profile (this pane only — no global change): `/profile <name>`"));
         root.addMessage(lines.join("\n"), root.interfaceRole);
     }
 
+    // Keep the Hermes strategy's profileName in sync with the pane's selection. Every chat request
+    // then carries it as an explicit `--profile` (session-scoped, like `hermes -p <name>`).
+    function syncHermesProfile() {
+        const strategy = root.apiStrategies ? root.apiStrategies["hermes"] : null;
+        if (strategy) strategy.profileName = root.currentProfile;
+    }
+
+    // The pane's selection lives in quickshell's own state. It must never write
+    // ~/.hermes/active_profile (the global sticky default that new `hermes` runs follow) nor
+    // voice-call/config.yaml — a UI pane does not change global Hermes state.
     function setProfile(name, feedback = true) {
         if (!name || name.trim() === "" || name === "get" || name === "list") {
             printProfiles();
             return;
         }
         name = name.trim().toLowerCase();
-        hermesProfileProc.action = "set";
-        hermesProfileProc.requestedProfile = name;
-        hermesProfileProc.feedback = feedback;
-        hermesProfileProc.command = [
-            "/home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python",
-            `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
-            "profile",
-            "set",
-            name
-        ];
-        hermesProfileProc.running = true;
+        const known = root.profileList || [];
+        if (known.length > 0 && known.indexOf(name) === -1) {
+            if (feedback) {
+                root.addMessage(Translation.tr("⚠️ Unknown profile: %1\n\nAvailable: %2").arg(name).arg(known.join(", ")), root.interfaceRole);
+            }
+            return;
+        }
+        root.currentProfile = name;
+        if (Persistent.states?.ai) Persistent.states.ai.profile = name;
+        syncHermesProfile();
+        if (feedback) {
+            const info = (root.profilesData || []).find(p => p.name === name) || {};
+            root.addMessage(Translation.tr("Switched Hermes Profile to: **%1**%2\n\nThis pane only — its requests run with `-p %1`; nothing global changed.").arg(name).arg(info.model ? ` (Default model: ${info.model})` : ""), root.interfaceRole);
+        }
     }
 
     function printModels() {

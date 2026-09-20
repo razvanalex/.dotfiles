@@ -2,6 +2,10 @@ import QtQuick
 import qs.modules.common.functions as CF
 
 ApiStrategy {
+    // Hermes profile this request runs under. Owned by the Ai singleton (Ai.setProfile keeps it in
+    // sync) and passed to the script as an explicit `--profile` — session-scoped, like `hermes -p`.
+    property string profileName: "default"
+
     function buildEndpoint(model: AiModel): string {
         return "hermes";
     }
@@ -19,6 +23,7 @@ ApiStrategy {
             "model": model ? (model.model || "") : "",
             "provider": model?.extraParams?.provider || "",
             "base_url": model?.extraParams?.base_url || "",
+            "profile": profileName,
         };
     }
 
@@ -42,6 +47,7 @@ ApiStrategy {
                 if (data.model) cmd += ` --model ${CF.StringUtils.shellSingleQuoteEscape(data.model)}`;
                 if (data.provider) cmd += ` --provider ${CF.StringUtils.shellSingleQuoteEscape(data.provider)}`;
                 if (data.base_url) cmd += ` --base-url ${CF.StringUtils.shellSingleQuoteEscape(data.base_url)}`;
+                if (data.profile) cmd += ` --profile ${CF.StringUtils.shellSingleQuoteEscape(data.profile)}`;
                 cmd += ` -- ${escapedPrompt}`;
                 return `#!/usr/bin/env bash\n${cmd}\n`;
             }

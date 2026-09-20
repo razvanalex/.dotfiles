@@ -61,6 +61,7 @@ Singleton {
             property JsonObject ai: JsonObject {
                 property string provider: "hermes"
                 property string model: "qwen-3.6"
+                property string profile: "default"
                 property real temperature: 0.5
             }
 
