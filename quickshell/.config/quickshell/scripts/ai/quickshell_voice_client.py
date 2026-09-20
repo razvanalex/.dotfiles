@@ -260,6 +260,18 @@ async def main() -> None:
                                             else base_url,
                                         }
                                     )
+                            elif cmd.startswith("provider "):
+                                provider_name = cmd[9:].strip()
+                                if provider_name:
+                                    # "-" clears the session's provider override.
+                                    await ws.send_json(
+                                        {
+                                            "type": "config",
+                                            "provider": ""
+                                            if provider_name == "-"
+                                            else provider_name,
+                                        }
+                                    )
                             elif cmd in ("stop", "quit", "exit"):
                                 shutdown_event.set()
                                 break

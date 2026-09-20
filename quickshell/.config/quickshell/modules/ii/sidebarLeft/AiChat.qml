@@ -116,23 +116,9 @@ Item {
                     const modelName = args.join(" ").trim().toLowerCase();
                     Ai.setModel(modelName);
                     if (root.voiceActive) {
-                        // Live call: session-scoped overrides on the voice socket (nothing persisted).
-                        // `default` clears the model override server-side; a model served by another
-                        // OpenAI-compatible server than the profile's own also carries its base_url.
-                        if (modelName === "default") {
-                            voiceClientProc.write("model -\n");
-                        } else {
-                            voiceClientProc.write(`model ${modelName}\n`);
-                            let target = null;
-                            for (const pid in Ai.providerModelsMap) {
-                                const pm = Ai.providerModelsMap[pid] || {};
-                                if (pm[modelName]) { target = pm[modelName]; break; }
-                            }
-                            const bu = target?.extraParams?.base_url || "";
-                            if (bu) {
-                                voiceClientProc.write(`base_url ${bu}\n`);
-                            }
-                        }
+                        // Live switch: same session-scoped override path as at call start
+                        // (sends model + its provider/base_url, or clears them for `default`).
+                        root.pushVoiceSelection();
                     }
                 }
             }
@@ -277,6 +263,41 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         },
     ]
 
+    // Find a model entry by id across providers (the pane's list is provider-scoped).
+    function findModel(modelId) {
+        for (const pid in Ai.providerModelsMap) {
+            const pm = Ai.providerModelsMap[pid] || {};
+            if (pm[modelId]) return pm[modelId];
+        }
+        return null;
+    }
+
+    // Push the pane's current selection to a live call as per-session overrides (the server writes
+    // nothing to disk). Used when a call connects — so /profile and /model set BEFORE the call still
+    // apply — and by the /model command for live switches. "default" clears an override.
+    function pushVoiceSelection() {
+        if (Ai.currentProfile) {
+            voiceClientProc.write(`profile ${Ai.currentProfile}\n`);
+        }
+        const mid = Ai.currentModelId;
+        if (!mid || mid === "default") {
+            voiceClientProc.write("model -\n");
+            voiceClientProc.write("base_url -\n");
+            voiceClientProc.write("provider -\n");
+            return;
+        }
+        voiceClientProc.write(`model ${mid}\n`);
+        const m = root.findModel(mid);
+        const bu = m?.extraParams?.base_url || "";
+        const prov = m?.extraParams?.provider || "";
+        if (bu) {
+            voiceClientProc.write(`base_url ${bu}\n`);
+        }
+        if (prov) {
+            voiceClientProc.write(`provider ${prov}\n`);
+        }
+    }
+
     function handleInput(inputText) {
         if (inputText.startsWith(root.commandPrefix)) {
             // Handle special commands
@@ -335,6 +356,9 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                     switch (msg.type) {
                         case "connected":
                             Ai.addMessage(Translation.tr("🟢 Voice Call connected — speak into your microphone."), Ai.interfaceRole);
+                            // Apply the pane's profile/model selection to this call — so a choice
+                            // made BEFORE the call started still takes effect (session-scoped).
+                            root.pushVoiceSelection();
                             break;
                         case "session_info":
                             if (msg.profile) {
