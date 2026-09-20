@@ -61,13 +61,13 @@ def get_providers_data():
         def_model = cfg.get('model', {}).get('default', 'default')
         hermes_models = [{
             'id': 'default',
-            'name': f'Default ({def_model})',
+            'name': "Default (profile's model)",
             'model': 'default',
             'provider': '',
             'base_url': '',
             'api_format': 'hermes',
             'requires_key': False,
-            'description': f'Default configured model in Hermes ({def_model})'
+            'description': f"Default model of the selected profile (global default: {def_model})"
         }]
 
         # Workstation models via Hermes

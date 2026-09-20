@@ -589,6 +589,7 @@ Singleton {
                         }
                     }
                     syncHermesProfile();
+                    root.syncDefaultModelLabel();
                 } catch(e) {
                     console.log("[Ai] Failed to parse profile data:", e);
                 }
@@ -784,6 +785,21 @@ To switch profile (this pane only — no global change): `/profile <name>`"));
         if (strategy) strategy.profileName = root.currentProfile;
     }
 
+    // The model id `default` means "whatever the ACTIVE profile selects". Its label must follow the
+    // pane's profile: the discovery script only knows the GLOBAL default profile's model, which read
+    // as "Default (deepseek-v4.1-flash)" even while the pane ran custom-agent (qwen-3.6).
+    function syncDefaultModelLabel() {
+        const p = (root.profilesData || []).find(x => x.name === root.currentProfile);
+        const label = `Default (${p?.model || "profile's model"})`;
+        for (const pid in root.providerModelsMap) {
+            const entry = (root.providerModelsMap[pid] || {})["default"];
+            if (entry) {
+                entry.name = label;
+                entry.description = `Default model of profile '${root.currentProfile}'`;
+            }
+        }
+    }
+
     // The pane's selection lives in quickshell's own state. It must never write
     // ~/.hermes/active_profile (the global sticky default that new `hermes` runs follow) nor
     // voice-call/config.yaml — a UI pane does not change global Hermes state.
@@ -803,6 +819,7 @@ To switch profile (this pane only — no global change): `/profile <name>`"));
         root.currentProfile = name;
         if (Persistent.states?.ai) Persistent.states.ai.profile = name;
         syncHermesProfile();
+        root.syncDefaultModelLabel();
         if (feedback) {
             const info = (root.profilesData || []).find(p => p.name === name) || {};
             root.addMessage(Translation.tr("Switched Hermes Profile to: **%1**%2\n\nThis pane only — its requests run with `-p %1`; nothing global changed.").arg(name).arg(info.model ? ` (Default model: ${info.model})` : ""), root.interfaceRole);
