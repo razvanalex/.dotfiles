@@ -113,13 +113,26 @@ Item {
                 if (args.length === 0 || args[0] === "get" || args[0] === "list") {
                     Ai.printModels();
                 } else {
-                    const modelName = args.join(" ").trim();
+                    const modelName = args.join(" ").trim().toLowerCase();
                     Ai.setModel(modelName);
-                    if (root.voiceActive && modelName.toLowerCase() !== "default") {
-                        // Live call: session-scoped override on the voice socket ("default" is not
-                        // forwarded — the server cannot clear an override back to the profile's own
-                        // default model, and a literal model named "default" would be passed through).
-                        voiceClientProc.write(`model ${modelName}\n`);
+                    if (root.voiceActive) {
+                        // Live call: session-scoped overrides on the voice socket (nothing persisted).
+                        // `default` clears the model override server-side; a model served by another
+                        // OpenAI-compatible server than the profile's own also carries its base_url.
+                        if (modelName === "default") {
+                            voiceClientProc.write("model -\n");
+                        } else {
+                            voiceClientProc.write(`model ${modelName}\n`);
+                            let target = null;
+                            for (const pid in Ai.providerModelsMap) {
+                                const pm = Ai.providerModelsMap[pid] || {};
+                                if (pm[modelName]) { target = pm[modelName]; break; }
+                            }
+                            const bu = target?.extraParams?.base_url || "";
+                            if (bu) {
+                                voiceClientProc.write(`base_url ${bu}\n`);
+                            }
+                        }
                     }
                 }
             }

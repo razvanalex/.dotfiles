@@ -239,7 +239,27 @@ async def main() -> None:
                             elif cmd.startswith("model "):
                                 model_name = cmd[6:].strip()
                                 if model_name:
-                                    await ws.send_json({"type": "config", "model": model_name})
+                                    # "-" clears the override server-side -> the profile's own model.
+                                    await ws.send_json(
+                                        {
+                                            "type": "config",
+                                            "model": ""
+                                            if model_name == "-"
+                                            else model_name,
+                                        }
+                                    )
+                            elif cmd.startswith("base_url "):
+                                base_url = cmd[9:].strip()
+                                if base_url:
+                                    # "-" clears the session's endpoint override.
+                                    await ws.send_json(
+                                        {
+                                            "type": "config",
+                                            "base_url": ""
+                                            if base_url == "-"
+                                            else base_url,
+                                        }
+                                    )
                             elif cmd in ("stop", "quit", "exit"):
                                 shutdown_event.set()
                                 break
