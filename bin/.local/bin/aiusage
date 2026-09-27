@@ -1,0 +1,581 @@
+#!/usr/bin/env python3
+"""aiusage — terminal client for the local aiusage endpoint (stdlib only, no deps).
+
+The poller is `aiusage.service` (systemd --user): it scrapes the AI subscription
+providers on its own interval and serves the snapshot on http://127.0.0.1:8787.
+This client only reads — except `r` / `aiusage refresh`, which asks the service
+for one extra round (it coalesces and floors that at 30 s).
+
+  aiusage              live TUI (default)
+  aiusage json         the snapshot as JSON
+  aiusage health       endpoint liveness / snapshot age / per-provider errors
+  aiusage refresh      POST /refresh and print the service's answer
+  aiusage watch        raw NDJSON from /stream (Ctrl-C to stop)
+
+Reads never cost a scrape: the TUI subscribes to /stream and falls back to
+GET /usage.json, then to the state file the service writes, so it still shows the
+last snapshot (clearly marked as cached) while the service is down.
+
+Renderer conventions are shared with the quickshell popup: label = metric name or
+type, `detail` wins over any reset hint, percentages at/above the alarm level are
+drawn in the error colour. The one deliberate difference: the TUI ticks the reset
+countdown live instead of printing the absolute reset timestamp.
+"""
+import argparse
+import curses
+import json
+import os
+import sys
+import threading
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+
+DEFAULT_ENDPOINT = "http://127.0.0.1:8787"
+DEFAULT_STATE = "~/.local/state/quickshell/user/aiusage/usage.json"
+DEFAULT_ALARM = 80
+STREAM_TIMEOUT = 40          # long enough to outlive the 25 s heartbeat
+REDRAW_PERIOD = 2.0          # UI tick: caps work and keeps countdowns fresh
+NOTE_TTL = 12.0              # how long a status note ("refresh queued") stays up
+BAR_CHARS = ("█", "░")
+HELP = [
+    ("r", "ask the service for an extra refresh round (POST /refresh)"),
+    ("j / k, ↑ / ↓", "scroll the provider list"),
+    ("e", "endpoint diagnostics (source, last error, health)"),
+    ("?", "toggle this help"),
+    ("q", "quit"),
+]
+
+
+# --------------------------------------------------------------------------- #
+# endpoint
+# --------------------------------------------------------------------------- #
+def http_json(endpoint, path, method="GET", timeout=5):
+    req = urllib.request.Request(endpoint + path, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def metric_rows(snapshot):
+    """[(provider_name, group_name|None, metric)] in endpoint order."""
+    rows = []
+    for prov in (snapshot or {}).get("providers", []) or []:
+        if prov.get("list") is not None:                     # antigravity: model groups
+            name = prov.get("provider") or "Antigravity"
+            for group in prov.get("list") or []:
+                gname = group.get("provider") or ""
+                for m in group.get("metrics") or []:
+                    rows.append((name, gname, m))
+        else:
+            name = prov.get("provider") or prov.get("id") or "?"
+            for m in prov.get("metrics") or []:
+                rows.append((name, None, m))
+    return rows
+
+
+def provider_errors(snapshot):
+    return [(p.get("id") or "?", p["error"])
+            for p in (snapshot or {}).get("providers", []) or [] if p.get("error")]
+
+
+def fmt_seconds(seconds):
+    """Same shape as the shell's formatReset: '2d 17h' / '3h 1m' / '27m'."""
+    if seconds is None or seconds <= 0:
+        return ""
+    days, hours, mins = int(seconds // 86400), int((seconds % 86400) // 3600), int((seconds % 3600) // 60)
+    if days > 0:
+        return f"{days}d {hours}h"
+    if hours > 0:
+        return f"{hours}h {mins}m"
+    return f"{mins}m"
+
+
+def remaining_seconds(metric, updated_at, now=None):
+    """Seconds until the window resets, resolved live from either field."""
+    now = now if now is not None else time.time()
+    if metric.get("reset_in_seconds") is not None and updated_at:
+        return updated_at + metric["reset_in_seconds"] - now     # relative to the snapshot
+    for key in ("resets_at", "reset_at"):
+        raw = metric.get(key)
+        if not raw:
+            continue
+        try:
+            when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            return when.timestamp() - now
+        except ValueError:
+            return None
+    return None
+
+
+def row_detail(metric, updated_at, now=None):
+    """`detail` wins (parity with the popup); otherwise a live countdown."""
+    if metric.get("detail"):
+        return metric["detail"]
+    return fmt_seconds(remaining_seconds(metric, updated_at, now))
+
+
+def age_text(updated_at, now=None):
+    now = now if now is not None else time.time()
+    if not updated_at:
+        return "never"
+    age = max(int(now - updated_at), 0)
+    if age < 90:
+        return f"{age}s ago"
+    if age < 5400:
+        return f"{age // 60}m ago"
+    return f"{age // 3600}h {(age % 3600) // 60}m ago"
+
+
+def level_pair(percentage, alarm):
+    """0 ok / 1 warn / 2 hot, matching the popup's alarm colouring."""
+    if percentage is None:
+        return 0
+    if percentage >= alarm:
+        return 2
+    if percentage >= alarm * 0.6:
+        return 1
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# background readers
+# --------------------------------------------------------------------------- #
+class EndpointClient:
+    """Holds the latest snapshot, connection state and health, from two threads."""
+
+    def __init__(self, endpoint, state_path, alarm):
+        self.endpoint = endpoint.rstrip("/")
+        self.state_path = os.path.expanduser(state_path)
+        self.alarm = alarm
+        self.lock = threading.Lock()
+        self.snapshot = None
+        self.source = "waiting"      # stream | json | file | waiting
+        self.connected = False
+        self.health = {}
+        self.error = ""
+        self.refreshing = False
+        self.pending_since = 0.0
+        self.status_note = ""        # transient line under the header
+        self.note_at = 0.0
+        self._stop = threading.Event()
+
+    # ---- shared state helpers ----
+    def _set(self, **kw):
+        with self.lock:
+            for key, value in kw.items():
+                setattr(self, key, value)
+
+    def note(self, text):
+        self._set(status_note=text, note_at=time.time())
+
+    def request_refresh(self):
+        try:
+            answer = http_json(self.endpoint, "/refresh", method="POST")
+        except Exception as exc:  # noqa: BLE001 — surfaced in the UI
+            self.note(f"refresh failed: {exc}")
+            return
+        if answer.get("queued"):
+            self._set(refreshing=True, pending_since=time.time())
+            self.note("refresh queued — the service is scraping now")
+        else:
+            self.note(f"not queued: {answer.get('reason', 'already fresh')}")
+
+    # ---- fallbacks (never a scrape) ----
+    def _load_file(self):
+        try:
+            with open(self.state_path) as fh:
+                snap = json.load(fh)
+        except (OSError, ValueError):
+            return False
+        self._set(snapshot=snap, source="file", connected=False)
+        return True
+
+    def _load_json(self):
+        try:
+            snap = http_json(self.endpoint, "/usage.json")
+        except Exception:  # noqa: BLE001
+            return False
+        self._set(snapshot=snap, source="json", connected=True)
+        return True
+
+    def start(self):
+        self._load_json() or self._load_file()
+        threading.Thread(target=self._stream_loop, name="aiusage-stream", daemon=True).start()
+        threading.Thread(target=self._health_loop, name="aiusage-health", daemon=True).start()
+
+    def stop(self):
+        self._stop.set()
+
+    def _stream_loop(self):
+        while not self._stop.is_set():
+            try:
+                req = urllib.request.Request(self.endpoint + "/stream")
+                with urllib.request.urlopen(req, timeout=STREAM_TIMEOUT) as resp:
+                    self._set(connected=True, source="stream", error="")
+                    for raw in resp:
+                        if self._stop.is_set():
+                            return
+                        line = raw.decode(errors="replace").strip()
+                        if not line:
+                            continue
+                        try:
+                            msg = json.loads(line)
+                        except ValueError:
+                            continue
+                        if msg.get("type") == "providers":
+                            snap = {k: v for k, v in msg.items() if k != "type"}
+                            # the round landed: retire the queued spinner and note
+                            self._set(snapshot=snap, source="stream", connected=True,
+                                      refreshing=False, pending_since=0.0,
+                                      status_note="", note_at=0.0)
+            except Exception as exc:  # noqa: BLE001 — reconnect below
+                self._set(connected=False, error=f"{type(exc).__name__}: {exc}")
+                self._load_json() or self._load_file()
+                if self._stop.wait(2.0):
+                    return
+
+    def _health_loop(self):
+        while not self._stop.is_set():
+            try:
+                health = http_json(self.endpoint, "/health", timeout=4)
+                self._set(health=health)
+                if health.get("refreshing") and self.pending_since == 0.0:
+                    self._set(refreshing=True, pending_since=time.time())
+            except Exception:  # noqa: BLE001
+                pass
+            self._stop.wait(15.0)
+
+
+# --------------------------------------------------------------------------- #
+# TUI
+# --------------------------------------------------------------------------- #
+PAIRS = {"ok": 1, "warn": 2, "hot": 3, "dim": 4, "accent": 5, "err": 6}
+PALETTE = {"ok": curses.COLOR_GREEN, "warn": curses.COLOR_YELLOW, "hot": curses.COLOR_RED,
+           "dim": curses.COLOR_CYAN, "accent": curses.COLOR_MAGENTA, "err": curses.COLOR_RED}
+
+
+def init_colors():
+    """Use the terminal's own background so the theme shows through."""
+    try:
+        curses.start_color()
+        curses.use_default_colors()
+        for name, color in PALETTE.items():
+            curses.init_pair(PAIRS[name], color, -1)
+    except curses.error:
+        return False
+    return curses.has_colors()
+
+
+class Tui:
+    def __init__(self, client, alarm):
+        self.client = client
+        self.alarm = alarm
+        self.scroll = 0
+        self.show_help = False
+        self.show_errors = False
+        self.color = False
+
+    # ---- small drawing helpers ----
+    def attr(self, name, extra=0):
+        return curses.color_pair(PAIRS[name]) | extra if self.color else extra
+
+    def put(self, window, y, x, text, attr=0, width=None):
+        if width is not None:
+            text = text[:width]
+        try:
+            window.addstr(y, x, text, attr)
+        except curses.error:
+            pass          # ran off the edge; already clipped
+
+    def bar(self, window, y, x, width, percentage, pair):
+        """Split bar: filled portion in the level colour, the rest dim."""
+        full = int(round(width * min(max(percentage or 0, 0), 100) / 100))
+        self.put(window, y, x, BAR_CHARS[0] * full, self.attr(pair) | curses.A_BOLD, width)
+        self.put(window, y, x + full, BAR_CHARS[1] * (width - full), self.attr("dim") | curses.A_DIM,
+                 width - full)
+
+    # ---- sections ----
+    def header(self, window, width, height):
+        snap = self.client.snapshot or {}
+        with self.client.lock:
+            source, connected = self.client.source, self.client.connected
+            note, note_at = self.client.status_note, self.client.note_at
+            refreshing = self.client.refreshing
+            health = dict(self.client.health)
+        title = " AI usage "
+        self.put(window, 0, 0, title, self.attr("accent") | curses.A_BOLD)
+        self.put(window, 0, len(title), "─" * max(width - len(title) - 1, 0), self.attr("dim"))
+        tag = {"stream": "live", "json": "live (one-shot)", "file": "cached file",
+               "waiting": "waiting"}.get(source, source)
+        right = f"{self.client.endpoint.replace('http://', '')} · {tag} "
+        self.put(window, 0, max(width - len(right) - 1, len(title) + 1), right,
+                 self.attr("ok") if connected else self.attr("hot"))
+        dot = "●" if source in ("stream", "json") else "○"
+        self.put(window, 1, 1, f"{dot} snapshot {age_text(snap.get('updated_at'))}"
+                               f" · every {health.get('interval_seconds', '?')}s"
+                               f" · {len(snap.get('providers') or [])} providers"
+                               f" · {health.get('streams', '?')} stream clients",
+                 self.attr("dim"), max(width - 22, 10))
+        if refreshing:
+            spin = "|/-\\"[int(time.time() * 2) % 4]
+            self.put(window, 1, max(width - 17, 1), f"{spin} refreshing…", self.attr("warn"))
+        y = 2
+        if note and time.time() - note_at < NOTE_TTL:
+            self.put(window, y, 1, note, self.attr("warn"), width - 2)
+            y += 1
+        self.put(window, y, 0, "─" * max(width - 1, 0), self.attr("dim"))
+        return y + 1
+
+    def body(self, window, top, width, height):
+        snap = self.client.snapshot
+        now = time.time()
+        updated = (snap or {}).get("updated_at")
+        rows = metric_rows(snap)
+        if not rows:
+            msg = (" endpoint unreachable and no cached snapshot — is aiusage.service running?"
+                   if not snap else
+                   " no snapshot yet — waiting for the service's first round")
+            self.put(window, top + 1, 1, msg, self.attr("warn"), width - 2)
+            return
+        details = [row_detail(m, updated, now) for _, _, m in rows]
+        widest = max(len(d) for d in details)
+        bar_w = max(12, min(38, width - 14 - 6 - widest - 4))
+        label_w = 12               # fits "Completions"
+
+        # one flat list of head/metric items so scrolling is a plain slice
+        items, last = [], None
+        for (name, group, metric), detail in zip(rows, details):
+            if (name, group) != last:
+                last = (name, group)
+                items.append(("head", name, group))
+            items.append(("metric", metric, detail))
+        visible = max(height - top - 2, 1)
+        self.scroll = min(self.scroll, max(len(items) - visible, 0))
+
+        y = top + 1
+        for item in items[self.scroll:self.scroll + visible]:
+            if y >= height - 2:
+                break
+            if item[0] == "head":
+                _, name, group = item
+                if group:
+                    self.put(window, y, 1, group, self.attr("dim"), width - 2)
+                    self.put(window, y, max(width - len(name) - 2, 1), name, self.attr("accent"))
+                else:
+                    self.put(window, y, 1, name, self.attr("accent") | curses.A_BOLD, width - 2)
+                y += 1
+                continue
+            _, metric, detail = item
+            label = (metric.get("name") or metric.get("type") or "")[:label_w]
+            pct = metric.get("percentage")
+            self.put(window, y, 3, f"{label:<{label_w}}", self.attr("dim"))
+            if pct is None:
+                self.put(window, y, 3 + label_w + 1, "···", self.attr("dim"))
+                if detail:
+                    self.put(window, y, max(width - len(detail) - 2, 3 + label_w + 6), detail,
+                             self.attr("ok"))
+            else:
+                pair = ("ok", "warn", "hot")[level_pair(pct, self.alarm)]
+                self.bar(window, y, 3 + label_w + 1, bar_w, pct, pair)
+                self.put(window, y, 3 + label_w + bar_w + 2, f"{pct:>3}%",
+                         self.attr(pair) | curses.A_BOLD)
+                if detail:
+                    self.put(window, y, max(width - len(detail) - 2, 3 + label_w + bar_w + 8),
+                             detail, self.attr("dim"))
+            y += 1
+
+        for pid, err in provider_errors(snap):
+            if y >= height - 2:
+                break
+            self.put(window, y, 1, f"! {pid}: {err}"[:width - 2], self.attr("err"))
+            y += 1
+
+    def errors_pane(self, window, top, width, height):
+        with self.client.lock:
+            lines = [
+                ("endpoint", self.client.endpoint),
+                ("source", self.client.source),
+                ("connected", str(self.client.connected)),
+                ("last error", self.client.error or "(none)"),
+                ("state file", self.client.state_path),
+                ("health", json.dumps(self.client.health, sort_keys=True)),
+            ]
+        self.put(window, top + 1, 1, "endpoint diagnostics", self.attr("accent") | curses.A_BOLD)
+        for i, (key, value) in enumerate(lines):
+            self.put(window, top + 3 + i, 1, f"{key:<12} {value}"[:width - 2], self.attr("dim"))
+
+    def help_pane(self, window, top, width, height):
+        self.put(window, top + 1, 1, "keys", self.attr("accent") | curses.A_BOLD)
+        for i, (key, desc) in enumerate(HELP):
+            self.put(window, top + 3 + i, 1, f"{key:<14}{desc}"[:width - 2], self.attr("dim"))
+
+    def footer(self, window, width, height):
+        snap = self.client.snapshot or {}
+        x = 1
+        for key, label in ((" r ", "refresh"), (" j/k ", "scroll"), (" e ", "diagnostics"),
+                           (" ? ", "help"), (" q ", "quit")):
+            self.put(window, height - 1, x, key, self.attr("accent") | curses.A_BOLD)
+            x += len(key)
+            self.put(window, height - 1, x, label, self.attr("dim"))
+            x += len(label)
+        if snap.get("updated_at"):
+            stamp = f"updated {datetime.fromtimestamp(snap['updated_at']).strftime('%H:%M:%S')} "
+            self.put(window, height - 1, max(width - len(stamp) - 2, x + 1), stamp, self.attr("dim"))
+
+    def draw(self, window):
+        window.erase()
+        height, width = window.getmaxyx()
+        top = self.header(window, width, height)
+        if self.show_help:
+            self.help_pane(window, top, width, height)
+        elif self.show_errors:
+            self.errors_pane(window, top, width, height)
+        else:
+            self.body(window, top, width, height)
+        self.footer(window, width, height)
+        window.refresh()
+
+    def run(self, window):
+        self.color = init_colors()
+        curses.curs_set(0)
+        window.nodelay(True)
+        window.timeout(int(REDRAW_PERIOD * 1000))
+        try:
+            curses.mousemask(curses.ALL_MOUSE_EVENTS)
+        except curses.error:
+            pass
+        while True:
+            self.draw(window)
+            key = window.getch()
+            if key == -1:
+                continue
+            if key in (ord("q"), 27):
+                if self.show_help or self.show_errors:
+                    self.show_help = self.show_errors = False
+                    continue
+                return
+            if key == ord("r"):
+                self.client.request_refresh()
+            elif key in (ord("?"), ord("h")):
+                self.show_help = not self.show_help
+                self.show_errors = False
+            elif key == ord("e"):
+                self.show_errors = not self.show_errors
+                self.show_help = False
+            elif key in (curses.KEY_DOWN, ord("j")):
+                self.scroll += 1
+            elif key in (curses.KEY_UP, ord("k")):
+                self.scroll = max(self.scroll - 1, 0)
+            elif key == curses.KEY_NPAGE:
+                self.scroll += 5
+            elif key == curses.KEY_PPAGE:
+                self.scroll = max(self.scroll - 5, 0)
+            elif key == curses.KEY_RESIZE:
+                self.scroll = 0
+            elif key == curses.KEY_MOUSE:
+                try:
+                    _, _, _, _, state = curses.getmouse()
+                    step = 1 if state & curses.BUTTON5_PRESSED else -3
+                    self.scroll = max(self.scroll + step, 0)
+                except curses.error:
+                    pass
+
+
+def cmd_tui(args):
+    client = EndpointClient(args.endpoint, args.state_file, args.alarm)
+    client.start()
+    try:
+        curses.wrapper(Tui(client, args.alarm).run)
+    finally:
+        client.stop()
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# non-TUI subcommands
+# --------------------------------------------------------------------------- #
+def cmd_json(args):
+    print(json.dumps(http_json(args.endpoint, "/usage.json"), indent=1))
+    return 0
+
+
+def cmd_health(args):
+    print(json.dumps(http_json(args.endpoint, "/health"), indent=1))
+    return 0
+
+
+def cmd_refresh(args):
+    print(json.dumps(http_json(args.endpoint, "/refresh", method="POST"), indent=1))
+    return 0
+
+
+def cmd_watch(args):
+    req = urllib.request.Request(args.endpoint + "/stream")
+    with urllib.request.urlopen(req, timeout=STREAM_TIMEOUT) as resp:
+        for raw in resp:
+            line = raw.decode(errors="replace").rstrip("\n")
+            if not line:
+                continue
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                print(line, flush=True)
+                continue
+            if args.raw:
+                print(line, flush=True)
+                continue
+            if msg.get("type") == "ping":
+                if not args.quiet:
+                    print(f"· ping (snapshot {age_text(msg.get('updated_at'))})", flush=True)
+            elif msg.get("type") == "providers":
+                print(f"· snapshot updated_at={msg.get('updated_at')} "
+                      f"providers={len(msg.get('providers') or [])}", flush=True)
+                for name, group, metric in metric_rows(msg):
+                    label = metric.get("name") or metric.get("type") or ""
+                    print(f"    {name}{' / ' + group if group else ''}  {label}"
+                          f"  {metric.get('percentage')}"
+                          f"  {row_detail(metric, msg.get('updated_at'))}", flush=True)
+            else:
+                print(line, flush=True)
+    return 0
+
+
+def build_parser():
+    ap = argparse.ArgumentParser(
+        prog="aiusage", description="terminal client for the local aiusage endpoint",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="reads never trigger a scrape; `refresh` asks the service for one extra round")
+    ap.add_argument("--endpoint", default=os.environ.get("AIUSAGE_ENDPOINT", DEFAULT_ENDPOINT),
+                    help=f"service base URL (default {DEFAULT_ENDPOINT})")
+    ap.add_argument("--alarm", type=int, default=int(os.environ.get("AIUSAGE_ALARM", DEFAULT_ALARM)),
+                    help=f"used%% at/above which a bar turns red (default {DEFAULT_ALARM})")
+    ap.add_argument("--state-file", default=os.environ.get("AIUSAGE_STATE", DEFAULT_STATE),
+                    help="snapshot the client falls back to when the service is down")
+    sub = ap.add_subparsers(dest="cmd")
+    sub.add_parser("tui", help="live TUI (default)")
+    sub.add_parser("json", help="print the snapshot")
+    sub.add_parser("health", help="print endpoint health")
+    sub.add_parser("refresh", help="POST /refresh and print the answer")
+    watch = sub.add_parser("watch", help="print the /stream feed")
+    watch.add_argument("--raw", action="store_true", help="NDJSON only")
+    watch.add_argument("--quiet", action="store_true", help="hide heartbeat pings")
+    return ap
+
+
+def main():
+    args = build_parser().parse_args()
+    handlers = {"json": cmd_json, "health": cmd_health, "refresh": cmd_refresh, "watch": cmd_watch}
+    try:
+        return handlers.get(args.cmd, cmd_tui)(args)
+    except urllib.error.URLError as exc:
+        print(f"aiusage: endpoint {args.endpoint} unreachable: {exc}", file=sys.stderr)
+        return 2
+    except KeyboardInterrupt:
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
