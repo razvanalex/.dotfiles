@@ -2,20 +2,25 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
-import qs.modules.common.functions as CF
 import qs
 import QtQuick
 import Quickshell
 import Quickshell.Io
 
 /**
- * AiUsage service: hosts the aiusage daemon (polls AI subscription usage:
- * opencode-go, agy/Antigravity, GitHub Copilot, OpenRouter) and exposes its
- * state to the panel/bar.
+ * AiUsage service — CLIENT of the aiusage REST endpoint.
  *
- * Daemon contract: one JSON object per stdout line —
- *   {"type":"status","msg":...}                lifecycle
- *   {"type":"providers","updated_at":...,"providers":[...]}
+ * The poller is a systemd user service (`aiusage.service`): it refreshes the
+ * providers on its own interval, writes the snapshot to
+ * ~/.local/state/quickshell/user/aiusage/usage.json and serves
+ * http://127.0.0.1:8787. This singleton holds one long-lived
+ * `curl -sN <baseUrl>/stream` and parses the NDJSON it pushes: the snapshot on
+ * connect ({"type":"providers","updated_at":…,"providers":[…]}) plus one line
+ * per change and a periodic {"type":"ping"} heartbeat.
+ *
+ * Reads never trigger a provider run — only requestRefresh() (POST /refresh)
+ * asks the service for one extra round, and the service coalesces it.
+ *
  * Provider shapes (from providers/<name>/parse.py):
  *   dict form  {id, provider, metrics:[{type,name?,percentage,detail?,reset_in_seconds?,resets_at?,remaining?}]}
  *   list form  {id, list:[{provider, metrics:[...]}]}   (antigravity: two model groups)
@@ -23,15 +28,19 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    readonly property string script: `${CF.FileUtils.trimFileProtocol(Directories.scriptPath)}/aiusage/daemon.py`
+    readonly property string baseUrl: (Config.options.aiUsage?.baseUrl ?? "http://127.0.0.1:8787")
     readonly property string stateFile: `${Directories.state}/user/aiusage/usage.json`
 
     // ---- state surfaced to the UI ----
-    property var providers: []          // normalized: [{id, name, metrics, error, isList, groups}]
-    property real updatedAt: 0          // epoch seconds of last full snapshot
-    property bool refreshing: false
-    property bool daemonRunning: false
+    property var providers: []          // normalized: [{id, name, metrics, groups, error}]
+    property real updatedAt: 0          // epoch seconds of the snapshot we hold
+    property bool refreshing: false     // a refresh we asked for hasn't landed yet
+    property bool connected: streamProc.running
     property string lastError: ""
+
+    // epoch (s) of the round we last asked for; the spinner clears when a
+    // snapshot at least that new arrives, or when the watchdog fires
+    property real _refreshAskedAt: 0
 
     // worst-window percentage across all providers — drives the conditional
     // bar indicator (visible only when something is burning)
@@ -53,9 +62,11 @@ Singleton {
     readonly property bool alarm: worstPercent >= (Config.options.aiUsage?.alarmPercent ?? 80)
 
     function requestRefresh() {
-        // one-shot run in parallel with the daemon's own cycle
-        onceProc.command = ["python3", root.script, "--once"];
-        onceProc.running = true;
+        root._refreshAskedAt = Date.now() / 1000;
+        root.refreshing = true;
+        refreshWatchdog.restart();
+        refreshProc.running = false;
+        refreshProc.running = true;
     }
 
     function formatReset(seconds) {
@@ -87,20 +98,38 @@ Singleton {
         };
     }
 
-    // ---- daemon process (runs for the whole session) ----
-    Process {
-        id: daemonProc
-        running: true
-        command: {
-            const argv = ["python3", root.script];
-            const c = Config.options.aiUsage ?? {};
-            if (c.interval) argv.push("--interval", c.interval.toString());
-            if (c.providers?.length) argv.push("--providers", c.providers.join(","));
-            return argv;
+    function _handleLine(data) {
+        if (data.length === 0) return;
+        let m;
+        try {
+            m = JSON.parse(data);
+        } catch (e) {
+            print("[aiusage] bad line:", data.slice(0, 80));
+            return;
         }
-        onStarted: root.daemonRunning = true
+        if (m.type === "providers") {
+            root.providers = (m.providers ?? []).map(p => root._normalizeProvider(p));
+            root.updatedAt = m.updated_at ?? 0;
+            root.lastError = "";
+            if (root._refreshAskedAt > 0 && root.updatedAt >= root._refreshAskedAt) {
+                root._refreshAskedAt = 0;
+                root.refreshing = false;
+                refreshWatchdog.stop();
+            }
+        } else if (m.type === "status" && m.msg) {
+            print("[aiusage]", m.msg);
+        }
+        // "ping" = heartbeat; nothing to do, it only proves the service is alive
+    }
+
+    // ---- endpoint stream (one connection for the whole session) ----
+    Process {
+        id: streamProc
+        running: true
+        command: ["curl", "-sN", `${root.baseUrl}/stream`]
+        onStarted: root.connected = true
         onExited: (code, status) => {
-            root.daemonRunning = false;
+            root.connected = false;
             restartTimer.restart();
         }
 
@@ -109,66 +138,57 @@ Singleton {
         }
 
         stdout: SplitParser {
-            onRead: data => {
-                if (data.length === 0) return;
-                try {
-                    const m = JSON.parse(data);
-                    if (m.type === "providers") {
-                        root.providers = (m.providers ?? []).map(p => root._normalizeProvider(p));
-                        root.updatedAt = m.updated_at ?? 0;
-                        root.refreshing = false;
-                        root.lastError = "";
-                    } else if (m.type === "status" && m.msg) {
-                        print("[aiusage]", m.msg);
-                    }
-                } catch (e) {
-                    print("[aiusage] bad line:", data.slice(0, 80));
-                }
-            }
+            onRead: data => root._handleLine(data)
         }
     }
 
-    // manual refresh round (--once); result also arrives via daemonProc? no —
-    // the daemon owns stdout, so --once output lands here and updates state.
+    // ---- manual refresh: ask the service, never scrape from here ----
     Process {
-        id: onceProc
+        id: refreshProc
+        command: ["curl", "-sf", "-X", "POST", `${root.baseUrl}/refresh`]
+
         stdout: SplitParser {
             onRead: data => {
-                if (data.length === 0) return;
-                try {
-                    const m = JSON.parse(data);
-                    if (m.type === "providers") {
-                        root.providers = (m.providers ?? []).map(p => root._normalizeProvider(p));
-                        root.updatedAt = m.updated_at ?? 0;
-                        root.refreshing = false;
-                    }
-                } catch (e) {}
+                if (data.length) print("[aiusage] refresh:", data.replace(/\s+/g, " "));
             }
+        }
+        stderr: SplitParser {
+            onRead: line => { if (line.length) print("[aiusage] refresh failed:", line); }
+        }
+    }
+
+    // drop the spinner if the service never answers (down, or a round is stuck)
+    Timer {
+        id: refreshWatchdog
+        interval: 75000
+        repeat: false
+        onTriggered: {
+            root._refreshAskedAt = 0;
+            root.refreshing = false;
         }
     }
 
     Timer {
         id: restartTimer
-        interval: 1000
+        interval: 2000
         repeat: false
         onTriggered: {
-            daemonProc.command = daemonProc.command;  // re-evaluate config
-            daemonProc.running = true;
+            streamProc.command = streamProc.command;  // re-evaluate config
+            streamProc.running = true;
         }
     }
 
     Timer {
-        interval: 3000
-        running: !root.daemonRunning && !restartTimer.running
+        interval: 5000
+        running: !streamProc.running && !restartTimer.running
         repeat: false
         onTriggered: restartTimer.restart()
     }
 
-    onRefreshingChanged: print("[aiusage] refreshing:", refreshing)
-
     Component.onCompleted: {
         void root.worstPercent;   // touch → instantiate eagerly at shell start
-        snapshotFile.reload();    // explicit load (path-set alone is unreliable)
+        snapshotFile.reload();    // explicit load (path-set alone is unreliable); cold-start
+                                  // fallback while the service's first round is in flight
     }
 
     FileView {

@@ -1,0 +1,19 @@
+[Unit]
+Description=AI subscription usage poller + local REST endpoint (aiusage)
+Documentation=file:///home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/aiusage/daemon.py
+After=network-online.target
+
+[Service]
+Type=simple
+# The service owns the settings the quickshell UI used to pass as argv
+# (Config.options.aiUsage is now just the client's baseUrl).
+Environment=AIUSAGE_HOST=127.0.0.1
+Environment=AIUSAGE_PORT=8787
+Environment=AIUSAGE_INTERVAL=900
+Environment=AIUSAGE_PROVIDERS=antigravity,opencode,copilot,openrouter
+ExecStart=/usr/bin/python3 /home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/aiusage/daemon.py --serve
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

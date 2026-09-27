@@ -367,10 +367,12 @@ Singleton {
             }
 
             property JsonObject aiUsage: JsonObject {
-                property int interval: 900        // seconds between refresh rounds (agy PTY is expensive)
+                // Client side only. The poller + endpoint now live in the systemd
+                // user service `aiusage.service` (see its Environment= lines for
+                // host/port/interval/providers) — this file just points at it.
+                property string baseUrl: "http://127.0.0.1:8787"
                 property int alarmPercent: 80     // bar indicator shows at/above this used%
                 property bool enableIndicator: true
-                property list<string> providers: ["antigravity", "opencode", "copilot", "openrouter"]
             }
 
             property JsonObject localsend: JsonObject {
