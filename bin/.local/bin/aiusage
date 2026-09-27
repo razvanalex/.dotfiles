@@ -8,6 +8,7 @@ for one extra round (it coalesces and floors that at 30 s).
 
   aiusage              live TUI (default)
   aiusage json         the snapshot as JSON
+  aiusage limits       usage-limit windows, in T3's UsageLimitsReport shape
   aiusage health       endpoint liveness / snapshot age / per-provider errors
   aiusage refresh      POST /refresh and print the service's answer
   aiusage watch        raw NDJSON from /stream (Ctrl-C to stop)
@@ -502,6 +503,11 @@ def cmd_json(args):
     return 0
 
 
+def cmd_limits(args):
+    print(json.dumps(http_json(args.endpoint, "/usage-limits"), indent=1))
+    return 0
+
+
 def cmd_health(args):
     print(json.dumps(http_json(args.endpoint, "/health"), indent=1))
     return 0
@@ -557,6 +563,7 @@ def build_parser():
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("tui", help="live TUI (default)")
     sub.add_parser("json", help="print the snapshot")
+    sub.add_parser("limits", help="usage-limit windows, T3 UsageLimitsReport shape")
     sub.add_parser("health", help="print endpoint health")
     sub.add_parser("refresh", help="POST /refresh and print the answer")
     watch = sub.add_parser("watch", help="print the /stream feed")
@@ -567,7 +574,8 @@ def build_parser():
 
 def main():
     args = build_parser().parse_args()
-    handlers = {"json": cmd_json, "health": cmd_health, "refresh": cmd_refresh, "watch": cmd_watch}
+    handlers = {"json": cmd_json, "limits": cmd_limits, "health": cmd_health,
+                "refresh": cmd_refresh, "watch": cmd_watch}
     try:
         return handlers.get(args.cmd, cmd_tui)(args)
     except urllib.error.URLError as exc:

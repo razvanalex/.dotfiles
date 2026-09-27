@@ -8,6 +8,8 @@ One process, two roles:
   2. REST (opt-in, --serve), read-only, default http://127.0.0.1:8787:
        GET  /health      liveness, snapshot age, per-provider errors
        GET  /usage.json  the snapshot (same object as the state file)
+       GET  /usage-limits  usage-limit windows only, in T3's UsageLimitsReport
+                         shape (open-slug drivers, no balances, no identity)
        GET  /stream      NDJSON: snapshot on connect, then one line per change,
                          heartbeat every 25 s
        POST /refresh     202, asks the poll loop for one extra round (coalesced,
@@ -29,11 +31,13 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
@@ -132,6 +136,81 @@ def refresh_round(enabled, state_path, cache_path):
         except OSError:
             pass
     return snapshot
+
+
+# --- T3-shaped usage-limit projection -------------------------------------- #
+# `GET /usage-limits` answers with T3's own UsageLimitsReport shape
+# (packages/contracts/src/providerUsageLimits.ts) so the data is readable under a
+# real contract without pretending to be a CLIProxyAPI hub. Only usage limits are
+# reported: a provider whose only figure is a balance (OpenRouter credits) is not
+# an account here, and no email/plan is invented for the ones that are. Windows
+# carry a stable `id`, a `kind` from the metric's own window type, and `resetsAt`
+# resolved to an absolute timestamp (`reset_in_seconds` is relative to the
+# snapshot, not to now). `windowDurationMins` is omitted rather than guessed.
+WINDOW_KIND = {"rolling": "session", "session": "session",
+               "weekly": "weekly", "monthly": "monthly"}
+
+
+def _iso(epoch):
+    if not epoch:
+        return None
+    return datetime.fromtimestamp(epoch, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _slug(text):
+    return re.sub(r"[^a-z0-9]+", "_", str(text or "").lower()).strip("_")
+
+
+def _window(metric, updated_at):
+    """One quota window, or None when the metric is not a usage limit."""
+    pct = metric.get("percentage")
+    if isinstance(pct, bool) or not isinstance(pct, (int, float)):
+        return None                       # no quota figure (e.g. a balance)
+    reset_at = metric.get("resets_at") or metric.get("reset_at")
+    reset_in = metric.get("reset_in_seconds")
+    if isinstance(reset_in, (int, float)) and updated_at:
+        reset_at = _iso(updated_at + reset_in)
+    kind = WINDOW_KIND.get(str(metric.get("type") or "").lower())
+    if kind is None:
+        unlimited = "unlimited" in str(metric.get("detail") or "").lower()
+        if reset_at is None or unlimited:
+            return None                   # unbounded entitlement, or nothing to reset
+        kind = "other"                    # a limit we cannot bucket honestly
+    label = str(metric.get("name") or metric.get("type") or kind)
+    label = label[:1].upper() + label[1:] if label else kind
+    # ids stay lowercase (stable across label tweaks); only the display label is cased
+    window = {"id": _slug(label) or kind, "kind": kind, "label": label,
+              "usedPercent": max(0.0, min(100.0, float(pct)))}
+    if reset_at:
+        window["resetsAt"] = str(reset_at)
+    return window
+
+
+def usage_limits_report(snapshot):
+    """Project the snapshot onto T3's UsageLimitsReport — usage limits only."""
+    updated_at = (snapshot or {}).get("updated_at")
+    checked_at = _iso(updated_at) or _iso(int(time.time()))
+    accounts, notices = [], []
+    for prov in (snapshot or {}).get("providers") or []:
+        pid = prov.get("id") or "?"
+        if prov.get("list") is not None:
+            groups = [(g.get("provider") or pid, g.get("metrics") or [])
+                      for g in prov.get("list") or []]
+        else:
+            groups = [(prov.get("provider") or pid, prov.get("metrics") or [])]
+        for label, metrics in groups:
+            windows = [w for w in (_window(m, updated_at) for m in metrics) if w]
+            if not windows and not prov.get("error"):
+                notices.append(f"{label}: no usage-limit window reported (a balance is "
+                               f"not a limit) — omitted")
+                continue
+            limits = {"checkedAt": checked_at, "windows": windows}
+            if prov.get("error"):
+                limits["unavailable"] = {"reason": "probeFailed",
+                                         "message": str(prov["error"])}
+            accounts.append({"id": f"{_slug(pid)}:{_slug(label)}", "driver": _slug(pid),
+                             "label": label, "limits": limits})
+    return {"createdAt": _iso(int(time.time())), "accounts": accounts, "notices": notices}
 
 
 class Hub:
@@ -251,7 +330,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             self._json(200, {
                 "service": "aiusage",
-                "routes": ["/health", "/usage.json", "/stream", "POST /refresh"],
+                "routes": ["/health", "/usage.json", "/usage-limits", "/stream", "POST /refresh"],
             })
         elif path == "/health":
             self._json(200, self._status())
@@ -259,6 +338,9 @@ class Handler(BaseHTTPRequestHandler):
             snap, _ = self.hub.current()
             self._json(200, snap or {"updated_at": None, "providers": [],
                                      "detail": "no round has completed yet"})
+        elif path in ("/usage-limits", "/usage-limits.json"):
+            snap, _ = self.hub.current()
+            self._json(200, usage_limits_report(snap))
         elif path == "/stream":
             self._stream()
         else:
