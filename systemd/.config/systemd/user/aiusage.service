@@ -11,6 +11,11 @@ Environment=AIUSAGE_HOST=127.0.0.1
 Environment=AIUSAGE_PORT=8787
 Environment=AIUSAGE_INTERVAL=900
 Environment=AIUSAGE_PROVIDERS=antigravity,opencode,copilot,openrouter
+# Optional CLIProxyAPI-shaped face (T3's Limits panel): serves
+# /v0/management/{auth-files,api-call,reset-quota} from the snapshot, exposing the
+# Antigravity groups as codex accounts. Loopback only; holds no token, calls no
+# provider, ignores the Authorization header. Unset to make those routes 404.
+Environment=AIUSAGE_T3_HUB=1
 ExecStart=/usr/bin/python3 /home/razvan/.dotfiles/quickshell/.config/quickshell/scripts/aiusage/daemon.py --serve
 Restart=always
 RestartSec=5

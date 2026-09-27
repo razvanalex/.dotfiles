@@ -64,6 +64,8 @@ DEFAULT_PORT = 8787
 REFRESH_FLOOR = 30              # min age of a round before POST /refresh starts another
 HEARTBEAT = 25                  # seconds between keepalive lines on /stream
 LOOPBACK = {"127.0.0.1", "::1", "localhost", ""}
+# Optional CLIProxyAPI-shaped face for T3's Limits panel (off by default).
+T3_HUB = os.environ.get("AIUSAGE_T3_HUB") == "1"
 
 _all_providers = ["antigravity", "opencode", "copilot", "openrouter"]
 _refresh_lock = threading.Lock()
@@ -213,6 +215,73 @@ def usage_limits_report(snapshot):
     return {"createdAt": _iso(int(time.time())), "accounts": accounts, "notices": notices}
 
 
+# --- optional T3 hub face (AIUSAGE_T3_HUB=1) ------------------------------- #
+# T3 can only read usage-limit sources whose `kind` is the literal "cliproxy" —
+# a hub that holds pooled OAuth tokens and replays provider APIs for T3 to parse.
+# These three routes answer that protocol from the snapshot we already have: no
+# token is stored, no provider is called, the Authorization header is ignored.
+#
+# Only the Antigravity model groups are exposed, as codex accounts, because the
+# codex envelope is the least dishonest fit: it is two windows per account
+# (agy has exactly a rolling/weekly pair per group), `plan_type` is deliberately
+# omitted so T3 shows no plan label instead of a wrong one, and with no plan_type
+# T3's own fallback buckets primary as Session (5h) and secondary as Weekly —
+# which is what those two windows are. `email`, `id_token` and any duration are
+# omitted, never invented. OpenCode's rolling/weekly/monthly triple does not fit
+# a two-window envelope, so it is not exposed at all.
+def _reset_epoch(metric, updated_at):
+    """Absolute reset instant as epoch seconds (codex wants `reset_at` numeric)."""
+    secs = metric.get("reset_in_seconds")
+    if isinstance(secs, (int, float)) and not isinstance(secs, bool) and updated_at:
+        return int(updated_at + secs)
+    raw = metric.get("resets_at") or metric.get("reset_at")
+    if not raw:
+        return None
+    try:
+        stamp = datetime.strptime(str(raw)[:19], "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return None
+    return int(stamp.replace(tzinfo=timezone.utc).timestamp())
+
+
+def t3_accounts(snapshot):
+    """{auth_index: (label, metrics)} — the agy model groups, as fake codex accounts."""
+    accounts = {}
+    for prov in (snapshot or {}).get("providers") or []:
+        if prov.get("id") != "antigravity" or prov.get("list") is None:
+            continue
+        for group in prov.get("list") or []:
+            label = group.get("provider") or "Antigravity"
+            accounts["agy-" + (_slug(label) or "group")] = (label, group.get("metrics") or [])
+    return accounts
+
+
+def t3_codex_usage(metrics, updated_at):
+    """One codex `rate_limit` body dcoded from an agy group (no plan_type, no durations)."""
+    picked = {}
+    for metric in metrics or []:
+        kind = str(metric.get("type") or "").lower()
+        if kind in ("rolling", "session"):
+            picked["primary_window"] = metric
+        elif kind == "weekly":
+            picked["secondary_window"] = metric
+
+    def to_window(metric):
+        if not metric:
+            return None
+        pct = metric.get("percentage")
+        if isinstance(pct, bool) or not isinstance(pct, (int, float)):
+            return None
+        window = {"used_percent": float(pct)}
+        epoch = _reset_epoch(metric, updated_at)
+        if epoch:
+            window["reset_at"] = epoch
+        return window
+
+    return {"rate_limit": {"primary_window": to_window(picked.get("primary_window")),
+                           "secondary_window": to_window(picked.get("secondary_window"))}}
+
+
 class Hub:
     """Latest snapshot + fan-out to /stream subscribers."""
 
@@ -271,6 +340,18 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
+    def _body(self):
+        """JSON request body, or {} (T3 posts to api-call; nothing else does)."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        raw = self.rfile.read(length) if length > 0 else b""
+        try:
+            return json.loads(raw) if raw else {}
+        except ValueError:
+            return {}
+
     def _status(self):
         snap, _ = self.hub.current()
         updated_at = (snap or {}).get("updated_at")
@@ -328,10 +409,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 — BaseHTTPRequestHandler API
         path = urlsplit(self.path).path.rstrip("/") or "/"
         if path == "/":
-            self._json(200, {
-                "service": "aiusage",
-                "routes": ["/health", "/usage.json", "/usage-limits", "/stream", "POST /refresh"],
-            })
+            routes = ["/health", "/usage.json", "/usage-limits", "/stream", "POST /refresh"]
+            if T3_HUB:
+                routes += ["/v0/management/auth-files", "POST /v0/management/api-call",
+                           "POST /v0/management/reset-quota"]
+            self._json(200, {"service": "aiusage", "routes": routes, "t3_hub": T3_HUB})
         elif path == "/health":
             self._json(200, self._status())
         elif path in ("/usage.json", "/usage"):
@@ -341,13 +423,51 @@ class Handler(BaseHTTPRequestHandler):
         elif path in ("/usage-limits", "/usage-limits.json"):
             snap, _ = self.hub.current()
             self._json(200, usage_limits_report(snap))
+        elif path == "/v0/management/auth-files" and T3_HUB:
+            snap, _ = self.hub.current()
+            self._json(200, {"files": [{"id": index, "auth_index": index,
+                                        "provider": "codex", "disabled": False}
+                                       for index in t3_accounts(snap)]})
         elif path == "/stream":
             self._stream()
         else:
             self._json(404, {"error": "not found"})
 
+    def _management(self, path):
+        """Answer T3's CLIProxyAPI management protocol from the snapshot.
+
+        api-call must return {status_code, body} where `body` is a JSON *string*;
+        a non-2xx inner status makes T3 treat that account's probe as failed (and
+        the reset-credit call, which it tolerates failing).
+        """
+        snap, _ = self.hub.current()
+        if path == "/v0/management/api-call":
+            payload = self._body()
+            index = str(payload.get("auth_index") or "")
+            url = str(payload.get("url") or "")
+            if "rate-limit-reset-credits" in url:
+                # T3 wraps this in orElseSucceed: "a credits outage must not hide
+                # successfully fetched quota windows". We bank none.
+                self._json(200, {"status_code": 404, "body": ""})
+                return
+            entry = t3_accounts(snap).get(index)
+            if entry is None or not url.endswith("/usage"):
+                self._json(200, {"status_code": 404, "body": ""})
+                return
+            body = t3_codex_usage(entry[1], (snap or {}).get("updated_at"))
+            self._json(200, {"status_code": 200, "body": json.dumps(body)})
+            return
+        if path == "/v0/management/reset-quota":
+            # only reached when redeeming a reset credit, which we never offer
+            self._json(200, {"status_code": 501, "body": ""})
+            return
+        self._json(404, {"error": "not found"})
+
     def do_POST(self):  # noqa: N802 — BaseHTTPRequestHandler API
         path = urlsplit(self.path).path.rstrip("/") or "/"
+        if path.startswith("/v0/management/") and T3_HUB:
+            self._management(path)
+            return
         if path != "/refresh":
             self._json(404, {"error": "not found"})
             return
