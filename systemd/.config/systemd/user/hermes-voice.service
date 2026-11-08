@@ -5,8 +5,8 @@ After=network.target sound.target
 [Service]
 Environment=PYTHONUNBUFFERED=1
 Type=simple
-WorkingDirectory=%h/Workspace/ai/voice-call
-ExecStart=%h/Workspace/ai/voice-call/.venv/bin/python -m voice_call.web_app
+WorkingDirectory=%h/Workspace/ai/agent/voice-call
+ExecStart=%h/Workspace/ai/agent/voice-call/.venv/bin/python -m voice_call.web_app
 Restart=on-failure
 RestartSec=3
 

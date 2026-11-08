@@ -46,8 +46,7 @@ try:
     import sounddevice as sd
 except ImportError:
     candidates = [
-        os.path.expanduser("~/Workspace/ai/voice-call/.venv/bin/python"),
-        os.path.expanduser("~/Workspace/ai/tts-read/voice_call/.venv/bin/python"),
+        os.path.expanduser("~/Workspace/ai/agent/voice-call/.venv/bin/python"),
         os.path.expanduser("~/.local/share/tts-read/venv/bin/python"),
     ]
     for py in candidates:
@@ -75,7 +74,7 @@ _swap_requested_at = 0.0   # when the swap was requested (for the 3s force)
 active_device = None       # the device the current InputStream is using
 fallback_device = None     # last-known-good device (revert target on open fail)
 stream_started_at = None   # when the current InputStream opened (transient guard)
-SILERO_ONNX = os.path.expanduser("~/Workspace/ai/parakeet-python/models/silero_vad.onnx")
+SILERO_ONNX = os.path.expanduser("~/Workspace/ai/stt/parakeet-python/models/silero_vad.onnx")
 COMMIT_FILE = "/tmp/stt_dictate_commit.txt"
 
 # VAD hysteresis (from voice_call components.py)

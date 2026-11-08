@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/razvan/Workspace/ai/voice-call/.venv/bin/python
+#!/usr/bin/env /home/razvan/Workspace/ai/agent/voice-call/.venv/bin/python
 """
 Quickshell Voice Client Sidecar
 - Connects to ws://localhost:8080/ws (Hermes web_app.py)

@@ -553,7 +553,7 @@ Singleton {
         id: getAiProviders
         running: true
         command: [
-            "/home/razvan/Workspace/ai/voice-call/.venv/bin/python",
+            "/home/razvan/Workspace/ai/agent/voice-call/.venv/bin/python",
             `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
             "providers"
         ]
@@ -751,7 +751,7 @@ Singleton {
     function refreshProfiles() {
         hermesProfileProc.action = "list";
         hermesProfileProc.command = [
-            "/home/razvan/Workspace/ai/voice-call/.venv/bin/python",
+            "/home/razvan/Workspace/ai/agent/voice-call/.venv/bin/python",
             `${Directories.scriptPath}/ai/quickshell_hermes_service.py`.replace(/file:\/\//, ""),
             "profile",
             "list"

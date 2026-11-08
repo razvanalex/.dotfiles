@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/razvan/Workspace/ai/voice-call/.venv/bin/python
+#!/usr/bin/env /home/razvan/Workspace/ai/agent/voice-call/.venv/bin/python
 import sys
 import os
 import json
@@ -6,7 +6,7 @@ import subprocess
 import signal
 
 # Ensure search paths include voice-call and hermes-agent
-VOICE_CALL_DIR = "/home/razvan/Workspace/ai/voice-call"
+VOICE_CALL_DIR = "/home/razvan/Workspace/ai/agent/voice-call"
 HERMES_DIR = "/home/razvan/.hermes/hermes-agent"
 
 for path in [VOICE_CALL_DIR, os.path.join(VOICE_CALL_DIR, "src"), HERMES_DIR]:

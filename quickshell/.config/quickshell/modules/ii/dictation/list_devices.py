@@ -1,4 +1,4 @@
-#!/home/razvan/Workspace/ai/tts-read/voice_call/.venv/bin/python
+#!/home/razvan/Workspace/ai/agent/voice-call/.venv/bin/python
 """List input devices as JSON for the dictation panel dropdown."""
 import json, sys, re
 

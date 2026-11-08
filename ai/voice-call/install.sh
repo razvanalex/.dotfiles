@@ -2,7 +2,7 @@
 set -e
 
 AI_DIR="${AI_DIR:-$HOME/Workspace/ai}"
-REPO_DIR="$AI_DIR/voice-call"
+REPO_DIR="$AI_DIR/agent/voice-call"
 
 echo "=== [Voice Call Agent Setup] ==="
 mkdir -p "$AI_DIR"

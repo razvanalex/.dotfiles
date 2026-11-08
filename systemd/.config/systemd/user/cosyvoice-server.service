@@ -5,11 +5,11 @@ After=network.target
 [Service]
 Type=simple
 Environment=GGML_CUDA_ENABLE_UNIFIED_MEMORY=1
-WorkingDirectory=%h/Workspace/ai/cosyvoice.cpp
-ExecStart=%h/Workspace/ai/cosyvoice.cpp/build/bin/cosyvoice-server \
-    --model %h/Workspace/ai/cosyvoice.cpp/CosyVoice3-2512_Q8_0.gguf \
-    --voice-prompt adam=%h/Workspace/ai/chatterbox/voices/adam.gguf \
-    --voice-prompt cosyvoice3=%h/Workspace/ai/chatterbox/voices/cosyvoice3.gguf \
+WorkingDirectory=/home/razvan/Workspace/ai/tts/cosyvoice.cpp
+ExecStart=/home/razvan/Workspace/ai/tts/cosyvoice.cpp/build/bin/cosyvoice-server \
+    --model /home/razvan/Workspace/ai/tts/cosyvoice.cpp/CosyVoice3-2512_Q8_0.gguf \
+    --voice-prompt adam=/home/razvan/Workspace/ai/tts/cosyvoice.cpp/voices/adam.gguf \
+    --voice-prompt cosyvoice3=/home/razvan/Workspace/ai/tts/cosyvoice.cpp/voices/cosyvoice3.gguf \
     --api \
     --host 0.0.0.0 \
     --port 59451 \

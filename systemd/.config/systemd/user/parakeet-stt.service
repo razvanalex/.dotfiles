@@ -1,14 +1,13 @@
 [Unit]
-Description=Parakeet TDT 0.6B v3 STT Server (CPU)
+Description=Parakeet TDT STT Server (ONNX, OpenAI-compatible)
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Workspace/ai/parakeet-python
-Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=%h/Workspace/ai/parakeet-python/.venv/bin/python app.py
+WorkingDirectory=/home/razvan/Workspace/ai/stt/parakeet-python
+ExecStart=/home/razvan/Workspace/ai/stt/parakeet-python/.venv/bin/python app.py
 Restart=on-failure
-RestartSec=15
+RestartSec=5
 
 [Install]
 WantedBy=default.target
