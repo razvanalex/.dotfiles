@@ -41,6 +41,13 @@ daemon_cmd() {
     err=$(timeout 5 "$PYTHON" "$SOCK_CLIENT" "$@" 2>&1)
     local ret=$?
     if [ $ret -ne 0 ]; then
+        # 3/4 are client-side rejections (not text / too large / peer closed);
+        # the daemon is healthy, so don't retry and don't restart the service.
+        if [ $ret -eq 3 ] || [ $ret -eq 4 ]; then
+            log "daemon_cmd rejected ($ret): $err"
+            notify-send "TTS Read" "$err" -u normal -t 5000
+            return $ret
+        fi
         log "daemon_cmd failed ($ret): $err — attempting systemctl --user start tts-read.service"
         systemctl --user start tts-read.service 2>> "$LOG"
         for _ in {1..20}; do

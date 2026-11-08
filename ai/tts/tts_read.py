@@ -24,7 +24,13 @@ import time
 import urllib.error
 import urllib.request
 
-import tts_filter
+try:
+    from voice_call import tts_filter
+except ImportError:
+    _vc_src = os.path.expanduser("~/Workspace/ai/agent/voice-call/src")
+    if os.path.isdir(_vc_src) and _vc_src not in sys.path:
+        sys.path.insert(0, _vc_src)
+    from voice_call import tts_filter
 
 # --- Configuration ---
 COSYVOICE_BASE = (
@@ -38,7 +44,7 @@ SPEAKER_ENDPOINT = f"{COSYVOICE_BASE}/v1/voices"
 DEFAULT_VOICE = "cosyvoice3"
 SPEECH_SPEED = 1.1
 TEMPERATURE = 0.8
-PROMPT_AUDIO = os.path.expanduser("~/Workspace/ai/cosyvoice3/asset/zero_shot_prompt.wav")
+PROMPT_AUDIO = os.path.expanduser("~/Workspace/ai/tts/cosyvoice3/asset/zero_shot_prompt.wav")
 PROMPT_TEXT = "希望你以后能够做的比我还好呦。"
 OUTPUT_DIR = "/tmp/.tts-read"
 LINE_NUMBER_RE = re.compile(r"^(\s*)\d{3}\b\s*")
@@ -313,7 +319,7 @@ def ensure_speaker_registered(voice_name=None):
 
     # Check for custom voice files matching the voice name in standard search directories
     search_dirs = [
-        os.path.expanduser("~/Workspace/ai/cosyvoice3/asset"),
+        os.path.expanduser("~/Workspace/ai/tts/cosyvoice3/asset"),
         os.path.expanduser("~/Workspace/ai/chatterbox/voices"),
         os.path.expanduser("~/Downloads"),
     ]
