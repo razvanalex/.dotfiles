@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+# Catppuccin Mocha Colors
+# Backgrounds for icon pills
+BG_GREEN="\033[48;2;166;227;161m"
+BG_CYAN="\033[48;2;137;220;235m"
+BG_MAUVE="\033[48;2;180;190;254m"
+BG_BLUE="\033[48;2;137;180;250m"
+
+# Text / Content Background & Foreground
+BG_DARK="\033[48;2;24;24;37m"
+FG_DARK="\033[38;2;17;17;27m"
+FG_LIGHT="\033[38;2;205;214;244m"
+RESET="\033[0m"
+
+# Determine workspace name from session.json or socket
+ws_name=""
+SESSION_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/session.json"
+if [[ -f "$SESSION_FILE" ]] && command -v jq &>/dev/null; then
+    ws_name=$(jq -r '
+        .workspaces[.active // 0] | 
+        if .custom_name and .custom_name != "" then .custom_name 
+        elif .identity_cwd then (.identity_cwd | split("/") | last) 
+        else "main" end
+    ' "$SESSION_FILE" 2>/dev/null || true)
+fi
+
+if [[ -z "$ws_name" || "$ws_name" == "null" ]]; then
+    ws_name="main"
+fi
+
+user_name="${USER:-$(whoami)}"
+host_name="$(uname -n)"
+date_time="$(date '+%d-%m-%Y %H:%M')"
+
+# Output formatted Catppuccin Mocha pills matching tmux
+echo -e "${BG_GREEN}${FG_DARK}  ${BG_DARK}${FG_LIGHT} ${ws_name} ${RESET}${BG_CYAN}${FG_DARK}  ${BG_DARK}${FG_LIGHT} ${user_name} ${RESET}${BG_MAUVE}${FG_DARK} 󰒋 ${BG_DARK}${FG_LIGHT} ${host_name} ${RESET}${BG_BLUE}${FG_DARK} 󰃭 ${BG_DARK}${FG_LIGHT} ${date_time} ${RESET}"

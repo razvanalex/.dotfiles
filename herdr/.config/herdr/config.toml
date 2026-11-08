@@ -1,0 +1,113 @@
+onboarding = false
+# Herdr configuration
+# Place this file at ~/.config/herdr/config.toml (managed via GNU stow in ~/.dotfiles)
+
+[theme]
+# Catppuccin theme
+name = "catppuccin"
+
+[theme.custom]
+accent = "#fab387"
+sidebar_bg = "#181825"
+active_row_bg = "#1e1e2e"
+selection_bg = "#313244"
+
+[terminal]
+default_shell = "/bin/zsh"
+new_cwd = "follow"
+
+[ui]
+# Top tab bar position
+tab_bar_position = "top"
+prompt_new_tab_name = false
+prompt_new_workspace_name = false
+pane_outer_borders = false
+pane_scrollbars = false
+pane_gaps = false
+show_agent_labels_on_pane_borders = true
+
+# Completely hide sidebar when collapsed
+sidebar_collapsed_mode = "hidden"
+sidebar_start_collapsed = true
+
+# Status entries on the right edge of the tab bar
+tab_bar_right = [
+  { type = "zoom" },
+  { type = "text", text = " razvan | " },
+  { type = "text", text = "Linux-Workstation | " },
+  { type = "datetime", format = "󰃭 %d-%m-%Y %H:%M" },
+  { type = "text", text = " " }
+]
+tab_bar_right_separator = ""
+
+[keys]
+# Prefix (C-a)
+prefix = "ctrl+a"
+
+# Standard tmux splits: % for vertical (side-by-side), " for horizontal (top/bottom)
+split_vertical = 'prefix+%'
+split_horizontal = 'prefix+"'
+
+# Navigation: Vim pane selection (prefix + h/j/k/l)
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+cycle_pane_next = "prefix+tab"
+cycle_pane_previous = "prefix+shift+tab"
+last_pane = "prefix+semicolon"
+
+# Pane controls
+close_pane = "prefix+x"
+zoom = "prefix+z"
+resize_mode = "prefix+r"
+rename_pane = "prefix+shift+p"
+
+# Scrolling & Copy Mode (Tmux style)
+copy_mode = "prefix+["
+edit_scrollback = "prefix+e"
+
+# Direct pane resize shortcuts (Ctrl+Alt+h/j/k/l)
+resize_pane_left = "ctrl+alt+h"
+resize_pane_down = "ctrl+alt+j"
+resize_pane_up = "ctrl+alt+k"
+resize_pane_right = "ctrl+alt+l"
+
+# Tabs / Windows (tmux style)
+new_tab = "prefix+c"
+close_tab = "prefix+ampersand"
+previous_tab = "prefix+p"
+next_tab = "prefix+n"
+switch_tab = "prefix+1..9"
+rename_tab = "prefix+comma"
+
+# Workspaces / Sessions (tmux style)
+workspace_picker = "prefix+s"
+goto = "prefix+w"
+rename_workspace = "prefix+shift+w"
+new_workspace = "prefix+shift+n"
+new_worktree = "prefix+shift+g"
+close_workspace = "prefix+shift+d"
+detach = "prefix+d"
+reload_config = "prefix+shift+r"
+toggle_sidebar = "prefix+b"
+
+# Settings & Help
+help = "prefix+?"
+settings = "prefix+shift+s"
+open_notification_target = "prefix+o"
+
+# Quick Sessionizer popup (f and Shift+O)
+[[keys.command]]
+key = "prefix+f"
+type = "popup"
+command = "herdr-sessionizer"
+width = "80%"
+height = "70%"
+
+[[keys.command]]
+key = "prefix+shift+o"
+type = "popup"
+command = "herdr-sessionizer -s 0"
+width = "80%"
+height = "70%"

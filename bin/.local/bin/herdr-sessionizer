@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-sessionizer"
+CONFIG_FILE="$CONFIG_DIR/tmux-sessionizer.conf"
+
+# Fallback / additional herdr config
+HERDR_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/herdr-sessionizer"
+HERDR_CONFIG_FILE="$HERDR_CONFIG_DIR/herdr-sessionizer.conf"
+
+if [[ -f "$CONFIG_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+fi
+
+if [[ -f "$HERDR_CONFIG_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$HERDR_CONFIG_FILE"
+fi
+
+session_idx=""
+session_cmd=""
+user_selected=""
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+    -h | --help)
+        echo "Usage: herdr-sessionizer [OPTIONS] [SEARCH_PATH]"
+        echo "Options:"
+        echo "  -h, --help             Display this help message"
+        echo "  -s, --session <index>  Run session command from TS_SESSION_COMMANDS"
+        exit 0
+        ;;
+    -s | --session)
+        session_idx="$2"
+        if [[ -z "$session_idx" ]]; then
+            echo "Session index cannot be empty"
+            exit 1
+        fi
+        if [[ -z "${TS_SESSION_COMMANDS[*]}" ]]; then
+            echo "TS_SESSION_COMMANDS is not set."
+            exit 1
+        fi
+        if [[ "$session_idx" -lt 0 || "$session_idx" -ge "${#TS_SESSION_COMMANDS[@]}" ]]; then
+            echo "Error: Invalid index."
+            exit 1
+        fi
+        session_cmd="${TS_SESSION_COMMANDS[$session_idx]}"
+        shift
+        ;;
+    *)
+        user_selected="$1"
+        ;;
+    esac
+    shift
+done
+
+# Default search paths if not defined
+[[ -n "${TS_SEARCH_PATHS[*]}" ]] || TS_SEARCH_PATHS=(~/ ~/personal ~/personal/dev/env/.config)
+if [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
+    TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
+fi
+
+find_dirs() {
+    # 1. Active Herdr workspaces
+    if command -v herdr &>/dev/null; then
+        local ws_json
+        ws_json=$(herdr workspace list 2>/dev/null || true)
+        if [[ -n "$ws_json" ]]; then
+            echo "$ws_json" | jq -r '.result.workspaces[]? | "[HERDR] " + .label' 2>/dev/null || true
+        fi
+    fi
+
+    # 2. Filesystem search paths
+    for entry in "${TS_SEARCH_PATHS[@]}"; do
+        local path depth
+        if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
+            path="${BASH_REMATCH[1]}"
+            depth="${BASH_REMATCH[2]}"
+        else
+            path="$entry"
+            depth="${TS_MAX_DEPTH:-1}"
+        fi
+
+        # Expand ~
+        path="${path/#\~/$HOME}"
+
+        if [[ -d "$path" ]]; then
+            find "$path" -mindepth 1 -maxdepth "$depth" -path '*/.git' -prune -o -type d -print
+        fi
+    done
+}
+
+if [[ -n "$user_selected" ]]; then
+    selected="$user_selected"
+else
+    selected=$(find_dirs | fzf --prompt="Select Workspace > " --height=100% --reverse)
+fi
+
+[[ -z "$selected" ]] && exit 0
+
+# Check if selected an existing Herdr workspace
+if [[ "$selected" =~ ^\[HERDR\]\ (.+)$ ]]; then
+    target_label="${BASH_REMATCH[1]}"
+    ws_id=$(herdr workspace list 2>/dev/null | jq -r --arg lbl "$target_label" '.result.workspaces[]? | select(.label == $lbl) | .workspace_id' | head -n 1)
+    if [[ -n "$ws_id" ]]; then
+        herdr workspace focus "$ws_id"
+        exit 0
+    fi
+fi
+
+# Normalize selected directory path
+selected_dir="${selected/#\~/$HOME}"
+selected_name=$(basename "$selected_dir" | tr . _)
+
+# Check if a Herdr workspace already exists for this label
+existing_ws_id=$(herdr workspace list 2>/dev/null | jq -r --arg lbl "$selected_name" '.result.workspaces[]? | select(.label == $lbl) | .workspace_id' | head -n 1)
+
+if [[ -n "$existing_ws_id" ]]; then
+    herdr workspace focus "$existing_ws_id"
+else
+    herdr workspace create --cwd "$selected_dir" --label "$selected_name" --focus
+fi
+
+if [[ -n "$session_cmd" ]]; then
+    # If a session command was requested, run it in the target directory
+    eval "$session_cmd" &
+fi
