@@ -1,0 +1,18 @@
+[Unit]
+Description=TTS Router (language-routed: CosyVoice3 <-> OmniVoice)
+After=network.target cosyvoice-server.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/razvan/Workspace/ai/tts/tts-router
+ExecStart=/home/razvan/Workspace/ai/tts/tts-router/.venv/bin/python /home/razvan/Workspace/ai/tts/tts-router/tts_router.py
+Environment=OMNI_ROOT=/home/razvan/Workspace/ai/tts/tts-router
+Environment=ROUTER_PORT=59450
+Environment=ROUTER_DEFAULT_ENGINE=cosyvoice
+Environment=ROUTER_COSYVOICE=http://127.0.0.1:59451
+Environment=ROUTER_OMNIVOICE=http://127.0.0.1:59452
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

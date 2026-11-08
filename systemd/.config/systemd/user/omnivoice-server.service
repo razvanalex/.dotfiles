@@ -1,0 +1,19 @@
+[Unit]
+Description=OmniVoice TTS Server (Romanian + 600 languages, k2-fsa/OmniVoice)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/razvan/Workspace/ai/tts/omnivoice
+ExecStart=/home/razvan/Workspace/ai/tts/omnivoice/.venv/bin/python /home/razvan/Workspace/ai/tts/omnivoice/server/omnivoice_server.py
+Environment=OMNI_PORT=59452
+Environment=OMNI_DEVICE=cuda:0
+Environment=OMNI_TOKENIZER_DEVICE=cpu
+Environment=OMNI_IDLE_UNLOAD_S=1800
+Environment=OMNI_REGISTRY=/home/razvan/Workspace/ai/tts/tts-router/voices.json
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
