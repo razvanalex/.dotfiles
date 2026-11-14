@@ -15,19 +15,24 @@ fi
 
 cd "$REPO_DIR"
 
-# Apply streaming stability & SIGABRT patch if not already applied
-PATCH_FILE="$SCRIPT_DIR/patches/0001-fix-streaming-audio-desync-and-sigabrt.patch"
-if [ -f "$PATCH_FILE" ]; then
+# Apply local patches in filename order (0001 = streaming desync + SIGABRT,
+# 0002 = runaway-stream termination + stuck concurrency slot). See README.md
+# for the pinned base commit: these patches assume that tree, not upstream tip.
+for PATCH_FILE in "$SCRIPT_DIR"/patches/*.patch; do
+    [ -e "$PATCH_FILE" ] || continue
     if git apply --check "$PATCH_FILE" 2>/dev/null; then
-        echo "[+] Applying streaming & SIGABRT patch..."
+        echo "[+] Applying $(basename "$PATCH_FILE")..."
         git apply "$PATCH_FILE"
     else
-        echo "[*] Patch already applied or modified."
+        echo "[*] $(basename "$PATCH_FILE") already applied or context differs - skipping."
     fi
-fi
+done
 
 echo "[+] Building cosyvoice.cpp with CUDA..."
 cmake -B build -DGGML_CUDA=ON
-cmake --build build -j"$(nproc)"
+# only the server target: sibling tool targets rot against the vendored deps
+# (tools/quantize wants GGML_FTYPE_MOSTLY_Q2_0) and abort the build after the
+# library has already linked.
+cmake --build build -j"$(nproc)" --target cosyvoice-server"
 
 echo "[+] CosyVoice3 binary ready at: $REPO_DIR/build/bin/cosyvoice-server"
