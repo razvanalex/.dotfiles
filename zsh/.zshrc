@@ -136,7 +136,6 @@ zle -N edit-command-line-and-execute
 
 bindkey '^A' vi-beginning-of-line
 bindkey '^E' vi-end-of-line
-bindkey '^R' history-incremental-search-backward
 bindkey "^X^E" edit-command-line-and-execute
 
 # some more ls aliases
@@ -199,5 +198,16 @@ eval "$(pyenv init - zsh)"
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh" --no-use
+    __nvm_alias=$(<"$NVM_DIR/alias/default")
+    __nvm_bin=$(ls -d "$NVM_DIR"/versions/node/v${__nvm_alias}*/bin 2>/dev/null | sort -V | tail -1)
+    if [ -n "$__nvm_bin" ]; then
+        PATH="$__nvm_bin:$PATH"
+    else
+        nvm use default >/dev/null   # alias is not a plain version: let nvm decide
+    fi
+    unset __nvm_alias __nvm_bin
+
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+fi
