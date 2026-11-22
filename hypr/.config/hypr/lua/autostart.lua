@@ -30,8 +30,4 @@ hl.on("hyprland.start", function()
     -- Clipboard manager watchers (text & image via cliphist)
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
-
-    -- Idle daemon & Pyprland daemon
-    hl.exec_cmd("hypridle &")
-    hl.exec_cmd("pypr &")
 end)
