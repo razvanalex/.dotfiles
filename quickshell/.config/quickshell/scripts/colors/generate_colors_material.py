@@ -1,4 +1,4 @@
-#!/usr/bin/env -S\_/bin/sh\_-c\_"source\_\$(eval\_echo\_\$ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate&&exec\_python\_-E\_"\$0"\_"\$@""
+#!/usr/bin/env -S /bin/bash -c 'source "${ILLOGICAL_IMPULSE_VIRTUAL_ENV:-$HOME/.local/share/quickshell-venv}/bin/activate" && exec python3 -E "$0" "$@"'
 import argparse
 import math
 import json
@@ -119,7 +119,6 @@ elif args.scheme == 'scheme-vibrant':
     from materialyoucolor.scheme.scheme_vibrant import SchemeVibrant as Scheme
 else:
     from materialyoucolor.scheme.scheme_tonal_spot import SchemeTonalSpot as Scheme
-# Generate
 scheme = Scheme(hct, darkmode, 0.0)
 
 material_colors = {}
@@ -131,7 +130,6 @@ for color in vars(MaterialDynamicColors).keys():
         rgba = color_name.get_hct(scheme).to_rgba()
         material_colors[color] = rgba_to_hex(rgba)
 
-# Extended material
 if darkmode == True:
     material_colors['success'] = '#B5CCBA'
     material_colors['onSuccess'] = '#213528'
@@ -143,7 +141,6 @@ else:
     material_colors['successContainer'] = '#D1E8D5'
     material_colors['onSuccessContainer'] = '#0C1F13'
 
-# Terminal Colors
 if args.termscheme is not None:
     with open(args.termscheme, 'r') as f:
         json_termscheme = f.read()

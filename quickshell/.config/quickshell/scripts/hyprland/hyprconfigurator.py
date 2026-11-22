@@ -1,4 +1,4 @@
-#!/usr/bin/env -S\_/bin/sh\_-c\_"source\_\$(eval\_echo\_\$ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate&&exec\_python\_-E\_"\$0"\_"\$@""
+#!/usr/bin/env -S /bin/bash -c 'source "${ILLOGICAL_IMPULSE_VIRTUAL_ENV:-$HOME/.local/share/quickshell-venv}/bin/activate" && exec python3 -E "$0" "$@"'
 import argparse
 import re
 import os
@@ -45,7 +45,6 @@ def edit_hyprland_config(file_path, set_args, reset_args):
         key_parts = k.split(':')
         main_key = key_parts[0]
         if len(key_parts) > 1:
-            # Build pattern to match nested structure
             pattern_parts = [rf'\s*{re.escape(part)}\s*=' for part in key_parts]
             nested_pattern = '\{'.join(pattern_parts)
             patterns[k] = re.compile(rf'^\s*hl\.config\(\{{\s*{nested_pattern}')
@@ -55,7 +54,6 @@ def edit_hyprland_config(file_path, set_args, reset_args):
     for line in lines:
         matched = False
         
-        # Check if line matches a key to be reset
         for key in reset_set:
             if patterns[key].match(line):
                 matched = True
@@ -64,7 +62,6 @@ def edit_hyprland_config(file_path, set_args, reset_args):
         if matched:
             continue
             
-        # Check if line matches a key to be set
         for key, value in set_dict.items():
             if patterns[key].match(line):
                 new_line = generate_config_line(key, value)

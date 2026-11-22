@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+: "${ILLOGICAL_IMPULSE_VIRTUAL_ENV:=$HOME/.local/share/quickshell-venv}"
 
 QUICKSHELL_CONFIG_NAME="ii"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -236,7 +237,6 @@ apply_to_screen() {
 
 categorize_wallpaper() {
     img_cat=$("$SCRIPT_DIR/../ai/gemini-categorize-wallpaper.sh" "$1")
-    # notify-send "Wallpaper category" "$img_cat"
     echo "$img_cat" > "$STATE_DIR/user/generated/wallpaper/category.txt"
 }
 
