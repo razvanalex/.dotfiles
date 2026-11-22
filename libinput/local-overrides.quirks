@@ -1,0 +1,14 @@
+# Install: sudo install -D -m644 local-overrides.quirks /etc/libinput/local-overrides.quirks
+#          libinput quirks validate        (any output = the database is broken)
+#          libinput quirks list /dev/input/eventN
+# Takes effect at the next session, not on `hyprctl reload`.
+#
+# G502 X PLUS wireless (046d:4099): a click is one 15-v120 frame (HID++ 2121
+# "Multiplier: 8"), which libinput's anti-jitter heuristic pairs and cancels.
+# AttrIsVirtual makes it skip that heuristic, so each click arrives on its own.
+# 0xc547 is the shared receiver PID and 0xc095 the wired one - match neither.
+[Logitech G502 X PLUS Wireless]
+MatchBus=usb
+MatchVendor=0x046D
+MatchProduct=0x4099
+AttrIsVirtual=1

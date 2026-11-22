@@ -448,7 +448,7 @@ install_dotfiles() {
     
     log_info "Installing new dotfiles"
     for dir in *; do
-        if [ -f "$dir" ] || [ "$dir" == "ai" ] || [ "$dir" == "liquidctl" ]; then 
+        if [ -f "$dir" ] || [ "$dir" == "ai" ] || [ "$dir" == "liquidctl" ] || [ "$dir" == "libinput" ]; then 
             # Skip files and non-stow package directories
             continue
         fi
