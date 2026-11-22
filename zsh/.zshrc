@@ -94,6 +94,11 @@ source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
+# GPG: only meaningful with a terminal.
+if [[ -t 0 ]]; then
+    export GPG_TTY=$(tty)
+fi
+
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
@@ -154,14 +159,16 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/razvan/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+CONDA_ROOT="${CONDA_ROOT:-$HOME/miniconda3}"
+__conda_setup="$("$CONDA_ROOT/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__conda_setup"
 else
-    if [ -f "/home/razvan/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/razvan/miniconda3/etc/profile.d/conda.sh"
+    if [ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]; then
+        . "$CONDA_ROOT/etc/profile.d/conda.sh"
     else
-        export PATH="/home/razvan/miniconda3/bin:$PATH"
+        # Only on a real install: a missing conda must not leave a dead PATH entry.
+        [ -d "$CONDA_ROOT/bin" ] && export PATH="$CONDA_ROOT/bin:$PATH"
     fi
 fi
 unset __conda_setup
@@ -189,7 +196,7 @@ fi
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init - zsh)"
-. "$HOME/.local/bin/env"
+[[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
