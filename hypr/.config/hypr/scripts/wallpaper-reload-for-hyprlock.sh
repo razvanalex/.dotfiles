@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-HYPRLOCK_WALLPAPER_DIR="$HOME/.config/hypr/wallpaper_effects"
+XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+HYPRLOCK_WALLPAPER_DIR="$XDG_CACHE_HOME/hypr/wallpaper"
 HYPRLOCK_WALLPAPER_FILE="$HYPRLOCK_WALLPAPER_DIR/.wallpaper_current"
 
 mkdir -p "$HYPRLOCK_WALLPAPER_DIR"
@@ -18,7 +19,7 @@ if [ -f "$CONFIG_FILE" ]; then
         if [ -n "$THUMB_PATH" ] && [ -f "$THUMB_PATH" ]; then
             WALLPAPER_PATH="$THUMB_PATH"
         elif [[ "$WALLPAPER_PATH" =~ \.gif$ ]]; then
-            THUMB_PATH="$HOME/.config/hypr/custom/scripts/mpvpaper_thumbnails/$(basename "$WALLPAPER_PATH").jpg"
+            THUMB_PATH="$XDG_CACHE_HOME/hypr/mpvpaper/thumbnails/$(basename "$WALLPAPER_PATH").jpg"
             mkdir -p "$(dirname "$THUMB_PATH")"
             ffmpeg -y -i "$WALLPAPER_PATH" -vframes 1 "$THUMB_PATH" 2>/dev/null
             if [ -f "$THUMB_PATH" ]; then
