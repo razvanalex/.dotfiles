@@ -108,6 +108,11 @@ hl.config({
         hide_special_on_workspace_change = true,
     },
     xwayland = { force_zero_scaling = true },
+    render = {
+        -- Keep the SDR preset: cm_auto_hdr=1 flips the output to HDR as soon as a fullscreen
+        -- surface declares an HDR image description, which Chromium/Electron do even for SDR.
+        cm_auto_hdr = 0,
+    },
     cursor = {
         no_hardware_cursors = false,
         enable_hyprcursor = true,
