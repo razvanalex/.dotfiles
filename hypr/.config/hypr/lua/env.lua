@@ -33,3 +33,5 @@ hl.env("AQ_DRM_DEVICES", "/dev/dri/card1")
 
 -- Application Specific (e.g. Neovim transparent background)
 hl.env("TRANSPARENT", "true")
+
+hl.env("ILLOGICAL_IMPULSE_VIRTUAL_ENV", (os.getenv("HOME") or "") .. "/.local/share/quickshell-venv")
