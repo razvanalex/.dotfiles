@@ -1,0 +1,66 @@
+Subject: [PATCH] commander_core: retry the command on a transport timeout
+
+The Commander family intermittently fails to answer within liquidctl's read
+timeout, which surfaced as 'Error on CommanderCore:<channel>' plus a 500 from
+coolercontrol-liqctld and left that channel on its previous duty for a poll
+cycle. The existing retry loop only covers stray/incorrect reports; a Timeout
+exception escaped it entirely.
+
+Re-send the command up to three times with a 100ms backoff.  Re-writing is
+required: once the device has dropped a response window, re-issuing the command is
+the only thing that brings a reply back.  The invalid-report counter is
+deliberately left alone here, so a transport retry never eats the 50-attempt
+budget.
+
+Each attempt costs the driver's 5000ms read timeout, so the worst case moves from
+~5s (one timeout, fail fast) to ~20s (four reads plus the backoffs).  That is the
+price of recovering a dropped window instead of losing the whole poll cycle.
+---
+--- a/commander_core.py
++++ b/commander_core.py
+@@ -9,10 +9,16 @@
+ """
+ 
+ import logging
++import time
+ from contextlib import contextmanager
+ 
+ from liquidctl.driver.usb import UsbHidDriver
+-from liquidctl.error import ExpectationNotMet, NotSupportedByDevice, NotSupportedByDriver
++from liquidctl.error import (
++    ExpectationNotMet,
++    NotSupportedByDevice,
++    NotSupportedByDriver,
++    Timeout,
++)
+ from liquidctl.util import clamp, u16le_from
+ 
+ _LOGGER = logging.getLogger(__name__)
+@@ -294,8 +300,26 @@
+         self.device.write(buf)
+ 
+         attempts = 0
++        transport_retries = 0
+         while True:
+-            res = self.device.read(_RESPONSE_LENGTH)
++            try:
++                res = self.device.read(_RESPONSE_LENGTH)
++            except Timeout:
++                # The Commander occasionally drops a response window. Re-sending the
++                # whole command is the only recovery: a read alone would keep timing
++                # out, and 50 such attempts would block the caller for ~50s.
++                transport_retries += 1
++                if transport_retries > 3:
++                    raise
++                _LOGGER.debug(
++                    "read timed out on command %s, re-sending (attempt %d/3)",
++                    command,
++                    transport_retries,
++                )
++                time.sleep(0.1)
++                self.device.clear_enqueued_reports()
++                self.device.write(buf)
++                continue
+             # Skip reports with non-0x00 report ID
+             if res[0] != 0x00:
+                 attempts += 1
