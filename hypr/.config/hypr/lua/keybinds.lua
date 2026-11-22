@@ -8,7 +8,6 @@ local mainMod = vars.mainMod
 -- Session (Power & Lock)
 hl.bind(mainMod .. " + CTRL + ALT + M", hl.dsp.exec_cmd("hyprctl dispatch exit 0"), { description = "Session: Exit Hyprland" })
 hl.bind(mainMod .. " + P", hl.dsp.exec_cmd(vars.scriptsDir .. "/LockScreen.sh"), { description = "Session: Lock screen" })
-hl.bind("CTRL + ALT + P", hl.dsp.exec_cmd(vars.scriptsDir .. "/Wlogout.sh"), { description = "Session: Logout (wlogout)" })
 hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd("sleep 0.1 && systemctl suspend || loginctl suspend"), { description = "Session: Suspend system", locked = true })
 
 -- Apps

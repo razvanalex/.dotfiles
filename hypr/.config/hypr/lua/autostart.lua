@@ -24,9 +24,6 @@ hl.on("hyprland.start", function()
     -- Sunshine streaming service restart after system tray is ready
     hl.exec_cmd(vars.scriptsDir .. "/wait-for-tray.sh systemctl --user restart sunshine.service")
 
-    -- Polkit authentication agent (Polkit Gnome / KDE)
-    hl.exec_cmd(vars.scriptsDir .. "/Polkit.sh")
-
     -- Daemons (OpenRGB)
     hl.exec_cmd("flatpak run org.openrgb.OpenRGB --server --mode static --color 000000 &")
 
