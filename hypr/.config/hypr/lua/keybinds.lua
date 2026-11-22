@@ -16,12 +16,12 @@ hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(vars.fileManager), { description = "A
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd('XDG_CURRENT_DESKTOP="gnome" gnome-control-center'), { description = "Apps: System settings" })
 hl.bind("CTRL + " .. mainMod .. " + V", hl.dsp.exec_cmd("pavucontrol"), { description = "Apps: Volume control (pavucontrol)" })
 hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("gnome-system-monitor"), { description = "Apps: System monitor" })
-hl.bind("CTRL + " .. mainMod .. " + C", hl.dsp.exec_cmd(vars.userScripts .. "/VSCode.sh"), { description = "Apps: VS Code" })
-hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { description = "Apps: Toggle VM", locked = true })
+hl.bind("CTRL + " .. mainMod .. " + C", hl.dsp.exec_cmd(vars.scriptsDir .. "/toggle-transparency.sh"), { description = "Window: Toggle transparency" })
+hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.scriptsDir .. "/VM.sh"), { description = "Apps: Toggle VM", locked = true })
 
 -- VM Passthrough Submap (disables host binds so Super and shortcuts pass to guest VM)
 hl.define_submap("vm", function()
-    hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.userScripts .. "/VM.sh"), { description = "Apps: Toggle VM", locked = true })
+    hl.bind(mainMod .. " + Grave", hl.dsp.exec_cmd(vars.scriptsDir .. "/VM.sh"), { description = "Apps: Toggle VM", locked = true })
 end)
 
 -- AI (dictation, TTS, voice)
